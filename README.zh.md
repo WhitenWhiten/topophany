@@ -2,7 +2,9 @@
   <img src="docs/assets/banner.png" alt="Topophany — 场所的显现" width="100%">
 </h1>
 
-<p align="center"><b>从哪里出发，经由哪条路径，抵达了什么——依据又是什么。</b></p>
+<p align="center"><b>自托管的网络与可用性监控，跑在你的终端里——看清哪里挂了、<em>从哪儿看</em>是挂的、为什么。</b></p>
+
+<p align="center"><i>从哪里出发，经由哪条路径，抵达了什么——依据又是什么。</i></p>
 
 <p align="center">
   <a href="https://topophany.com/zh/demo/"><img src="https://img.shields.io/badge/%E2%96%B6%20在线演示-在浏览器中试用-5eead4?style=for-the-badge&labelColor=0a1016" alt="在线演示：在浏览器中试用"></a>
@@ -23,29 +25,48 @@
   <a href="https://linux.do"><img src="https://img.shields.io/badge/LINUX%20DO-社区认可-FFB003?logo=linux" alt="LINUX DO"></a>
 </p>
 
-**Topophany** 把整张网络摆在一块屏幕上：有哪些机器、各在何处，彼此之间走哪条路，上面跑着哪些服务。worker 从你真正上网的地方（家里、公司、海外的 VPS）发起检查，终端界面告诉你：哪里出了问题，是从哪里看到的，证据又是什么。这一切只是一个自托管的 Go 二进制文件：`topo`。
-
 <p align="center">
   <img src="docs/assets/outage.zh.gif" alt="Overview 上故障来临：场景选择框打开，检查随样本陆续失败，直到 5 个事件打开、故障路径在地图上变成琥珀色；每选中一个问题，它的路径就会亮起，最后打开一个事件的证据；接着地理地图铺满全屏，在地点卡片和圆点之间切换，再回到面板" width="100%">
   <br><sub>在 <code>topo preview --lang zh</code> 里按 <code>x</code>，家里到洛杉矶线路机的连接被阻断。选中一个问题，它的路径就会亮起；按 <code>Enter</code> 查看证据。接着地理地图铺满全屏（<code>f</code>），地点卡片换成圆点（<code>p</code>）。</sub>
 </p>
 
-## 为什么选择 Topophany
+**Topophany** 是自托管的网络拓扑与服务可用性监控，界面在终端里。worker 从你真正上网的地方（家里、公司、海外的 VPS）发起检查，告诉你：哪里出了问题，是从哪里看到的，证据又是什么。这一切只是一个 Go 二进制文件 `topo`：同时当 worker、采集器和客户端。不用 CGO，不用数据库，外部 Go 模块为零。
 
-- **不只知道坏了，还知道坏在哪。** 每项检查都从你指定的观测点发起。从成都看不通、从纽约看正常，说明出问题的是成都那条路径；Topophany 会如实这样报告，而不是一口咬定服务器宕机。
-- **讲证据，不看颜色。** 健康状态、证据来源和新鲜度是彼此独立的字段。没有通过的检查就不会变绿，没人检查的服务保持 `unknown`，显示的是缓存也会明说。
-- **一份网络备忘录。** 一个审阅过的 JSON 文件，写清什么跑在哪里、每台机器怎么连上、每条路径走哪条代理链，旁边还附着你的笔记和处置手册。你读它，你的 Agent 读它，监控也照着它来检查。
-- **好看，也耐看。** 盲文点阵的世界地图、保留地点先后顺序的示意地图、网络拓扑图、每台服务器一张卡片，服务还会按所属的应用归类。任何终端都能跑，也支持鼠标。
-- **一个文件，别无依赖。** 不需要 CGO、数据库守护进程或 Node.js，外部 Go 模块为零。
+## 它适合谁
+
+- **家里有 Homelab、外面有几台 VPS，还有服务挂在 Cloudflare 后面。** 书桌底下那台机器、另一个城市的 VPS、CDN 对外应答的站点，放在同一块屏幕上；家里那条路不通，不会被报成「服务器宕机」。
+- **厌倦了单点探测的人。** 从成都看不通、从纽约看正常，说明出问题的是成都那条路径。Topophany 把「坏了什么」「从哪里看到」「有多新」分成独立的事实。没有通过的检查就不会变绿，没人检查的服务保持 `unknown`。
+- **习惯待在终端、也走叠加网络的人。** 代理链（SSH `-W`、HTTP/HTTPS CONNECT、SOCKS5），再加上只读的 Tailscale、WireGuard 和 Mihomo，都在你用来看界面的那一个静态二进制里。
 
 <p align="center">
   <img src="docs/assets/overview.zh.png" alt="模拟故障时的 Overview：虚拟地图上从东京到法兰克福的各个地点排成卡片，故障路径以琥珀色画出；状态卡片显示 5 个事件，旁边是需要关注的项目列表，以及按应用归类的服务，其中代理线路被标为需要关注" width="100%">
   <br><sub>模拟故障时的 Overview，来自 <code>topo preview --lang zh --scenario 1</code>。</sub>
 </p>
 
-## 一分钟上手
+## 和别的工具有什么不同
 
-从[发布页面](https://github.com/WhitenWhiten/topophany/releases)（Linux、macOS、Windows · amd64、arm64）下载安装，或者用 Go 1.26.9 及以上版本：
+不是排名。[Uptime Kuma](https://github.com/louislam/uptime-kuma) 和 [Gatus](https://github.com/TwiN/gatus) 更擅长公开状态页和海量通知渠道。[SmokePing](https://github.com/oetiker/SmokePing) 是延迟历史学家。Topophany 做的是：从多个地点看同一项服务，带着一份声明过的拓扑，在终端里看。
+
+| | Topophany | Uptime Kuma | Gatus | SmokePing |
+|---|---|---|---|---|
+| **做什么** | 拓扑 + 可用性，在终端里 | 服务存活，在浏览器里 | 端点健康仪表盘 | 延迟与丢包曲线 |
+| **界面** | TUI（盲文世界地图、网络图） | Web UI + 状态页 | Web 仪表盘 + 状态页 | Web 曲线 |
+| **安装** | 一个 Go 二进制；没有数据库守护进程 | Docker / Node；SQLite 或 MariaDB | Go 二进制或 Docker；内存、SQLite 或 Postgres | Perl + rrdtool |
+| **从哪里检查** | 你放置的、有名字的 worker（家、公司、VPS） | 运行该实例的那台机器；也有 push 监控 | 运行该进程的那台机器；也有 push / 外部端点 | 主节点，加上可选的远程 slave |
+| **路径 vs 宕机** | 一个观测点失败、另一个仍通过 → 路径故障，而不是「服务器挂了」 | 每个实例报告自己的上/下线 | 每个实例报告自己的上/下线 | 比较各 slave 的延迟；不是服务健康模型 |
+| **未检查 / 过期** | 未配置 = `unknown`；缓存会标明缓存；没有通过的检查就不会变绿 | 状态是已配置监控项的最近一次结果 | 状态是已配置端点的最近一次结果 | 只给被探测的目标画图 |
+| **CDN / 源站** | 识别边缘响应头（Cloudflare、Vercel、CloudFront、Fastly、Netlify）；521 只能证明边缘，不能证明源站 | HTTP 状态码就是监控对象 | HTTP 状态码就是端点 | 不适用 |
+| **代理 / 叠加网** | HTTP/HTTPS CONNECT、SOCKS5、SSH `-W`（最多 12 跳）；只读 Tailscale、WireGuard、Mihomo | 部分监控项支持 HTTP(S) 代理 | HTTP 代理 | 视探针而定 |
+| **告警** | ntfy、Slack、Discord、JSON | 90 多种通知渠道 | Slack、PagerDuty、Discord 等 | 邮件等经典方式 |
+| **公开状态页** | 无 | 有 | 有 | 无（只有曲线） |
+
+[trippy](https://github.com/fujiapple852/trippy) 是交互式 traceroute TUI，用来当场诊断一条路径，不是 7×24 监控。[Netdata](https://github.com/netdata/netdata) 是按秒采集的主机与基础设施指标。Topophany 都不替代。
+
+## 快速上手
+
+预编译包在[发布页面](https://github.com/WhitenWhiten/topophany/releases)，覆盖 Linux、macOS（`darwin`）和 Windows，以及 amd64、arm64。每次发布都带 `SHA256SUMS.txt`。解压后运行 `topo`（Windows 上是 `topo.exe`）。目前还没有 Docker 镜像，也没有 Homebrew formula。
+
+或者，用 **Go 1.26.9** 及以上版本：
 
 ```sh
 go install github.com/WhitenWhiten/topophany/cmd/topo@latest
@@ -67,6 +88,8 @@ topo serve --config ./demo/topology.json --auth ./demo/auth.json \
 # in another terminal
 topo --credentials ./demo/credentials.json
 ```
+
+Linux 上加固过的 systemd 单元在 [`deploy/`](deploy/)。
 
 ## 交给 Agent 来写
 
@@ -113,30 +136,15 @@ topo --credentials ./demo/credentials.json
 3. **运行 worker**，在每台你想作为测量起点的机器上：`topo worker --config topology.json --observer <id> --credentials worker-credentials.json --data worker-data`
 4. **随时随地查看：** `topo login --server https://your-collector:7447 --project <name>`，之后只需运行 `topo`。
 
-[运维指南](docs/OPERATIONS.md)（英文）介绍双采集器、systemd 单元和各项上限，[安全模型](docs/SECURITY.md)（英文）介绍令牌与传输。
-
-### 升级注意事项
-
-- 为避免令牌出现在进程参数中，已移除 `--credential TOKEN`。优先通过 `topo login` 保存凭据；临时覆盖可按下例从标准输入或私密令牌文件读取。`--token-stdin` 和 `--credential-file` 互斥；多服务器配置使用任一种临时覆盖时，都必须显式指定 `--server`。
-- 在 POSIX 系统上，托管日志及已有的编号备份必须使用 `0600` 或更严格的权限。如果 `serve` 或 `worker` 拒绝 `--log-file` 指定的文件，请先修正这些文件的权限，再重启。
-- 配置重载前已认证的快照请求可能返回 `503 topology_reloaded`，并附带 `Retry-After: 1`。重新发送请求后，会按当前令牌配置重新认证。
-
-请保护好 `token.txt`（POSIX 上使用 `0600`，Windows 上限制其 ACL）：
-
-```sh
-topo --json --token-stdin < token.txt
-topo --credential-file token.txt
-```
-
-[变更记录](CHANGELOG.md)（英文）也说明了 Webhook 响应头上限和发布打包的防护措施。
+[运维指南](docs/OPERATIONS.md)（英文）介绍双采集器、systemd 单元和各项上限，[安全模型](docs/SECURITY.md)（英文）介绍令牌与传输。已有安装的破坏性变更见 [UPGRADING.md](UPGRADING.md)（英文）。
 
 ## 它能检查什么
 
 - **原生探针：** HTTP（状态码、正文、响应头、出口 IP）、TCP、带证书校验的 TLS、SSH banner、DNS A/AAAA、UDP echo、ICMP（IPv4）。
-- **主机资源（Linux / macOS）：** CPU、内存、文件系统容量与 inode、进程数以及指定进程的内存占用，可设资源阈值和进程数检查。参见 [`examples/host-resources.json`](examples/host-resources.json)。
-- **代理链：** HTTP CONNECT、HTTPS CONNECT、SOCKS5 和 OpenSSH `-W`，可以多跳串联。
+- **主机资源（Linux / macOS / Windows）：** CPU、内存、文件系统容量（Unix 上还有 inode）、进程数以及指定进程的内存占用，可设资源阈值和进程数检查。参见 [`examples/host-resources.json`](examples/host-resources.json)。
+- **代理链：** HTTP CONNECT、HTTPS CONNECT、SOCKS5 和 OpenSSH `-W`，最多 12 跳串联。
 - **只读适配器：** Mihomo、Tailscale、WireGuard。
-- **边缘与平台：** Cloudflare（包括 Workers 和 Pages）、Vercel、Supabase。边缘的应答只能证明边缘本身，证明不了它背后的源站。
+- **边缘与平台：** Cloudflare（包括 Workers 和 Pages）、Vercel、Supabase 可作为拓扑节点；HTTP 探针还会读取 Cloudflare、Vercel、CloudFront、Fastly、Netlify 的响应头。边缘的应答只能证明边缘本身，证明不了它背后的源站。
 
 ## 终端界面
 
@@ -172,7 +180,7 @@ topo --credential-file token.txt
 | [运维](docs/OPERATIONS.md) | 双采集器、存储、恢复和资源上限 |
 | [安全模型](docs/SECURITY.md) | 凭据、传输和权限边界（[审查](docs/SECURITY-REVIEW-2026-10-14.md)） |
 | [场景](docs/SCENARIOS.md) · [验收](docs/ACCEPTANCE.md) | 测试证明了什么，哪些还需要在真实硬件上检查 |
-| [更新日志](CHANGELOG.md) | 发布历史 |
+| [升级](UPGRADING.md) · [更新日志](CHANGELOG.md) | 已有安装的破坏性变更，以及发布历史 |
 
 ## 仓库结构
 
@@ -200,3 +208,5 @@ make site                    # re-record the homepage's TUI replays and rewrite 
 ## 许可证
 
 [MIT](LICENSE)
+
+如果 Topophany 帮你找到过一条断掉的路，给这个仓库点个 ⭐，能让更多人看见。缺陷和建议请[开 Issue](https://github.com/WhitenWhiten/topophany/issues/new/choose)。

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- README (English, Japanese, Chinese): a plain first-screen description, who
+  it is for, a comparison with Uptime Kuma, Gatus and SmokePing, install from
+  GitHub Releases, and a closing invitation to star the repo or open an issue.
+  Operator upgrade notes moved to `UPGRADING.md`.
+
 ### Fixed
 
 - Isolate TUI fuzz tests from the user's saved preferences. Random input

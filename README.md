@@ -2,7 +2,9 @@
   <img src="docs/assets/banner.png" alt="Topophany — the appearance of a place" width="100%">
 </h1>
 
-<p align="center"><b>From where, via which path, reaching what — and on what evidence.</b></p>
+<p align="center"><b>Self-hosted network &amp; uptime monitoring in your terminal — see what's down, <em>from where</em>, and why.</b></p>
+
+<p align="center"><i>From where, via which path, reaching what — and on what evidence.</i></p>
 
 <p align="center">
   <a href="https://topophany.com/demo/"><img src="https://img.shields.io/badge/%E2%96%B6%20Live%20demo-Try%20it%20in%20your%20browser-5eead4?style=for-the-badge&labelColor=0a1016" alt="Live demo: try it in your browser"></a>
@@ -23,29 +25,48 @@
   <a href="https://linux.do"><img src="https://img.shields.io/badge/LINUX%20DO-Community-FFB003?logo=linux" alt="LINUX DO"></a>
 </p>
 
-**Topophany** puts your network on one screen: your machines and where they are, the paths between them and the services they run. Workers check it from the places you actually connect from (home, the office, a VPS abroad), and the terminal UI shows what is broken, seen from where, and the evidence for it. All of it is one self-hosted Go binary, `topo`.
-
 <p align="center">
   <img src="docs/assets/outage.en.gif" alt="An outage arriving on the Overview: the scenario picker opens, checks fail sample by sample until five incidents are open and the failing routes turn amber on the map, each problem's route lights up as it is selected, and the evidence for one incident opens; then the geo map fills the screen, switches between place cards and points, and returns to the panels" width="100%">
-  <br><sub>Press <code>x</code> in <code>topo preview --lang en</code> and home loses the line to the transit host in Los Angeles. Select a problem and its route lights up; <code>Enter</code> shows the evidence. Then the geo map takes the whole screen (<code>f</code>) and trades its place cards for points (<code>p</code>).</sub>
+  <br><sub>Press <code>x</code> in <code>topo preview --lang en</code> and home loses the path to the VPS in Los Angeles. Select a problem and its route lights up; <code>Enter</code> shows the evidence. Then the geo map takes the whole screen (<code>f</code>) and trades its place cards for points (<code>p</code>).</sub>
 </p>
 
-## Why Topophany
+**Topophany** is a self-hosted monitor for your machines, the paths between them and the services they run, viewed in a terminal. Workers check from the places you actually connect from (home, the office, a VPS abroad). The UI shows what is broken, seen from where, and the evidence for it. All of it is one Go binary, `topo`: worker, collector and client. No CGO, no database, zero external Go modules.
 
-- **Where it breaks, not just that it broke.** Every check runs from a vantage point you name. Down from Seattle but fine from New York is a fault on Seattle's path, and Topophany reports it as one instead of calling the server down.
-- **Evidence, not colors.** Health, where the evidence came from and how fresh it is are separate fields. Nothing turns green without a passing check, a service nobody checks stays `unknown`, and a cached view says it is cached.
-- **A memo of your network.** One reviewed JSON file says what runs where, how each machine is reached and which chain each path takes, with your notes and runbooks beside them. You read it, your agent reads it, and the monitor checks against it.
-- **Made to be looked at.** A braille world map, a schematic map that keeps places in order, a network graph, a card for every server and services folded into the applications they serve, in any terminal, mouse included.
-- **One binary, nothing else.** No CGO, no database daemon, no Node.js, and zero external Go modules.
+## Who it's for
+
+- **A homelab, a VPS or two, and something behind Cloudflare.** One screen for the box under the desk, the machine in another city, and the site the CDN answers for — so a failure from home is not reported as “the server is down”.
+- **Anyone tired of a single probe.** Down from Seattle but fine from New York is a fault on Seattle's path. Topophany keeps “what failed”, “seen from where” and “how fresh” as separate facts. Nothing turns green without a passing check; a service nobody checks stays `unknown`.
+- **People who live in a terminal and on overlays.** Proxy chains (SSH `-W`, HTTP/HTTPS CONNECT, SOCKS5), plus read-only Tailscale, WireGuard and Mihomo, in the same static binary you already run as the TUI.
 
 <p align="center">
   <img src="docs/assets/overview.en.png" alt="The Overview during a simulated outage: the virtual geo map, its places as cards from Tokyo to Frankfurt with the failing route drawn in amber, a status card reading 5 incidents, the list of what needs attention, and the services grouped by application with the proxy chain marked for attention" width="100%">
   <br><sub>The Overview during a simulated outage, from <code>topo preview --lang en --scenario 1</code>.</sub>
 </p>
 
-## Try it in a minute
+## How is this different?
 
-Install from the [releases page](https://github.com/WhitenWhiten/topophany/releases) (Linux, macOS, Windows · amd64, arm64), or with Go 1.26.9 or newer:
+Not a ranking. [Uptime Kuma](https://github.com/louislam/uptime-kuma) and [Gatus](https://github.com/TwiN/gatus) are stronger at public status pages and huge notification lists. [SmokePing](https://github.com/oetiker/SmokePing) is the latency historian. Topophany is for seeing the same service from several places, with a declared topology, in a terminal.
+
+| | Topophany | Uptime Kuma | Gatus | SmokePing |
+|---|---|---|---|---|
+| **Job** | Topology + availability, in a terminal | Service uptime, in a browser | Endpoint health dashboard | Latency and loss graphs |
+| **UI** | TUI (braille world map, network graph) | Web UI + status pages | Web dashboard + status pages | Web graphs |
+| **Install** | One Go binary; no database daemon | Docker/Node; SQLite or MariaDB | Go binary or Docker; memory, SQLite or Postgres | Perl + rrdtool |
+| **Where checks run** | Named workers you place (home, office, a VPS) | The instance's host; also push monitors | The process's host; also push/external endpoints | Master, plus optional remote slaves |
+| **Path vs outage** | Down from one observer, up from another → path fault, not “server down” | Each instance reports its own up/down | Each instance reports its own up/down | Compares latency from each slave; not a service-health model |
+| **Unchecked / stale** | Unconfigured = `unknown`; cached views say cached; never green without a passing check | Status is the last result of a configured monitor | Status is the last result of a configured endpoint | Graphs probed targets only |
+| **CDN / origin** | Edge headers (Cloudflare, Vercel, CloudFront, Fastly, Netlify); a 521 proves the edge, not the origin | HTTP status is the monitor target | HTTP status is the endpoint | Not applicable |
+| **Proxy / overlay** | HTTP/HTTPS CONNECT, SOCKS5, SSH `-W` (up to 12 hops); read-only Tailscale, WireGuard, Mihomo | HTTP(S) proxy for some monitors | HTTP proxy | Probe-specific |
+| **Alerts** | ntfy, Slack, Discord, JSON | 90+ notification services | Slack, PagerDuty, Discord, and more | Email / classic |
+| **Public status page** | No | Yes | Yes | No (graphs) |
+
+[trippy](https://github.com/fujiapple852/trippy) is an interactive traceroute TUI for diagnosing a path right now, not a 24/7 monitor. [Netdata](https://github.com/netdata/netdata) is per-second host and infrastructure metrics. Topophany replaces neither.
+
+## Quick start
+
+Pre-built archives are on the [releases page](https://github.com/WhitenWhiten/topophany/releases) for Linux, macOS (`darwin`) and Windows, amd64 and arm64. Each release includes `SHA256SUMS.txt`. Unpack and run `topo` (`topo.exe` on Windows). There is no Docker image or Homebrew formula yet.
+
+Or, with **Go 1.26.9** or newer:
 
 ```sh
 go install github.com/WhitenWhiten/topophany/cmd/topo@latest
@@ -67,6 +88,8 @@ topo serve --config ./demo/topology.json --auth ./demo/auth.json \
 # in another terminal
 topo --credentials ./demo/credentials.json
 ```
+
+Hardened systemd units for Linux are in [`deploy/`](deploy/).
 
 ## Let your agent write it
 
@@ -113,30 +136,15 @@ Run `topo help` for the full list.
 3. **Run a worker** on every machine you want to measure from: `topo worker --config topology.json --observer <id> --credentials worker-credentials.json --data worker-data`
 4. **Look at it** from anywhere: `topo login --server https://your-collector:7447 --project <name>`, then just `topo`.
 
-The [operations guide](docs/OPERATIONS.md) covers dual collectors, systemd units and limits, and the [security model](docs/SECURITY.md) covers tokens and transport.
-
-### Upgrading
-
-- The `--credential TOKEN` option has been removed to keep tokens out of process arguments. Prefer saved credentials through `topo login`; for a temporary override, use stdin or a private token file as below. `--token-stdin` and `--credential-file` are mutually exclusive, and a multi-server profile requires an explicit `--server` for either override.
-- On POSIX, managed logs and their existing numbered backups must have permissions `0600` or stricter. If `serve` or `worker` refuses a file selected by `--log-file`, correct those permissions before restarting.
-- A snapshot request admitted before a configuration reload may return `503 topology_reloaded` with `Retry-After: 1`. Send a new request; it will authenticate against the current tokens.
-
-Keep `token.txt` private (`0600` on POSIX; restrict its ACL on Windows):
-
-```sh
-topo --json --token-stdin < token.txt
-topo --credential-file token.txt
-```
-
-The [changelog](CHANGELOG.md) also covers the webhook response-header limit and release-packaging protections.
+The [operations guide](docs/OPERATIONS.md) covers dual collectors, systemd units and limits, and the [security model](docs/SECURITY.md) covers tokens and transport. Breaking changes for existing installs are in [UPGRADING.md](UPGRADING.md).
 
 ## What it checks
 
 - **Native probes:** HTTP (status, body, headers, egress IP), TCP, TLS with certificate validation, SSH banner, DNS A/AAAA, UDP echo, ICMP (IPv4).
-- **Host resources (Linux / macOS):** CPU, memory, filesystem capacity and inodes, process counts and selected-process RSS, with optional resource and process-count assertions. See [`examples/host-resources.json`](examples/host-resources.json).
-- **Proxy chains:** HTTP CONNECT, HTTPS CONNECT, SOCKS5 and OpenSSH `-W`, chained over several hops.
+- **Host resources (Linux / macOS / Windows):** CPU, memory, filesystem capacity (and inodes on Unix), process counts and selected-process RSS, with optional resource and process-count assertions. See [`examples/host-resources.json`](examples/host-resources.json).
+- **Proxy chains:** HTTP CONNECT, HTTPS CONNECT, SOCKS5 and OpenSSH `-W`, chained over up to 12 hops.
 - **Read-only adapters:** Mihomo, Tailscale, WireGuard.
-- **Edges and platforms:** Cloudflare (including Workers and Pages), Vercel, Supabase. An answer from the edge proves the edge, not the origin behind it.
+- **Edges and platforms:** Cloudflare (including Workers and Pages), Vercel and Supabase as topology nodes; HTTP probes also read Cloudflare, Vercel, CloudFront, Fastly and Netlify response headers. An answer from the edge proves the edge, not the origin behind it.
 
 ## The terminal UI
 
@@ -170,7 +178,7 @@ The mouse works too. Colors adapt to truecolor, 256-color and `NO_COLOR` termina
 | [Operations](docs/OPERATIONS.md) | Dual collectors, storage, recovery and resource limits |
 | [Security model](docs/SECURITY.md) | Credentials, transport and capability boundaries ([review](docs/SECURITY-REVIEW-2026-10-14.md)) |
 | [Scenarios](docs/SCENARIOS.md) · [Acceptance](docs/ACCEPTANCE.md) | What the tests prove, and what needs checking on real hardware |
-| [Changelog](CHANGELOG.md) | Release history |
+| [Upgrading](UPGRADING.md) · [Changelog](CHANGELOG.md) | Breaking changes for existing installs, and release history |
 
 ## Repository layout
 
@@ -198,3 +206,5 @@ Building needs no module downloads. Read [CONTRIBUTING.md](CONTRIBUTING.md) and 
 ## License
 
 [MIT](LICENSE)
+
+If Topophany helped you find a broken path, a ⭐ on this repository helps others find it. Bugs and ideas: [open an issue](https://github.com/WhitenWhiten/topophany/issues/new/choose).

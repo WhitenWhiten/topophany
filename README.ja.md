@@ -2,7 +2,9 @@
   <img src="docs/assets/banner.png" alt="Topophany — 場所の顕現" width="100%">
 </h1>
 
-<p align="center"><b>どこから、どの経路で、何に届いたのか — そして、何を根拠に。</b></p>
+<p align="center"><b>ターミナルで動く、セルフホストのネットワーク／稼働監視 — 何が落ちているか、<em>どこから見て</em>、なぜかを示します。</b></p>
+
+<p align="center"><i>どこから、どの経路で、何に届いたのか — そして、何を根拠に。</i></p>
 
 <p align="center">
   <a href="https://topophany.com/ja/demo/"><img src="https://img.shields.io/badge/%E2%96%B6%20ライブデモ-ブラウザで試す-5eead4?style=for-the-badge&labelColor=0a1016" alt="ライブデモ：ブラウザで試す"></a>
@@ -23,29 +25,48 @@
   <a href="https://linux.do"><img src="https://img.shields.io/badge/LINUX%20DO-コミュニティ-FFB003?logo=linux" alt="LINUX DO"></a>
 </p>
 
-**Topophany** は、ネットワーク全体をひとつの画面に描き出します。どんなマシンがどこにあり、互いをどの経路で結び、その上で何のサービスが動いているのか。ワーカーが実際につなぐ場所 (自宅、オフィス、海外の VPS) からチェックし、ターミナル UI が、何が壊れているのか、それがどこから見えたのか、そして根拠は何かを示します。すべてはセルフホストの Go バイナリ 1 つ、`topo` で動きます。
-
 <p align="center">
   <img src="docs/assets/outage.ja.gif" alt="Overview に障害が起きる様子：シナリオの選択画面が開き、サンプルが届くたびにチェックが失敗して 5 件のインシデントが開き、失敗した経路が地図上で琥珀色になる。問題を選ぶたびにその経路が浮かび上がり、最後に 1 件のインシデントの根拠が開く。続いて地図が全画面に広がり、場所のカードと点を切り替えてからパネル表示に戻る" width="100%">
   <br><sub><code>topo preview --lang ja</code> で <code>x</code> を押すと、自宅からロサンゼルスの回線サーバーへの接続が遮断されます。問題を選ぶとその経路が浮かび上がり、<code>Enter</code> で根拠を表示します。続いて地図が全画面に広がり (<code>f</code>)、場所のカードが点に切り替わります (<code>p</code>)。</sub>
 </p>
 
-## Topophany を選ぶ理由
+**Topophany** は、マシンと、それらを結ぶ経路と、その上のサービスをセルフホストで監視し、ターミナルで見るためのツールです。ワーカーが実際につなぐ場所 (自宅、オフィス、海外の VPS) からチェックし、何が壊れているのか、それがどこから見えたのか、根拠は何かを示します。すべては Go のバイナリ 1 つ、`topo` です。ワーカー、コレクター、クライアントを兼ね、CGO もデータベースも外部の Go モジュールもありません。
 
-- **壊れたことだけでなく、どこで壊れたかを。** チェックはすべて、名前を付けた観測点から行います。大阪からは届かないのにニューヨークからは届くなら、それは大阪からの経路の障害です。Topophany はサーバーダウンと決めつけず、そのとおりに報告します。
-- **色ではなく根拠を。** 健全性、根拠の出どころ、鮮度はそれぞれ別のフィールドです。通ったチェックなしに緑になるものはなく、誰もチェックしていないサービスは `unknown` のまま、キャッシュの表示はキャッシュだと明示されます。
-- **ネットワークのメモ帳に。** 何がどこで動き、各マシンにどう届き、各経路がどのプロキシチェーンを通るのか。レビュー済みの JSON ファイル 1 つに、ノートや手順書と一緒にまとめられます。あなたも、エージェントも、そして監視そのものも、このファイルを読みます。
-- **眺めていたくなる画面。** 点字で描く世界地図、場所の並びを保つ模式図、ネットワークグラフ、サーバーごとのカード。サービスは所属するアプリケーションごとにまとまります。どのターミナルでも動き、マウスにも対応します。
-- **バイナリ 1 つ、ほかは何も要らない。** CGO も、データベースのデーモンも、Node.js も不要で、外部の Go モジュールはゼロです。
+## 誰のためのものか
+
+- **自宅のホームラボ、VPS が数台、Cloudflare の後ろにあるサイト。** 机の下の箱、別の街のマシン、CDN が応答しているサイトをひとつの画面に。自宅からの経路が切れただけでは「サーバーダウン」とは言いません。
+- **単一地点のプローブにうんざりしている人。** 大阪からは届かないのにニューヨークからは届くなら、それは大阪からの経路の障害です。Topophany は「何が失敗したか」「どこから見えたか」「どれだけ新しいか」を別の事実として保ちます。通ったチェックなしに緑になるものはなく、誰もチェックしていないサービスは `unknown` のままです。
+- **ターミナルとオーバーレイ網で暮らしている人。** プロキシチェーン (SSH `-W`、HTTP/HTTPS CONNECT、SOCKS5) と、読み取り専用の Tailscale、WireGuard、Mihomo が、TUI として動かしている同じ静的バイナリに入っています。
 
 <p align="center">
   <img src="docs/assets/overview.ja.png" alt="障害をシミュレートしている Overview：仮想地図には東京からフランクフルトまでの場所がカードで並び、失敗している経路が琥珀色で描かれている。ステータスカードには 5 件のインシデント、その横に対処が必要な項目の一覧と、アプリケーションごとにまとまったサービスがあり、プロキシ経路に対処が必要と表示されている" width="100%">
   <br><sub>障害をシミュレートしている Overview。<code>topo preview --lang ja --scenario 1</code> より。</sub>
 </p>
 
-## 1 分で試す
+## 何が違うのか
 
-[リリースページ](https://github.com/WhitenWhiten/topophany/releases) (Linux、macOS、Windows · amd64、arm64) からインストールするか、Go 1.26.9 以降で:
+優劣の表ではありません。[Uptime Kuma](https://github.com/louislam/uptime-kuma) と [Gatus](https://github.com/TwiN/gatus) は公開ステータスページと通知チャネルの多さで勝ります。[SmokePing](https://github.com/oetiker/SmokePing) は遅延の歴史家です。Topophany は、同じサービスを複数の地点から、宣言したトポロジーとともに、ターミナルで見るためのものです。
+
+| | Topophany | Uptime Kuma | Gatus | SmokePing |
+|---|---|---|---|---|
+| **役割** | トポロジー + 可用性、ターミナル | サービスの稼働、ブラウザ | エンドポイントのヘルスダッシュボード | 遅延と損失のグラフ |
+| **UI** | TUI (点字の世界地図、ネットワーク図) | Web UI + ステータスページ | Web ダッシュボード + ステータスページ | Web グラフ |
+| **導入** | Go バイナリ 1 つ。DB デーモンなし | Docker/Node。SQLite または MariaDB | Go バイナリまたは Docker。メモリ、SQLite または Postgres | Perl + rrdtool |
+| **どこから測るか** | 置く場所に名前を付けたワーカー (自宅、オフィス、VPS) | そのインスタンスが動くホスト。プッシュ監視もあり | そのプロセスが動くホスト。プッシュ / 外部エンドポイントもあり | マスターと、任意のリモートスレーブ |
+| **経路 vs 障害** | 一方の観測点は失敗、他方は成功 → 経路の故障であり「サーバーダウン」ではない | インスタンスごとに独自の up/down を報告 | インスタンスごとに独自の up/down を報告 | スレーブごとの遅延を比較。サービス健全性のモデルではない |
+| **未計測 / 古い** | 未設定は `unknown`。キャッシュはキャッシュと明示。通ったチェックなしに緑にならない | 設定済みモニターの直近結果が状態 | 設定済みエンドポイントの直近結果が状態 | プローブした対象だけを描く |
+| **CDN / オリジン** | エッジの応答ヘッダー (Cloudflare、Vercel、CloudFront、Fastly、Netlify)。521 が証明するのはエッジでありオリジンではない | HTTP ステータスがモニター対象 | HTTP ステータスがエンドポイント | 対象外 |
+| **プロキシ / オーバーレイ** | HTTP/HTTPS CONNECT、SOCKS5、SSH `-W` (最大 12 ホップ)。読み取り専用の Tailscale、WireGuard、Mihomo | 一部モニターの HTTP(S) プロキシ | HTTP プロキシ | プローブによる |
+| **通知** | ntfy、Slack、Discord、JSON | 90 以上の通知サービス | Slack、PagerDuty、Discord など | メールなど |
+| **公開ステータスページ** | なし | あり | あり | なし (グラフ) |
+
+[trippy](https://github.com/fujiapple852/trippy) は今この経路を調べる対話的な traceroute TUI であり、常時監視ではありません。[Netdata](https://github.com/netdata/netdata) はホストとインフラの毎秒メトリクスです。Topophany はどちらも置き換えません。
+
+## クイックスタート
+
+事前ビルドのアーカイブは [リリースページ](https://github.com/WhitenWhiten/topophany/releases) にあり、Linux、macOS (`darwin`)、Windows の amd64 / arm64 をカバーします。各リリースに `SHA256SUMS.txt` が付きます。展開して `topo` を実行してください (Windows では `topo.exe`)。Docker イメージも Homebrew の formula も、まだありません。
+
+または **Go 1.26.9** 以降で:
 
 ```sh
 go install github.com/WhitenWhiten/topophany/cmd/topo@latest
@@ -67,6 +88,8 @@ topo serve --config ./demo/topology.json --auth ./demo/auth.json \
 # in another terminal
 topo --credentials ./demo/credentials.json
 ```
+
+Linux 向けの堅牢化した systemd ユニットは [`deploy/`](deploy/) にあります。
 
 ## エージェントに書かせる
 
@@ -113,30 +136,15 @@ topo --credentials ./demo/credentials.json
 3. **ワーカーを動かす。** 計測の起点にしたいすべてのマシンで：`topo worker --config topology.json --observer <id> --credentials worker-credentials.json --data worker-data`
 4. **どこからでも見る。** `topo login --server https://your-collector:7447 --project <name>` のあとは `topo` だけです。
 
-[運用ガイド](docs/OPERATIONS.md) (英語) ではデュアルコレクター、systemd ユニット、各種上限を、[セキュリティモデル](docs/SECURITY.md) (英語) ではトークンと通信を扱います。
-
-### アップグレード時の注意
-
-- トークンをプロセス引数に残さないため、`--credential TOKEN` は削除されました。通常は `topo login` で認証情報を保存してください。一時的に上書きする場合は、以下のように標準入力か非公開のトークンファイルから読み取れます。`--token-stdin` と `--credential-file` は併用できず、複数サーバーのプロファイルでは、どちらも明示的な `--server` が必要です。
-- POSIX では、管理対象のログと既存の番号付きバックアップの権限を `0600` 以下に制限する必要があります。`serve` や `worker` が `--log-file` のファイルを拒否した場合は、権限を修正してから再起動してください。
-- 設定の再読み込み前に認証されたスナップショット要求は、`Retry-After: 1` を伴う `503 topology_reloaded` を返すことがあります。要求を送り直すと、現在のトークン設定で再認証されます。
-
-`token.txt` は非公開にしてください（POSIX では `0600`、Windows では ACL を制限）：
-
-```sh
-topo --json --token-stdin < token.txt
-topo --credential-file token.txt
-```
-
-[変更履歴](CHANGELOG.md)（英語）には、Webhook の応答ヘッダー上限とリリースのパッケージング保護についても記載しています。
+[運用ガイド](docs/OPERATIONS.md) (英語) ではデュアルコレクター、systemd ユニット、各種上限を、[セキュリティモデル](docs/SECURITY.md) (英語) ではトークンと通信を扱います。既存インストール向けの破壊的変更は [UPGRADING.md](UPGRADING.md) (英語) にあります。
 
 ## 計測できるもの
 
 - **ネイティブプローブ:** HTTP (ステータス、本文、ヘッダー、出口 IP)、TCP、証明書を検証する TLS、SSH バナー、DNS A/AAAA、UDP エコー、ICMP (IPv4)。
-- **ホストリソース（Linux / macOS）:** CPU、メモリ、ファイルシステム容量と inode、プロセス数、指定プロセスの RSS。リソースしきい値とプロセス数の検証にも対応。[`examples/host-resources.json`](examples/host-resources.json) を参照。
-- **プロキシチェーン:** HTTP CONNECT、HTTPS CONNECT、SOCKS5、OpenSSH `-W` を、複数ホップにわたって連結。
+- **ホストリソース（Linux / macOS / Windows）:** CPU、メモリ、ファイルシステム容量 (Unix では inode も含む)、プロセス数、指定プロセスの RSS。リソースしきい値とプロセス数の検証にも対応。[`examples/host-resources.json`](examples/host-resources.json) を参照。
+- **プロキシチェーン:** HTTP CONNECT、HTTPS CONNECT、SOCKS5、OpenSSH `-W` を、最大 12 ホップにわたって連結。
 - **読み取り専用アダプター:** Mihomo、Tailscale、WireGuard。
-- **エッジとプラットフォーム:** Cloudflare (Workers と Pages を含む)、Vercel、Supabase。エッジからの応答が証明するのはエッジであって、その背後のオリジンではありません。
+- **エッジとプラットフォーム:** Cloudflare (Workers と Pages を含む)、Vercel、Supabase をトポロジーのノードとして。HTTP プローブは Cloudflare、Vercel、CloudFront、Fastly、Netlify の応答ヘッダーも読みます。エッジからの応答が証明するのはエッジであって、その背後のオリジンではありません。
 
 ## ターミナル UI
 
@@ -172,7 +180,7 @@ topo --credential-file token.txt
 | [運用](docs/OPERATIONS.md) | デュアルコレクター、ストレージ、復旧、リソースの上限 |
 | [セキュリティモデル](docs/SECURITY.md) | 認証情報、通信、権限の境界 ([レビュー](docs/SECURITY-REVIEW-2026-10-14.md)) |
 | [シナリオ](docs/SCENARIOS.md) · [受け入れ](docs/ACCEPTANCE.md) | テストが証明すること、実機での確認が必要なこと |
-| [変更履歴](CHANGELOG.md) | リリースの履歴 |
+| [アップグレード](UPGRADING.md) · [変更履歴](CHANGELOG.md) | 既存インストール向けの破壊的変更と、リリースの履歴 |
 
 ## リポジトリの構成
 
@@ -200,3 +208,5 @@ make site                    # re-record the homepage's TUI replays and rewrite 
 ## ライセンス
 
 [MIT](LICENSE)
+
+壊れた経路を見つけるのに役立てたら、このリポジトリに ⭐ を付けてもらえると、次の人の目に留まりやすくなります。不具合や提案は [Issue](https://github.com/WhitenWhiten/topophany/issues/new/choose) へ。
