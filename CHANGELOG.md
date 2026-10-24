@@ -7,8 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Optional native collector Web UI with all nine monitoring pages, interactive
+  topology maps, server and service cards, observer views, incident evidence,
+  sample history and a local topology draft editor with validation and export.
+  Build with `-tags webui` and explicitly enable it with `topo serve --web`;
+  `--web-listen` defaults to loopback. Ordinary builds do not embed the frontend
+  or require Node.js. See the [Web UI guide](docs/WEBUI.md) for setup, the
+  feature matrix and supported-mode limits.
+- Viewer-authenticated Web projections and bounded event streaming, with
+  automatic reconnection and token-revocation handling. Draft validation never
+  applies configuration to a collector or worker; browser tokens remain in
+  memory for the current connection.
+
 ### Changed
 
+- Service and check views support grouping by environment while retaining the
+  shared evidence and availability semantics.
 - The homepage is drawn in ink on paper, as topophany-bar's new icon is: the
   icon's dithered globe turns in the hero, the wordmark is solid ink over a
   half-tone shadow, headings are set in a serif and labels in mono. The

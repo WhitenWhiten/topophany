@@ -155,3 +155,9 @@ topology refers to its names, notes and places as `@key`, and each language's
 text for them and for the scenarios is in `internal/preview/locales/`. To add a
 language, add a catalog there and in `site/src/locales/`, a `README.<language>.md`,
 and run `make site` and `make captures`; the tests list what is still missing.
+
+The optional native browser UI is built with `make build-web` and explicitly
+enabled with `topo-web serve --web`. Its source is `internal/webui/assets/`,
+separate from the generated public site and WASM client. No frontend build is
+required: assets are embedded only with `-tags webui`. See [WEBUI.md](docs/WEBUI.md)
+for architecture, the feature matrix, local browser tests and deployment.

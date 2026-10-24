@@ -95,3 +95,22 @@ func TestGroupCheckCountsRespectObserverScope(t *testing.T) {
 		t.Fatal(rows[0].Details)
 	}
 }
+
+func TestEnvironmentGroupingRetainsMemberEvidence(t *testing.T) {
+	v := groupedFixture()
+	v.Snapshot.Topology.Services[1].Environment = "production"
+	v.Snapshot.Topology.Services[1].Application = "another-app"
+	rows := v.GroupedList(Services, GroupOptions{By: "environment", Collapsed: true})
+	var production *Row
+	for i := range rows {
+		if rows[i].Title == "production" {
+			production = &rows[i]
+		}
+	}
+	if production == nil || !strings.Contains(production.Cols[0], "2 members") || production.Health != "unknown" {
+		t.Fatal(rows)
+	}
+	if !strings.Contains(strings.Join(production.Details, "\n"), "not business availability") {
+		t.Fatal(production.Details)
+	}
+}

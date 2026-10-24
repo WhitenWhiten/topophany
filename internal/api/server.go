@@ -83,6 +83,7 @@ func ValidateAuth(a Auth, c model.Config) error {
 // Server is a collector's API. Config and Auth may be set before it serves;
 // afterwards only Reload changes them.
 type Server struct {
+	webOptions
 	Config    model.Config
 	Instance  string
 	Store     *store.Store
@@ -355,6 +356,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/history", s.authorize("viewer", s.history))
 	mux.HandleFunc("GET /v1/rollups", s.authorize("viewer", s.rollups))
 	mux.HandleFunc("POST /v1/observations", s.authorize("worker", s.ingest))
+	s.registerWebUI(mux)
 	handler := s.browser(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")

@@ -29,6 +29,7 @@ import (
 func (a *App) serve(parent context.Context, args []string) (retErr error) {
 	f := a.flags("serve")
 	panelFlags := addMonitorFlags(f)
+	webFlags := addWebFlags(f)
 	logs := addLogFlags(f)
 	memory := addMemoryFlags(f)
 	path := f.String("config", "topology.json", "reviewed local topology JSON")
@@ -52,6 +53,9 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 	maxHistory := f.Int("max-history", 20000, "maximum retained raw history rows; per-check state tails retained separately")
 	rollupBytes := f.Int64("rollup-bytes", 32<<20, "hard cap on long-term rollups, in encoded bytes (64 KiB..64 MiB)")
 	if e := parsed(f, args); e != nil {
+		return e
+	}
+	if e := webFlags.validate(); e != nil {
 		return e
 	}
 	stopMemory, e := memory.apply()
@@ -122,6 +126,7 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 	defer func() { cancel(); wg.Wait() }()
 	failures := make(chan error, 2)
 	backend := api.New(c, *instance, st, auth)
+	configureWeb(backend, *webFlags.enabled)
 	backend.WebOrigin = *webOrigin
 	backend.ExposeIngressSources = *exposeIngress
 	backend.MaxSampleAge = *retention
@@ -207,6 +212,11 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 		return e
 	}
 	defer ln.Close()
+	stopWeb, e := a.startWeb(webFlags, backend.Handler(), tc, failures)
+	if e != nil {
+		return e
+	}
+	defer stopWeb()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

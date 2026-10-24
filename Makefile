@@ -36,3 +36,14 @@ icon:
 	python3 scripts/icon.py
 clean:
 	rm -rf bin dist .verify-build .device-shots coverage.out
+
+# Native Web UI is optional; ordinary builds never need Node or frontend tools.
+.PHONY: build-web web-test web-browser
+build-web:
+	mkdir -p bin
+	go build -trimpath -tags webui -o bin/topo-web ./cmd/topo
+web-test:
+	go test -tags webui ./...
+	node --test internal/webui/tests/*.test.mjs
+web-browser: build-web
+	node internal/webui/tests/browser.mjs

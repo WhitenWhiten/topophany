@@ -150,3 +150,37 @@ jobs:
         with:
           name: verification
           path: ${{ runner.temp }}/verification/
+
+  native-webui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Tagged Go regression and race checks
+        run: go test -tags webui -race -count=1 -timeout=15m ./...
+      - name: Cross-build optional binary
+        run: |
+          GOOS=linux GOARCH=amd64 go build -tags webui -o "$RUNNER_TEMP/topo-web-amd64" ./cmd/topo
+          GOOS=linux GOARCH=arm64 go build -tags webui -o "$RUNNER_TEMP/topo-web-arm64" ./cmd/topo
+      - name: Browser protocol tests
+        run: node --test internal/webui/tests/*.test.mjs
+      - name: Install optional browser test dependencies
+        working-directory: internal/webui
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Native browser acceptance against a local collector
+        env:
+          TOPO_WEB_BINARY: ${{ runner.temp }}/topo-web-amd64
+          TOPO_WEB_ARTIFACTS: ${{ runner.temp }}/native-webui-browser
+        run: node internal/webui/tests/browser.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: native-webui-browser
+          path: ${{ runner.temp }}/native-webui-browser/

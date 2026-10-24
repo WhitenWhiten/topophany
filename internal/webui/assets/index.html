@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Topophany</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header>
+      <strong>◈ TOPOPHANY</strong
+      ><span id="identity"
+        >From where, through which path, reaching what — and on what
+        evidence.</span
+      ><button id="settings" title="Display preferences (comma)">
+        Settings ,</button
+      ><button id="edit">Draft editor</button
+      ><button id="disconnect" hidden>Disconnect q</button>
+    </header>
+    <form id="connect" class="panel">
+      <h1>Connect to this collector</h1>
+      <label
+        >Viewer token
+        <input
+          id="token"
+          type="password"
+          autocomplete="off"
+          spellcheck="false"
+          required
+          maxlength="512" /></label
+      ><button>Connect</button>
+      <p>
+        The token stays in page memory for this connection. Use your existing
+        viewer credential.
+      </p>
+    </form>
+    <div id="workspace" hidden>
+      <nav id="tabs" aria-label="Pages"></nav>
+      <section id="toolbar">
+        <label
+          >Observer
+          <select id="observer">
+            <option value="">All observers</option>
+          </select></label
+        ><label
+          >Filter /
+          <input
+            id="search"
+            type="search"
+            maxlength="200"
+            autocomplete="off" /></label
+        ><label><input id="attention" type="checkbox" />Needs attention !</label
+        ><label id="by-label"
+          >Group by
+          <select id="by">
+            <option value="application">Application</option>
+            <option value="environment">Environment</option>
+            <option value="host">Host</option>
+            <option value="service">Service</option>
+            <option value="observer">Observer</option>
+            <option value="path">Path</option>
+            <option value="flat">Flat</option>
+          </select></label
+        ><label id="app-filter-label"
+          >Application
+          <select id="app-filter"></select></label
+        ><label id="env-filter-label"
+          >Environment
+          <select id="env-filter"></select></label
+        ><label id="service-filter-label"
+          >Service
+          <select id="service-filter"></select></label
+        ><button id="server-list">Server list</button
+        ><button id="cards">Cards s</button
+        ><button id="collapse">Collapse C</button
+        ><button id="refresh">Refresh r</button>
+      </section>
+      <div id="scopes" hidden></div>
+      <div id="map-tools">
+        <button id="map-mode">Map: virtual m</button
+        ><button id="zoom-in">Zoom +</button
+        ><button id="zoom-out">Zoom −</button><button id="fit">Fit z</button
+        ><button id="fullmap">Full map f</button
+        ><button id="labels">Labels: cards p</button
+        ><label
+          >Nodes <input id="node-search" type="search" maxlength="200"
+        /></label>
+      </div>
+      <p id="connection" role="status" aria-live="polite">Connecting…</p>
+      <main id="content" tabindex="-1"></main>
+      <div id="pager"></div>
+    </div>
+    <footer>
+      <span id="freshness">Disconnected</span
+      ><span
+        >1–9 pages · j/k move · Enter evidence · / filter · v observer · m map ·
+        ? help</span
+      >
+    </footer>
+    <dialog id="detail">
+      <div class="dialog-bar">
+        <strong id="detail-title">Evidence</strong
+        ><button id="close-detail" aria-label="Close evidence">
+          Close Esc
+        </button>
+      </div>
+      <div id="detail-content"></div>
+    </dialog>
+    <dialog id="preferences">
+      <form method="dialog">
+        <h2>Display &amp; startup preferences</h2>
+        <label
+          >Startup page
+          <select id="pref-page"></select></label
+        ><label
+          >Map
+          <select id="pref-map">
+            <option>virtual</option>
+            <option>geo</option>
+            <option>network</option>
+          </select></label
+        ><label><input id="pref-cards" type="checkbox" />Service cards</label
+        ><label
+          ><input id="pref-uniform" type="checkbox" />Uniform server
+          cards</label
+        ><label
+          ><input id="pref-collapsed" type="checkbox" />Groups collapsed</label
+        ><label><input id="pref-color" type="checkbox" />No color</label>
+        <p>
+          Only display settings are saved in this browser. Tokens and monitoring
+          data are never stored.
+        </p>
+        <button id="save-preferences" type="button">Save preferences</button
+        ><button id="reset-preferences" type="button">Reset</button
+        ><button>Close</button>
+      </form>
+    </dialog>
+    <dialog id="editor">
+      <div class="dialog-bar">
+        <strong>◇ LOCAL DRAFT — no live evidence</strong
+        ><button id="close-editor">Close</button>
+      </div>
+      <p>
+        Import your local topology for lossless editing. Collector exports are
+        redacted; review private settings before deployment. Drafts never change
+        the running collector.
+      </p>
+      <div class="toolbar">
+        <label
+          >Import JSON
+          <input
+            id="import"
+            type="file"
+            accept=".json,application/json" /></label
+        ><button id="load-export">Load redacted collector config</button
+        ><button id="undo">Undo u</button><button id="validate">Validate</button
+        ><button id="download">Save JSON</button>
+      </div>
+      <div class="toolbar">
+        <label
+          >Entities
+          <select id="entity-kind"></select></label
+        ><select id="entity-id" aria-label="Selected entity"></select
+        ><button id="entity-add">Add a</button
+        ><button id="entity-edit">Edit e</button
+        ><button id="entity-delete">Delete d</button>
+      </div>
+      <div id="entity-form" hidden>
+        <label
+          >Entity JSON
+          <textarea id="entity-json" spellcheck="false"></textarea></label
+        ><button id="entity-apply">Apply to draft</button
+        ><button id="entity-cancel">Cancel</button>
+      </div>
+      <label
+        >Complete topology JSON
+        <textarea
+          id="draft"
+          spellcheck="false"
+          aria-label="Topology draft"
+        ></textarea>
+      </label>
+      <pre id="draft-status" role="status"></pre>
+    </dialog>
+    <noscript
+      >This native interface requires JavaScript. TUI and CLI remain available
+      through topo.</noscript
+    >
+  </body>
+</html>

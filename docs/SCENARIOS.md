@@ -571,3 +571,16 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
 | Typed storage transaction stages preserve sync-before-publication, conflict admission, migration ordering and background checkpoint recovery | `TestExternalStatePersistsDeduplicatesAndDoesNotRefreshDeadline`, storage sync-lock, admission, downgrade and background-checkpoint regressions |
 | Explicit observer-scope rejection of a removed check still isolates that payload; authorization failures remain pending | `TestFanoutRejectionKeepsValidMembersAcrossRestart/removed_check`, `TestDeliveryFailureActions` |
 | Collector alert settling captures startup configuration before launching its goroutine, so an immediate reload cannot race that read | `TestInvalidSourceReloadPreservesProcess` under `-race` |
+
+## Optional native Web UI
+
+| Scenario and invariant | Automated tests |
+| --- | --- |
+| Native projection retains TUI verdicts, counts, rows and evidence in every tab and observer scope | `TestWebProjectionUsesTerminalView` |
+| Worker credentials cannot read Web data; revoked viewer streams stop before another frame | `TestWebViewerBoundary`, `TestWebStreamCancellationAndRevocation` |
+| Web listener rejects rebinding, foreign origins and worker/mutation routes, and follows Collector shutdown | `TestWebHostOriginAndReadOnlySurface`, `TestWebListenerValidationAndLifecycle`, `TestCollectorWebLifecycle` |
+| Ordinary builds reject `--web`; tagged builds do not bind an unused Web listener | `TestWebRequiresBuildTag`, `TestWebBuildDisabledDoesNotBind` |
+| Draft validation is pure and bounded; editor downloads never apply config remotely | `TestWebDraftValidationDoesNotMutateOrReadFiles`, `internal/webui/tests/browser.mjs` |
+| Maps preserve shared graph signals, selected entities and geographic land; cached maps claim no current health | `TestNativeMapsUseGraphSignalsAndFocus`, `TestNativeMapBoundsAndUnlocatedTopology` |
+| Environment grouping retains member evidence without claiming application availability | `TestEnvironmentGroupingRetainsMemberEvidence` |
+| Browser native DOM, Unicode stream frames, history gaps, mobile layout and real collector integration | `internal/webui/tests/core.test.mjs`, `internal/webui/tests/browser.mjs` (synthetic observations only) |

@@ -180,6 +180,8 @@ func (v View) GroupedList(tab int, o GroupOptions) []Row {
 		}
 		key, label := s.Application, app
 		switch o.By {
+		case "environment":
+			key, label = s.Environment, env
 		case "service":
 			key = s.Service
 			label = indexedName(defs.serviceNames, key)
@@ -219,7 +221,7 @@ func (v View) GroupedList(tab int, o GroupOptions) []Row {
 		id := fmt.Sprintf("%d/%s/%s/%s", tab, o.By, key, s.Environment)
 		if buckets[id] == nil {
 			title := label
-			if envs {
+			if envs && o.By != "environment" {
 				title = label + " / " + env
 			}
 			buckets[id] = &bucket{id: id, title: title}
