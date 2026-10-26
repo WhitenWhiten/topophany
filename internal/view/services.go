@@ -23,25 +23,26 @@ import (
 // measure the service: then nothing seen here means not seen from here,
 // not unmonitored.
 type ServiceCard struct {
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Application Ref            `json:"application"`
-	Environment string         `json:"environment"`
-	Runtime     string         `json:"runtime"`
-	Health      string         `json:"health"`
-	Note        string         `json:"note"` // affected, cached or ""
-	Evidence    string         `json:"evidence"`
-	Reason      string         `json:"reason"`
-	Monitored   bool           `json:"monitored"`
-	Elsewhere   bool           `json:"elsewhere"`
-	Host        ServiceHost    `json:"host"`
-	SeenFrom    []SeenFrom     `json:"seen_from"`
-	Endpoints   []CardEndpoint `json:"endpoints"`
-	Answered    *AnsweredFrom  `json:"answered_from"`
-	DependsOn   []ServiceRef   `json:"depends_on"`
-	UsedBy      []ServiceRef   `json:"used_by"`
-	Runbook     string         `json:"runbook"`
-	Memo        string         `json:"memo"`
+	Assessment  ServiceAssessment `json:"assessment"`
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Application Ref               `json:"application"`
+	Environment string            `json:"environment"`
+	Runtime     string            `json:"runtime"`
+	Health      string            `json:"health"`
+	Note        string            `json:"note"` // affected, cached or ""
+	Evidence    string            `json:"evidence"`
+	Reason      string            `json:"reason"`
+	Monitored   bool              `json:"monitored"`
+	Elsewhere   bool              `json:"elsewhere"`
+	Host        ServiceHost       `json:"host"`
+	SeenFrom    []SeenFrom        `json:"seen_from"`
+	Endpoints   []CardEndpoint    `json:"endpoints"`
+	Answered    *AnsweredFrom     `json:"answered_from"`
+	DependsOn   []ServiceRef      `json:"depends_on"`
+	UsedBy      []ServiceRef      `json:"used_by"`
+	Runbook     string            `json:"runbook"`
+	Memo        string            `json:"memo"`
 }
 
 // ServiceHost is the node a service runs on. Where is its place: its
@@ -133,7 +134,7 @@ func (f *Fleet) ServiceHead(id string) (c ServiceCard, ok bool) {
 		return ServiceCard{}, false
 	}
 	e := f.svcState[id]
-	c = ServiceCard{ID: id, Name: named(sv.Name, id), Application: Ref{sv.Application, f.appNames[sv.Application]}, Environment: sv.Environment, Runtime: sv.Runtime,
+	c = ServiceCard{Assessment: f.assessments[id], ID: id, Name: named(sv.Name, id), Application: Ref{sv.Application, f.appNames[sv.Application]}, Environment: sv.Environment, Runtime: sv.Runtime,
 		Evidence: e.Evidence, Reason: e.Reason, Monitored: len(e.Checks) > 0, Runbook: strings.TrimSpace(sv.Runbook), Memo: strings.TrimSpace(sv.Notes),
 		SeenFrom: []SeenFrom{}, Endpoints: []CardEndpoint{}, DependsOn: []ServiceRef{}, UsedBy: []ServiceRef{}}
 	if c.Application.ID != "" && c.Application.Name == "" {

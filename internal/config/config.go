@@ -331,6 +331,9 @@ func validateResolved(c model.Config) error {
 		if !obs[x.Observer] {
 			return fmt.Errorf("check %s: missing observer", x.ID)
 		}
+		if err := validateServiceScope(x, c); err != nil {
+			return fmt.Errorf("check %s: %w", x.ID, err)
+		}
 		if err := validateHost(x, c); err != nil {
 			return fmt.Errorf("check %s: %w", x.ID, err)
 		}

@@ -603,3 +603,14 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   leases expire after 10 seconds, and normal exit removes the session. Tests:
   `TestDiagnosticsRetainErrorsAfterScreenRecovers`,
   `TestDiagnoseReadsExactViewerStateAndRetainedHistory`.
+
+- Service evidence scope: a WSL access failure plus a passing S2 loopback HTTP
+  health check reads `ACCESS FAIL`, with availability up, path down and worker
+  online reported separately. A single remote failure leaves application
+  availability unknown and gives a configuration quality hint. Set an HTTP
+  check's `availability_scope` to `local`, `remote` or `user_entry` to declare
+  its role; local requires an observer on the service host without a remote
+  path. Loopback checks on that host infer local scope. Scoped/cached views do
+  not borrow unseen or stale evidence. Aggregation/alert rules stay unchanged.
+  Tests: `TestServiceSeparatesAvailabilityPathAndWorker`,
+  `TestSingleRemoteCheckWarnsAndDoesNotConfirmOutage`.

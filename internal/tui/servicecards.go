@@ -36,6 +36,9 @@ func (m *Model) serviceHead(f fleet, c view.ServiceCard, r Row, selected bool) (
 	case r.Health == "degraded" || r.Note == "affected":
 		band = Mix(cWarn, cInk, .86)
 	}
+	if r.Assessment == nil {
+		r.Assessment = &c.Assessment
+	}
 	pill, pillStyle := statePill(r)
 	name := fg(cText).bold()
 	if selected {
@@ -369,7 +372,7 @@ func spansWidth(ss []span) int {
 func (m *Model) serviceTile(f fleet, r Row, w int, selected bool) []cardRow {
 	c, _ := f.ServiceCard(r.ID)
 	rows, _ := m.serviceHead(f, c, r, selected)
-	rows = append(rows, cardRow{})
+	rows = append(rows, cardRow{left: []span{{"app:" + c.Assessment.Availability + " path:" + c.Assessment.Reachability + " worker:" + c.Assessment.WorkerOnline, fg(cMuted)}}})
 	rows = append(rows, m.seenPanel(c, w)...)
 	rows = append(rows, cardRow{})
 	rows = append(rows, m.serviceTallies(c, w)...)
@@ -631,7 +634,11 @@ func (m *Model) serviceSheetSeen(f fleet, c view.ServiceCard, w int) []cardRow {
 // it: how it is reached, where the edge answered from, where it runs, what
 // it depends on and what depends on it, and its runbook.
 func (m *Model) serviceSheetSections(f fleet, c view.ServiceCard) [][]cardRow {
-	out := [][]cardRow{}
+	evidenceRows := []cardRow{}
+	for _, line := range c.Assessment.Lines() {
+		evidenceRows = append(evidenceRows, cardRow{left: []span{{line, fg(cMuted)}}})
+	}
+	out := [][]cardRow{append([]cardRow{heading("EVIDENCE SCOPE", 0)}, evidenceRows...)}
 	if len(c.Endpoints) > 0 {
 		rows := []cardRow{heading("REACHED AT", len(c.Endpoints))}
 		for _, ep := range c.Endpoints {

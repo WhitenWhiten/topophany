@@ -112,6 +112,7 @@ type CardLink struct {
 
 // Fleet is what the cards are built from, indexed once.
 type Fleet struct {
+	assessments map[string]ServiceAssessment
 	resources   map[string][]CardResource
 	Names       map[string]string // node names; the ID of a node without one
 	Nodes       map[string]model.Node
@@ -153,7 +154,7 @@ func (v View) Fleet() *Fleet { return v.FleetWithResources(nil) }
 func (v View) FleetWithResources(selection map[string]NodeResources) *Fleet {
 	s := v.Snapshot
 	t := s.Topology
-	f := &Fleet{Names: map[string]string{}, Nodes: map[string]model.Node{}, serviceVia: indexServiceVia(t), cached: v.Cached, nodeState: map[string]model.EntityState{}, services: map[string][]model.Service{}, svcState: map[string]model.EntityState{}, endpoints: map[string][]model.Endpoint{}, fronted: map[string][]model.Endpoint{}, epHealth: map[string]string{}, children: map[string][]model.Node{}, observers: map[string][]model.Observer{}, obsState: map[string]model.ObserverState{}, links: map[string][]model.Link{}, pops: map[string][]string{}, regions: map[string][]string{}, popCounts: map[string]map[string]int64{}, linkState: map[string]string{}, linkRead: map[string][]string{}, topology: t, scope: s.ViewObserver, checkStates: make(map[string]model.CheckState, len(s.Checks))}
+	f := &Fleet{assessments: serviceAssessments(s, v.Cached), Names: map[string]string{}, Nodes: map[string]model.Node{}, serviceVia: indexServiceVia(t), cached: v.Cached, nodeState: map[string]model.EntityState{}, services: map[string][]model.Service{}, svcState: map[string]model.EntityState{}, endpoints: map[string][]model.Endpoint{}, fronted: map[string][]model.Endpoint{}, epHealth: map[string]string{}, children: map[string][]model.Node{}, observers: map[string][]model.Observer{}, obsState: map[string]model.ObserverState{}, links: map[string][]model.Link{}, pops: map[string][]string{}, regions: map[string][]string{}, popCounts: map[string]map[string]int64{}, linkState: map[string]string{}, linkRead: map[string][]string{}, topology: t, scope: s.ViewObserver, checkStates: make(map[string]model.CheckState, len(s.Checks))}
 	for _, n := range t.Nodes {
 		f.Nodes[n.ID] = n
 		f.Names[n.ID] = n.Name

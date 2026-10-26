@@ -218,7 +218,10 @@ func (rb *rowBuilder) servicesRows(attentionOnly bool) []Row {
 			cols = []string{host, strings.Join(d.Endpoints, ", ")}
 			details = []string{"", "Hosted on: " + d.Node, "Runtime: " + d.Runtime, "Endpoints: " + strings.Join(d.Endpoints, ", "), "Reached via: " + strings.Join(front, " → "), "Depends on: " + strings.Join(d.DependsOn, ", "), "Runbook (not auto-executed): " + d.Runbook, "", d.Notes}
 		}
+		assessment := rb.assessments[e.ID]
+		details = append(details, assessment.Lines()...)
 		r := entityRow("service", e, title, meta, details)
+		r.Assessment = &assessment
 		r.Cols = cols
 		rows = append(rows, r)
 	}

@@ -47,15 +47,16 @@ var Tabs = []string{"Overview", "Topology", "Servers", "Services", "Paths", "Che
 // drawn before the title in the Topology hierarchy; Details are the
 // evidence behind it: "Key: value" lines, headings and caveats.
 type Row struct {
-	Kind    string   `json:"kind"`
-	ID      string   `json:"id"`
-	Health  string   `json:"health"`
-	Title   string   `json:"title"`
-	Meta    string   `json:"meta,omitempty"`
-	Cols    []string `json:"cols"`
-	Note    string   `json:"note,omitempty"`
-	Tree    string   `json:"tree,omitempty"`
-	Details []string `json:"details"`
+	Assessment *ServiceAssessment `json:"assessment,omitempty"`
+	Kind       string             `json:"kind"`
+	ID         string             `json:"id"`
+	Health     string             `json:"health"`
+	Title      string             `json:"title"`
+	Meta       string             `json:"meta,omitempty"`
+	Cols       []string           `json:"cols"`
+	Note       string             `json:"note,omitempty"`
+	Tree       string             `json:"tree,omitempty"`
+	Details    []string           `json:"details"`
 }
 
 // Columns heads a tab's rows: the title column first, then one heading per
@@ -177,6 +178,9 @@ func State(r Row) string {
 	case "cached", "affected", "paused", "maintenance", "outdated", "recovering", "closed":
 		return r.Note
 	}
+	if r.Kind == "service" && r.Assessment != nil {
+		return r.Assessment.Label()
+	}
 	switch r.Health {
 	case "down":
 		return "DOWN"
@@ -214,6 +218,9 @@ func Pill(r Row) string {
 		return "AFFECTED"
 	case r.Note == "outdated":
 		return "OUTDATED"
+	}
+	if r.Kind == "service" && r.Assessment != nil {
+		return r.Assessment.Label()
 	}
 	return strings.ToUpper(HealthWord(r.Health))
 }

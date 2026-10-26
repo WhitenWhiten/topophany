@@ -212,6 +212,7 @@ type Proxy struct {
 	SSHKnownHosts   string `json:"ssh_known_hosts,omitempty"`
 }
 type Check struct {
+	AvailabilityScope string         `json:"availability_scope,omitempty"` // remote, local, user_entry; presentation attribution, not a measurement change
 	Application       string         `json:"application,omitempty"`
 	Environment       string         `json:"environment,omitempty"`
 	ID                string         `json:"id"`
