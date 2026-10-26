@@ -52,7 +52,7 @@ func ValidDelivery(reports []DeliveryStatus, now time.Time) bool {
 			return false
 		}
 		switch r.Stage {
-		case "", "dns", "tcp", "tls", "request", "response", "response_read", "http", "ack":
+		case "", "dns", "tcp", "tls", "request", "response", "response_read", "http", "ack", "identity":
 		default:
 			return false
 		}

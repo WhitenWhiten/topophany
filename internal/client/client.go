@@ -26,11 +26,13 @@ import (
 )
 
 type Endpoint struct {
-	URL           string `json:"url"`
-	Token         string `json:"token,omitempty"`
-	TokenEnv      string `json:"token_env,omitempty"`
-	CAFile        string `json:"ca_file,omitempty"`
-	AllowInsecure bool   `json:"allow_insecure,omitempty"`
+	CollectorID   string   `json:"collector_id,omitempty"`
+	AlternateURLs []string `json:"alternate_urls,omitempty"`
+	URL           string   `json:"url"`
+	Token         string   `json:"token,omitempty"`
+	TokenEnv      string   `json:"token_env,omitempty"`
+	CAFile        string   `json:"ca_file,omitempty"`
+	AllowInsecure bool     `json:"allow_insecure,omitempty"`
 }
 type Profile struct {
 	Project string     `json:"project"`
@@ -94,9 +96,29 @@ func (p Profile) Validate() error {
 		return errors.New("profile needs project and 1..8 collector URLs")
 	}
 	seen := map[string]bool{}
+	total := 0
 	for _, s := range p.Servers {
+		total += 1 + len(s.AlternateURLs)
+		if total > 8 {
+			return errors.New("profile allows at most 8 collector addresses in total")
+		}
 		if e := secure.URL(s.URL, s.AllowInsecure); e != nil {
 			return e
+		}
+		if s.CollectorID != "" && (len(s.CollectorID) != 64 || strings.Trim(s.CollectorID, "0123456789abcdef") != "") {
+			return errors.New("collector_id must be an authenticated 64-character collector identity")
+		}
+		if len(s.AlternateURLs) > 7 {
+			return errors.New("at most 8 addresses per collector")
+		}
+		for _, address := range s.AlternateURLs {
+			if err := secure.URL(address, s.AllowInsecure); err != nil {
+				return err
+			}
+			if seen[address] || address == s.URL {
+				return errors.New("duplicate alternate collector URL")
+			}
+			seen[address] = true
 		}
 		if seen[s.URL] {
 			return errors.New("duplicate collector URL")
@@ -126,6 +148,18 @@ func New(p Profile) (*Client, error) {
 	if e := p.Validate(); e != nil {
 		return nil, e
 	}
+	// Reads try replicas and their alternate addresses in configured order.
+	expanded := Profile{Project: p.Project}
+	for _, ep := range p.Servers {
+		addresses := append([]string{ep.URL}, ep.AlternateURLs...)
+		ep.AlternateURLs = nil
+		for _, address := range addresses {
+			copy := ep
+			copy.URL = address
+			expanded.Servers = append(expanded.Servers, copy)
+		}
+	}
+	p = expanded
 	c := &Client{profile: p, Now: time.Now}
 	for _, ep := range p.Servers {
 		h, e := HTTP(ep)

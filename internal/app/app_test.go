@@ -492,7 +492,7 @@ func TestWorkerStopsWhenNoCollectorHasRoom(t *testing.T) {
 		t.Fatal(e)
 	}
 	p := cr.Profiles["demo"]
-	p.Servers = []client.Endpoint{{URL: down.URL + "/a", Token: p.Servers[0].Token}, {URL: down.URL + "/b", Token: p.Servers[0].Token}}
+	p.Servers = []client.Endpoint{{URL: down.URL + "/a", Token: p.Servers[0].Token, CollectorID: strings.Repeat("a", 64)}, {URL: down.URL + "/b", Token: p.Servers[0].Token, CollectorID: strings.Repeat("b", 64)}}
 	cr.Profiles["demo"] = p
 	if e = client.Save(credPath, cr); e != nil {
 		t.Fatal(e)

@@ -128,6 +128,7 @@ type Store struct {
 	mu              sync.Mutex
 	version         uint64
 	evidenceVersion uint64
+	collectorID     string
 	dir             string
 	file            *os.File
 	unlock          func() error
@@ -218,6 +219,9 @@ func Open(dir string, o Options) (s *Store, err error) {
 			unlock()
 		}
 	}()
+	if e := s.loadCollectorID(); e != nil {
+		return nil, e
+	}
 	if e := s.readCheckpoint(filepath.Join(dir, "checkpoint.json")); e != nil && !errors.Is(e, os.ErrNotExist) {
 		return nil, e
 	}

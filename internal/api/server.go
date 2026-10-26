@@ -792,5 +792,5 @@ func SaveAuth(path string, a Auth) error {
 
 // workerInfo verifies enrollment without probing, writing a heartbeat or reading topology.
 func (s *Server) workerInfo(w http.ResponseWriter, r *http.Request, a authority) {
-	writeJSON(w, 200, map[string]string{"project": a.gen.config.Project, "observer": a.Observer})
+	writeJSON(w, 200, map[string]string{"project": a.gen.config.Project, "observer": a.Observer, "collector_id": s.Store.CollectorID(), "instance": s.Instance})
 }

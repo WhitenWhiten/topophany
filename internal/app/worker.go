@@ -72,7 +72,25 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 	if !ok || p.Project != c.Project {
 		return errors.New("worker credentials project/profile mismatch")
 	}
-	d, e := outbox.NewDelivery(p, config.Revision(c))
+	// Authenticate and collapse aliases before allocating independent recipients.
+	resolved := p
+	var notes []string
+	needsIdentity := len(p.Servers) > 1
+	for _, ep := range p.Servers {
+		needsIdentity = needsIdentity || len(ep.AlternateURLs) > 0 || ep.CollectorID != ""
+	}
+	if needsIdentity {
+		identifyCtx, identifyCancel := context.WithTimeout(parent, 15*time.Second)
+		resolved, notes, e = client.ResolveDeliveryTargets(identifyCtx, p)
+		identifyCancel()
+		if e != nil {
+			return e
+		}
+	}
+	for _, note := range notes {
+		fmt.Fprintln(a.Err, note)
+	}
+	d, e := outbox.NewDelivery(resolved, config.Revision(c))
 	if e != nil {
 		return e
 	}
@@ -82,6 +100,9 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 		return e
 	}
 	defer q.Close()
+	if e = d.ConsolidateAliases(q); e != nil {
+		return e
+	}
 	ctx, cancel := context.WithCancel(parent)
 	var wg sync.WaitGroup
 	defer func() { cancel(); wg.Wait() }()

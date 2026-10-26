@@ -17,6 +17,7 @@ type destination struct {
 	// endpoint and http are immutable after construction. Read them by index
 	// or pointer: copying the whole destination also reads Tick's retry state.
 	endpoint      client.Endpoint
+	address       int
 	http          *http.Client
 	next          time.Time
 	failures      int
@@ -290,7 +291,7 @@ func (d *Delivery) send(ctx context.Context, q *Queue, i int, hb *model.Heartbea
 	}
 	telemetry := batch.Heartbeat != nil && len(batch.Heartbeat.Delivery) > 0
 	probed := dest.probing
-	e := client.PostBatch(ctx, dest.http, dest.endpoint, batch)
+	e := d.post(ctx, dest, batch)
 	if e == nil {
 		dest.lastContact = d.Now()
 		if batch.Heartbeat != nil {
@@ -390,7 +391,7 @@ func (d *Delivery) heartbeat(ctx context.Context, dest *destination, revision st
 		return nil
 	}
 	h := d.beat(dest, hb, d.Now())
-	err := client.PostBatch(ctx, dest.http, dest.endpoint, model.Batch{Schema: model.BatchSchema, Project: d.Project, Revision: revision, Heartbeat: &h})
+	err := d.post(ctx, dest, model.Batch{Schema: model.BatchSchema, Project: d.Project, Revision: revision, Heartbeat: &h})
 	if err == nil {
 		dest.lastContact = d.Now()
 		d.keptBeat(dest, revision, &h)

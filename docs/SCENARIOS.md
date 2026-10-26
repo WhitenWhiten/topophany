@@ -584,3 +584,13 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   during a local TLS handshake is `tls_timeout`; a 429 heartbeat budget is
   `rate_limited`, never collector health. Reports use the same vocabulary in
   snapshots, CLI/TUI evidence and worker logs; arbitrary peer strings are omitted.
+
+- Authenticated collector aliases: independent stores have persistent distinct
+  `collector_id` values even with the same display name. Worker enrollment
+  groups URLs that authenticate as one store into `alternate_urls`, with one
+  outbox recipient and ordered address failover; existing URL receipts migrate
+  without changing samples. Different identities in an explicit alternate group
+  fail closed. Offline startup with multiple targets needs previously verified
+  `collector_id` pins; an unverified target requires enrollment before probing.
+  Covered by `TestAuthenticatedAliasesDeliverOnceAndFailOver` and
+  `TestIndependentCollectorsWithSameDisplayNameRemainReplicas`.

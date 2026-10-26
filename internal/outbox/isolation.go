@@ -21,7 +21,7 @@ func (d *Delivery) sendIsolated(ctx context.Context, q *Queue, dest *destination
 		batch := item.Batch
 		batch.Observations = batch.Observations[index : index+1]
 		batch.Heartbeat = nil
-		err := client.PostBatch(ctx, dest.http, dest.endpoint, batch)
+		err := d.post(ctx, dest, batch)
 		retryAfter := dest.recordFailure(err)
 		if err != nil {
 			var he *client.HTTPError
