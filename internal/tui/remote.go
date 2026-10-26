@@ -54,16 +54,7 @@ func NewRemote(profile client.Profile, reconnectHint string) (*Remote, error) {
 	m.NerdFont = true
 	r := &Remote{m: m, client: c, ctx: ctx, cancel: cancel, results: make(chan remoteSnapshot, 1)}
 	if runtime.GOOS != "js" {
-		root, err := session.DefaultRoot()
-		if err != nil {
-			r.Close()
-			return nil, err
-		}
-		r.diagnostics, err = session.New(root)
-		if err != nil {
-			r.Close()
-			return nil, err
-		}
+		r.diagnostics = m.startSessionDiagnostics()
 	}
 	r.samples = sampler{results: make(chan fetchedSamples, 1), readAt: collectorHistory(c)}
 	return r, nil

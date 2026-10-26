@@ -221,15 +221,10 @@ func loop(parent context.Context, m *Model, fetch Fetch, history History, bound 
 	m.Width, m.Height = term.Size()
 	var diagnostics *session.Writer
 	if fetch != nil && m.Preview == nil {
-		root, err := session.DefaultRoot()
-		if err != nil {
-			return err
+		diagnostics = m.startSessionDiagnostics()
+		if diagnostics != nil {
+			defer diagnostics.Close()
 		}
-		diagnostics, err = session.New(root)
-		if err != nil {
-			return err
-		}
-		defer diagnostics.Close()
 	}
 	ch := make(chan fetched, 1)
 	busy := false

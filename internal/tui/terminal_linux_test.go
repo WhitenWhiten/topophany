@@ -113,6 +113,37 @@ func TestActualLinuxTerminalReadSizeAndRestore(t *testing.T) {
 		t.Fatal("nonterminal output accepted")
 	}
 }
+func TestTerminalContinuesWithoutSessionCache(t *testing.T) {
+	blockSessionCache(t)
+	t.Setenv("TERM", "xterm-256color")
+	master, slave := ptyFixture(t)
+	_, stop := consumePTY(master)
+	defer stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	fetched := make(chan struct{}, 1)
+	fetch := func(context.Context, string) (model.Snapshot, string, error) {
+		select {
+		case fetched <- struct{}{}:
+		default:
+		}
+		return model.Snapshot{GeneratedAt: time.Now()}, "local", nil
+	}
+	done := make(chan error, 1)
+	go func() { done <- RunWithFetch(ctx, fetch, "", true, slave, slave) }()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	}()
+	select {
+	case <-fetched:
+	case <-time.After(2 * time.Second):
+		t.Fatal("diagnostic cache prevented terminal fetch")
+	}
+}
+
 func TestRunWithFetchSourceSwitchFailureRecoveryAndQuit(t *testing.T) {
 	t.Setenv("TERM", "xterm-256color")
 	master, slave := ptyFixture(t)

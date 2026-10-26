@@ -9,6 +9,20 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/session"
 )
 
+// Session inspection is optional; an unavailable cache must not prevent viewing.
+func (m *Model) startSessionDiagnostics() *session.Writer {
+	root, err := session.DefaultRoot()
+	var writer *session.Writer
+	if err == nil {
+		writer, err = session.New(root)
+	}
+	if err != nil {
+		m.say("Session diagnostics write failed", true)
+		return nil
+	}
+	return writer
+}
+
 func (m *Model) diagnosticEvent(kind, code, message string) {
 	now := m.Now
 	if now.IsZero() {

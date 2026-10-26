@@ -632,3 +632,8 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   alias while retaining sample IDs and timestamps. Authorization, throttling,
   configuration and storage-budget rejections do not switch addresses. Covered by
   `TestAliasGatewayFailoverPreservesRecipientRejections`.
+
+- Viewer session files are optional: failure to open the diagnostics cache
+  produces a notice while remote and terminal viewers continue fetching live
+  evidence. Covered by `TestRemoteContinuesWithoutSessionCache` and
+  `TestTerminalContinuesWithoutSessionCache`.

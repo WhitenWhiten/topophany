@@ -2,12 +2,45 @@ package tui
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/session"
 )
+
+func blockSessionCache(t *testing.T) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(path, []byte("blocked"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	key := "XDG_CACHE_HOME"
+	switch runtime.GOOS {
+	case "windows":
+		key = "LocalAppData"
+	case "darwin":
+		key = "HOME"
+	}
+	t.Setenv(key, path)
+}
+
+func TestRemoteContinuesWithoutSessionCache(t *testing.T) {
+	_, profile := remoteFixture(t)
+	blockSessionCache(t)
+	r, err := NewRemote(profile, "")
+	if err != nil {
+		t.Fatal("diagnostic cache prevented starting viewer", err)
+	}
+	defer r.Close()
+	waitRemote(t, r, func() bool { return !r.m.Snapshot.GeneratedAt.IsZero() })
+	if r.diagnostics != nil || r.m.Error != "" || r.m.Cached() || !r.m.noticeErr || r.m.notice != "Session diagnostics write failed" {
+		t.Fatal("viewer lost live state or diagnostic failure notice", r.m.Diagnostics())
+	}
+}
 
 func TestDiagnosticsRetainErrorsAfterScreenRecovers(t *testing.T) {
 	now := time.Now()
