@@ -637,3 +637,9 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   produces a notice while remote and terminal viewers continue fetching live
   evidence. Covered by `TestRemoteContinuesWithoutSessionCache` and
   `TestTerminalContinuesWithoutSessionCache`.
+
+- Service assessments keep adapter telemetry and policy violations in reported
+  scope, without treating them as application responses or measured path failures.
+  Separate HTTP evidence still establishes availability. Covered by
+  `TestServiceRuntimeReportsDoNotEstablishReachability` and
+  `TestServiceMihomoPolicyKeepsReportedScope`.

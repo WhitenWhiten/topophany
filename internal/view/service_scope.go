@@ -105,6 +105,7 @@ func serviceAssessments(s model.Snapshot, cached bool) map[string]ServiceAssessm
 			if x.Kind == "host" {
 				continue
 			} // machine resources do not establish application health
+			st, ok := states[x.ID]
 			o := observers[x.Observer]
 			scope := x.AvailabilityScope
 			if scope == "" {
@@ -117,7 +118,7 @@ func serviceAssessments(s model.Snapshot, cached bool) map[string]ServiceAssessm
 					scope = "local"
 				}
 			}
-			if x.Kind == "external" {
+			if x.Kind == "external" || st.Evidence == "reported" || st.Last != nil && st.Last.Evidence == "reported" {
 				scope = "reported"
 			}
 			switch scope {
@@ -128,7 +129,6 @@ func serviceAssessments(s model.Snapshot, cached bool) map[string]ServiceAssessm
 			case "remote":
 				remote++
 			}
-			st, ok := states[x.ID]
 			if !ok {
 				continue
 			} // scoped view cannot borrow another observer's health
