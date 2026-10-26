@@ -2,6 +2,7 @@ package outbox
 
 import (
 	"context"
+	"errors"
 	"github.com/WhitenWhiten/topophany/internal/client"
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"time"
@@ -35,9 +36,7 @@ func (d *Delivery) post(ctx context.Context, dest *destination, b model.Batch) e
 			return nil
 		}
 		last = err
-		switch client.FailureCode(err) {
-		case "dns_failure", "dns_timeout", "tcp_failure", "tcp_timeout", "tls_failure", "tls_timeout", "connection_closed", "response_timeout", "response_read_timeout", "transport_failure":
-		default:
+		if !retryAddress(err) {
 			return err
 		}
 		if ctx.Err() != nil {
@@ -45,6 +44,19 @@ func (d *Delivery) post(ctx context.Context, dest *destination, b model.Batch) e
 		}
 	}
 	return last
+}
+
+func retryAddress(err error) bool {
+	switch client.FailureCode(err) {
+	case "dns_failure", "dns_timeout", "tcp_failure", "tcp_timeout", "tls_failure", "tls_timeout", "connection_closed", "response_timeout", "response_read_timeout", "transport_failure":
+		return true
+	case "server_error":
+		var h *client.HTTPError
+		return errors.As(err, &h) && h.Status >= 500 && h.Status <= 599
+	}
+	// Authorization, throttling, configuration and storage budgets belong to
+	// the recipient, so another address must not bypass their rejection.
+	return false
 }
 
 // ConsolidateAliases migrates an older URL-addressed outbox before scheduling.

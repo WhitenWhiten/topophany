@@ -627,3 +627,8 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   `TestReadDiagnosticsRetainFailureWithoutSecrets`,
   `TestRecoveredRotationIsInformationalAndStructured`,
   `TestIngressKindsHaveWindowAndNeverLogPeerText`.
+
+- Collector address failover retries gateway 5xx responses through an authenticated
+  alias while retaining sample IDs and timestamps. Authorization, throttling,
+  configuration and storage-budget rejections do not switch addresses. Covered by
+  `TestAliasGatewayFailoverPreservesRecipientRejections`.
