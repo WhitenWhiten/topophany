@@ -25,8 +25,9 @@ func (e *Failure) Error() string { return fmt.Sprintf("collector %s (%s)", e.Cod
 func (e *Failure) Unwrap() error { return e.Cause }
 
 type requestTrace struct {
-	mu    sync.Mutex
-	stage string
+	mu            sync.Mutex
+	stage         string
+	known, reused bool
 }
 
 func (t *requestTrace) set(stage string) { t.mu.Lock(); t.stage = stage; t.mu.Unlock() }
@@ -37,8 +38,14 @@ func (t *requestTrace) attach(req *http.Request) *http.Request {
 		DNSStart:          func(httptrace.DNSStartInfo) { t.set("dns") },
 		ConnectStart:      func(string, string) { t.set("tcp") },
 		TLSHandshakeStart: func() { t.set("tls") },
-		GotConn:           func(httptrace.GotConnInfo) { t.set("request") },
-		WroteRequest:      func(httptrace.WroteRequestInfo) { t.set("response") },
+		GotConn: func(info httptrace.GotConnInfo) {
+			t.mu.Lock()
+			t.stage = "request"
+			t.known = true
+			t.reused = info.Reused
+			t.mu.Unlock()
+		},
+		WroteRequest: func(httptrace.WroteRequestInfo) { t.set("response") },
 	}))
 }
 func transportFailure(err error, stage string) error {
@@ -123,4 +130,10 @@ func FailureDetail(err error) (stage, serverCode string, status int, retry time.
 		retry = h.RetryAfter
 	}
 	return
+}
+
+func (t *requestTrace) connection() (bool, bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.known, t.reused
 }

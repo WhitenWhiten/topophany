@@ -9,15 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/config"
@@ -137,11 +134,12 @@ func (p Profile) Validate() error {
 }
 
 type Client struct {
-	topologyMu sync.Mutex
-	topologies map[string]cachedTopology
-	profile    Profile
-	transports []*http.Client
-	Now        func() time.Time
+	diagnostics *diagnosticLog
+	topologyMu  sync.Mutex
+	topologies  map[string]cachedTopology
+	profile     Profile
+	transports  []*http.Client
+	Now         func() time.Time
 }
 
 func New(p Profile) (*Client, error) {
@@ -160,13 +158,14 @@ func New(p Profile) (*Client, error) {
 		}
 	}
 	p = expanded
-	c := &Client{profile: p, Now: time.Now}
+	c := &Client{diagnostics: &diagnosticLog{}, profile: p, Now: time.Now}
 	for _, ep := range p.Servers {
 		h, e := HTTP(ep)
 		if e != nil {
 			c.Close()
 			return nil, e
 		}
+		h.Transport = diagnosticTransport{inner: h.Transport, log: c.diagnostics}
 		c.transports = append(c.transports, h)
 	}
 	return c, nil
@@ -290,19 +289,23 @@ func (c *Client) snapshot(ctx context.Context, observer string, retryBusy bool) 
 				missed.add(ep, "another release")
 				continue
 			}
+			c.recordProtocol("response_format_invalid")
 			return empty, "", errors.New("invalid collector snapshot")
 		}
 		if snap.Project != c.profile.Project || snap.Topology.Project != c.profile.Project {
+			c.recordProtocol("response_identity_mismatch")
 			return empty, "", ErrProjectMismatch
 		}
 		if (snap.Schema != model.BatchSchemaContracts && snap.Schema != model.SnapshotSchema) || snap.GeneratedAt.IsZero() {
 			return empty, "", errors.New("unsupported snapshot contract")
 		}
 		if snap.ViewObserver != observer {
+			c.recordProtocol("response_identity_mismatch")
 			return empty, "", errors.New("observer view mismatch")
 		}
 		// A serving HTTP process with an old snapshot is not a healthy data source.
 		if c.Now().Sub(snap.GeneratedAt) > 30*time.Second || snap.GeneratedAt.After(c.Now().Add(30*time.Second)) {
+			c.recordProtocol("response_stale")
 			missed.add(ep, "snapshot not current — are both clocks right?")
 			continue
 		}
@@ -395,12 +398,15 @@ func (c *Client) history(ctx context.Context, check string, limit int, snapshot 
 		}
 		var h History
 		if e = secure.Decode(bytes.NewReader(b), &h, maxHistoryBytes); e != nil {
+			c.recordProtocol("response_format_invalid")
 			return empty, "", errors.New("invalid collector history")
 		}
 		if h.Project != c.profile.Project {
+			c.recordProtocol("response_identity_mismatch")
 			return empty, "", ErrProjectMismatch
 		}
 		if len(h.Revision) != 64 || len(h.Contract) != 64 || h.Check != check || len(h.Entries) > limit {
+			c.recordProtocol("response_format_invalid")
 			return empty, "", errors.New("invalid collector history")
 		}
 		// Each entry is held to what the collector held it to when a
@@ -408,6 +414,7 @@ func (c *Client) history(ctx context.Context, check string, limit int, snapshot 
 		// from its duration, meets a value a sample cannot have.
 		for _, v := range h.Entries {
 			if v.Check != check || v.Project != h.Project || v.Contract != h.Contract || v.Revision != "" || !validEvidence(v) {
+				c.recordProtocol("response_format_invalid")
 				return empty, "", errors.New("invalid collector history")
 			}
 		}
@@ -492,6 +499,7 @@ func (c *Client) Rollups(ctx context.Context, check, step, span string) (Rollups
 			return empty, "", errors.New("invalid collector rollups")
 		}
 		if r.Project != c.profile.Project {
+			c.recordProtocol("response_identity_mismatch")
 			return empty, "", ErrProjectMismatch
 		}
 		if len(r.Revision) != 64 || len(r.Contract) != 64 || r.Check != check || r.Step <= 0 || len(r.Slots) > 1000 || !validRollup(r.Total) {
@@ -509,92 +517,3 @@ func (c *Client) Rollups(ctx context.Context, check, step, span string) (Rollups
 
 // A response of a thousand slots stays well under this.
 const maxRollupBytes = 1 << 20
-
-type HTTPError struct {
-	Status     int
-	Code       string
-	RetryAfter time.Duration
-}
-
-func (e *HTTPError) Error() string { return fmt.Sprintf("collector HTTP %d: %s", e.Status, e.Code) }
-
-// PostBatch retries one interrupted, deduplicated sample batch. The encoded
-// samples (including IDs and timestamps) are reused exactly; heartbeat-only
-// requests have no receipt identity and use the ordinary delivery backoff.
-func PostBatch(ctx context.Context, h *http.Client, ep Endpoint, b model.Batch) error {
-	safe := len(b.Observations) > 0
-	for _, v := range b.Observations {
-		safe = safe && v.ID != ""
-	}
-	err := postBatch(ctx, h, ep, b)
-	if safe && ctx.Err() == nil && connectionClosed(err) {
-		h.CloseIdleConnections()
-		return postBatch(ctx, h, ep, b)
-	}
-	return err
-}
-func connectionClosed(err error) bool {
-	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.EPIPE)
-}
-
-func postBatch(ctx context.Context, h *http.Client, ep Endpoint, b model.Batch) error {
-	body, e := json.Marshal(b)
-	if e != nil {
-		return e
-	}
-	req, e := http.NewRequestWithContext(ctx, "POST", endpointURL(ep, "/v1/observations", nil), bytes.NewReader(body))
-	if e != nil {
-		return errors.New("invalid collector request")
-	}
-	if e = authorize(req, ep); e != nil {
-		return e
-	}
-	req.Header.Set("Content-Type", "application/json")
-	trace := &requestTrace{}
-	resp, e := h.Do(trace.attach(req))
-	if e != nil {
-		return transportFailure(e, trace.current())
-	}
-	defer resp.Body.Close()
-	payload, e := io.ReadAll(io.LimitReader(resp.Body, 4097))
-	if e != nil {
-		return transportFailure(e, "response_read")
-	}
-	if len(payload) > 4096 {
-		return &Failure{Code: "ack_format_invalid", Stage: "ack"}
-	}
-	if resp.StatusCode != 202 {
-		var v struct {
-			Error string `json:"error"`
-		}
-		_ = json.Unmarshal(payload, &v)
-		code := model.SafeDeliveryServerCode(v.Error)
-		if code == "" {
-			code = "invalid_error"
-		}
-		return &HTTPError{Status: resp.StatusCode, Code: code, RetryAfter: retryAfter(resp.Header.Get("Retry-After"), time.Now())}
-	}
-	var ack struct {
-		Project  string `json:"project"`
-		Revision string `json:"revision"`
-		Accepted int    `json:"accepted"`
-	}
-	if e = json.Unmarshal(payload, &ack); e != nil {
-		return &Failure{Code: "ack_format_invalid", Stage: "ack", Cause: e}
-	}
-	if ack.Project != b.Project || ack.Revision != b.Revision || ack.Accepted != len(b.Observations) {
-		return &Failure{Code: "ack_identity_mismatch", Stage: "ack"}
-	}
-	return nil
-}
-
-// Retry-After is advisory and bounded to the worker's one-minute retry budget.
-func retryAfter(value string, now time.Time) time.Duration {
-	if n, err := strconv.ParseInt(value, 10, 32); err == nil {
-		return time.Duration(max(0, min(n, 60))) * time.Second
-	}
-	if at, err := http.ParseTime(value); err == nil {
-		return max(0, min(at.Sub(now), time.Minute))
-	}
-	return 0
-}

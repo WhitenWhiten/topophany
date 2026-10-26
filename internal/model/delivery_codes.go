@@ -17,7 +17,7 @@ func ValidDeliveryCode(code string) bool {
 	switch code {
 	case "", "collector_unreachable", "storage_backpressure", "authorization_rejected", "sample_rejected", "local_ack_failed", "local_quarantine_failed", "local_read_failed",
 		"dns_failure", "dns_timeout", "tcp_failure", "tcp_timeout", "tls_failure", "tls_timeout", "response_timeout", "response_read_timeout", "connection_closed", "connection_rotating", "transport_failure",
-		"rate_limited", "configuration_mismatch", "server_error", "ack_format_invalid", "ack_identity_mismatch", "collector_identity_mismatch":
+		"rate_limited", "configuration_mismatch", "server_error", "ack_format_invalid", "ack_identity_mismatch", "collector_identity_mismatch", "response_format_invalid", "response_identity_mismatch", "response_stale":
 		return true
 	}
 	return false

@@ -12,20 +12,22 @@ const HeartbeatReservation = 8 << 10
 // DeliveryStatus is worker-reported transport telemetry, not proof of remote health.
 // Collector identities are URL digests, never credential URLs or arbitrary errors.
 type DeliveryStatus struct {
-	Collector          string    `json:"collector"`
-	ReportedAt         time.Time `json:"reported_at"`
-	PendingRecords     int       `json:"pending_records"`
-	PendingBytes       int64     `json:"pending_bytes"`
-	QuarantineBytes    int64     `json:"quarantine_bytes"` // entire worker outbox, shared by destinations
-	QuarantinedSamples int64     `json:"quarantined_samples_since_boot"`
-	LastAck            time.Time `json:"last_sample_ack_at,omitzero"`
-	LastContact        time.Time `json:"last_contact_at,omitzero"`
-	RetryAt            time.Time `json:"retry_at,omitzero"`
-	Stage              string    `json:"stage,omitempty"`
-	HTTPStatus         int       `json:"http_status,omitempty"`
-	ServerCode         string    `json:"server_code,omitempty"`
-	RetryAfterSeconds  int       `json:"retry_after_seconds,omitempty"`
-	Code               string    `json:"code,omitempty"`
+	Attempt            TransportEvent `json:"attempt,omitzero"`
+	LastFailure        TransportEvent `json:"last_failure,omitzero"`
+	Collector          string         `json:"collector"`
+	ReportedAt         time.Time      `json:"reported_at"`
+	PendingRecords     int            `json:"pending_records"`
+	PendingBytes       int64          `json:"pending_bytes"`
+	QuarantineBytes    int64          `json:"quarantine_bytes"` // entire worker outbox, shared by destinations
+	QuarantinedSamples int64          `json:"quarantined_samples_since_boot"`
+	LastAck            time.Time      `json:"last_sample_ack_at,omitzero"`
+	LastContact        time.Time      `json:"last_contact_at,omitzero"`
+	RetryAt            time.Time      `json:"retry_at,omitzero"`
+	Stage              string         `json:"stage,omitempty"`
+	HTTPStatus         int            `json:"http_status,omitempty"`
+	ServerCode         string         `json:"server_code,omitempty"`
+	RetryAfterSeconds  int            `json:"retry_after_seconds,omitempty"`
+	Code               string         `json:"code,omitempty"`
 }
 
 func CloneHeartbeat(h Heartbeat) Heartbeat { h.Delivery = slices.Clone(h.Delivery); return h }
@@ -39,6 +41,11 @@ func ValidDelivery(reports []DeliveryStatus, now time.Time) bool {
 			return false
 		}
 		seen[r.Collector] = true
+		for _, event := range []TransportEvent{r.Attempt, r.LastFailure} {
+			if event != (TransportEvent{}) && !ValidTransportEvent(event, now) {
+				return false
+			}
+		}
 		for _, stamp := range []time.Time{r.LastAck, r.LastContact} {
 			if stamp.After(now.Add(30 * time.Second)) {
 				return false

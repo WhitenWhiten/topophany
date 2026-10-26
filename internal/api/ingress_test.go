@@ -64,8 +64,8 @@ func TestIngressCountsOnlyHandshakeFailures(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if len(logged) != 10 || logged[0] != "http: TLS handshake error from 100.74.137.62:44484: EOF" {
-		t.Fatalf("writer did not pass every line through: %q", logged)
+	if len(logged) != 10 || logged[0] != "collector ingress stage=tls code=connection_closed" {
+		t.Fatalf("writer did not sanitize handshake diagnostics: %q", logged)
 	}
 	got := c.Summary(now)
 	if got == nil || got.Failures != 4 || got.SourceCount != 3 || got.WindowSeconds != 60 {
@@ -119,8 +119,8 @@ func TestIngressReadsTheServersFormattedLog(t *testing.T) {
 	if summary == nil || summary.Failures != 1 || summary.SourceCount != 1 || summary.Sources[0].Address != "100.74.137.62" {
 		t.Fatalf("formatted log line was not read: %+v", summary)
 	}
-	if !strings.Contains(kept.String(), "http: TLS handshake error from 100.74.137.62") {
-		t.Fatalf("line was not passed through: %q", kept.String())
+	if !strings.Contains(kept.String(), "collector ingress stage=tls code=tls_timeout") {
+		t.Fatalf("line was not safely classified: %q", kept.String())
 	}
 }
 

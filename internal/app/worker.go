@@ -165,7 +165,7 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 		c = next
 		return nil
 	}
-	fmt.Fprintf(a.Err, "Topophany worker observer=%s project=%s revision=%s; %d collectors\n", *observer, c.Project, config.Revision(c)[:12], len(p.Servers))
+	fmt.Fprintf(a.Err, "Topophany worker observer=%s project=%s revision=%s; %d collectors\n", *observer, c.Project, config.Revision(c)[:12], len(resolved.Servers))
 	a.logMemory()
 	// Each collector is delivered to from a loop of its own, so one that is
 	// slow to answer delays no other. The heartbeat they send is the one
@@ -182,7 +182,11 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 			if code == "" && r.Error != "" {
 				code = "delivery_retry"
 			}
-			repeats.Update("delivery", r.Recipient, code, time.Now())
+			if r.Diagnostic.RetryOutcome == "recovered" {
+				repeats.RotationRecovered("delivery", r.Recipient, r.Diagnostic, time.Now())
+			} else {
+				repeats.UpdateDiagnostic("delivery", r.Recipient, code, r.Diagnostic, time.Now())
+			}
 		})
 	})
 	ioTick := time.NewTicker(time.Minute)

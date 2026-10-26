@@ -45,6 +45,7 @@ func Run(ctx context.Context, c *client.Client, observer string, noColor bool, i
 func RunObserved(ctx context.Context, c *client.Client, observer string, noColor bool, in, out *os.File, observed func(model.Snapshot, error), options ...Startup) error {
 	m := &Model{Observer: observer, NoColor: noColor, Collectors: c.URLs(), Project: c.Project()}
 	m.initializeStartup(options)
+	m.requestDiagnostics = c.Diagnostics
 	fetch := c.Snapshot
 	if observed != nil {
 		fetch = func(ctx context.Context, observer string) (model.Snapshot, string, error) {

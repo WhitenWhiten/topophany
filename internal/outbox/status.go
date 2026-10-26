@@ -38,7 +38,7 @@ func (d *Delivery) publish(q *Queue, dest *destination, result Result) {
 		dest.lastAck = d.Now()
 	}
 	dest.quarantined += int64(result.Quarantined)
-	report := model.DeliveryStatus{Collector: id, ReportedAt: d.Now().UTC(), PendingRecords: n, PendingBytes: bytes, QuarantineBytes: quarantine, QuarantinedSamples: dest.quarantined, LastAck: dest.lastAck, LastContact: dest.lastContact, RetryAt: dest.next, Code: dest.code, Stage: dest.stage, HTTPStatus: dest.httpStatus, ServerCode: dest.serverCode, RetryAfterSeconds: dest.retryAfterSeconds}
+	report := model.DeliveryStatus{Collector: id, ReportedAt: d.Now().UTC(), PendingRecords: n, PendingBytes: bytes, QuarantineBytes: quarantine, QuarantinedSamples: dest.quarantined, LastAck: dest.lastAck, LastContact: dest.lastContact, RetryAt: dest.next, Attempt: dest.attempt, LastFailure: dest.lastFailure, Code: dest.code, Stage: dest.stage, HTTPStatus: dest.httpStatus, ServerCode: dest.serverCode, RetryAfterSeconds: dest.retryAfterSeconds}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.reports == nil {
@@ -62,5 +62,25 @@ func (dest *destination) recordFailure(err error) time.Duration {
 	stage, serverCode, status, retry := client.FailureDetail(err)
 	dest.stage, dest.serverCode, dest.httpStatus = stage, serverCode, status
 	dest.retryAfterSeconds = int(retry / time.Second)
+	if !dest.lastFailure.At.IsZero() && dest.attempt.At.Sub(dest.lastFailure.At) > 30*time.Minute {
+		dest.lastFailure = model.TransportEvent{}
+	}
+	if err != nil {
+		event := dest.attempt
+		event.Stage, event.ServerCode, event.Code = stage, serverCode, dest.code
+		if status != 0 {
+			event.HTTPStatus = status
+		}
+		if event.At.IsZero() {
+			event.At = time.Now().UTC()
+		}
+		dest.lastFailure = event
+	} else if dest.attempt.RetryOutcome == "recovered" {
+		event := dest.attempt
+		event.Code = event.PreviousCode
+		event.Stage = event.PreviousStage
+		event.HTTPStatus = event.PreviousHTTPStatus
+		dest.lastFailure = event
+	}
 	return retry
 }

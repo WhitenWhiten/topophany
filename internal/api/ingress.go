@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
+	"maps"
 	"net"
 	"slices"
 	"strconv"
@@ -59,8 +60,9 @@ type IngressCounter struct {
 	sources map[string]*ingressSource
 	// total counts every failure in the window, including failures from
 	// addresses the source map could not keep.
-	total [ingressBuckets]ingressBucket
-	last  time.Time
+	failureKinds map[string]*[ingressBuckets]ingressBucket
+	total        [ingressBuckets]ingressBucket
+	last         time.Time
 	// lastReject is when an address beyond maxIngressSources last failed.
 	// It makes Truncated a statement about the current window, not history.
 	lastReject time.Time
@@ -74,7 +76,7 @@ func NewIngressCounter(window time.Duration) *IngressCounter {
 	if width < time.Nanosecond {
 		width = time.Nanosecond
 	}
-	return &IngressCounter{window: window, width: width, now: time.Now, sources: map[string]*ingressSource{}}
+	return &IngressCounter{window: window, width: width, now: time.Now, sources: map[string]*ingressSource{}, failureKinds: map[string]*[ingressBuckets]ingressBucket{}}
 }
 
 // Writer passes every byte to next and counts the handshake failures among
@@ -93,7 +95,11 @@ func (w *ingressWriter) Write(p []byte) (int, error) {
 	line := strings.TrimSuffix(string(p), "\n")
 	w.counter.observe(line)
 	if w.next != nil {
-		w.next(line)
+		if handshakeOffset(line) >= 0 {
+			w.next("collector ingress stage=tls code=" + handshakeKind(line))
+		} else {
+			w.next(line)
+		}
 	}
 	return len(p), nil
 }
@@ -133,6 +139,11 @@ func (c *IngressCounter) observe(line string) {
 		c.prune(now)
 	}
 	c.add(&c.total, now)
+	kind := handshakeKind(line)
+	if c.failureKinds[kind] == nil {
+		c.failureKinds[kind] = new([ingressBuckets]ingressBucket)
+	}
+	c.add(c.failureKinds[kind], now)
 	c.last = now
 	if s := c.sources[host]; s != nil {
 		c.add(&s.buckets, now)
@@ -225,6 +236,7 @@ func pseudonymousIngress(in *model.Ingress, salt []byte) *model.Ingress {
 	}
 	out := *in
 	out.Sources = slices.Clone(in.Sources)
+	out.FailureTypes = maps.Clone(in.FailureTypes)
 	for i := range out.Sources {
 		mac := hmac.New(sha256.New, salt)
 		mac.Write([]byte(out.Sources[i].Address))
@@ -246,7 +258,12 @@ func (c *IngressCounter) Summary(now time.Time) *model.Ingress {
 	if failures == 0 {
 		return nil
 	}
-	out := &model.Ingress{WindowSeconds: int(c.window / time.Second), Failures: failures, Last: c.last}
+	out := &model.Ingress{WindowSeconds: int(c.window / time.Second), Failures: failures, Last: c.last, FailureTypes: map[string]int{}}
+	for kind, buckets := range c.failureKinds {
+		if n := c.sum(buckets, now); n > 0 {
+			out.FailureTypes[kind] = n
+		}
+	}
 	for host, s := range c.sources {
 		count := c.sum(&s.buckets, now)
 		if count == 0 {
@@ -266,4 +283,21 @@ func (c *IngressCounter) Summary(now time.Time) *model.Ingress {
 		out.Sources = out.Sources[:shownIngressSources]
 	}
 	return out
+}
+
+// Match only bounded protocol categories, never retain the raw TLS error line.
+func handshakeKind(line string) string {
+	line = strings.ToLower(line)
+	switch {
+	case strings.Contains(line, "timeout"), strings.Contains(line, "deadline exceeded"):
+		return "tls_timeout"
+	case strings.Contains(line, "eof"), strings.Contains(line, "connection reset"), strings.Contains(line, "closed network"):
+		return "connection_closed"
+	case strings.Contains(line, "certificate"):
+		return "certificate_rejected"
+	case strings.Contains(line, "first record"), strings.Contains(line, "record header"), strings.Contains(line, "unsupported"):
+		return "invalid_tls"
+	default:
+		return "handshake_other"
+	}
 }

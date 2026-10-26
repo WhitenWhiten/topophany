@@ -306,7 +306,7 @@ func (m *Model) statusBar(cv *Canvas, x0, y, w int) {
 		return
 	}
 	if m.Error != "" {
-		cv.Text(x, y, "⚠ OFFLINE / CACHED: "+m.Error, fg(cWarn).bold(), w-2)
+		cv.Text(x, y, "⚠ CACHED / READ ERROR: "+m.Error, fg(cWarn).bold(), w-2)
 		return
 	}
 	if m.Loading != "" {
@@ -373,7 +373,7 @@ func (m *Model) statusBar(cv *Canvas, x0, y, w int) {
 		cv.Set(x, y, '⚠', fg(cWarn))
 		x += 2
 		x += cv.Text(x, y, itoa(m.Snapshot.Ingress.Failures), fg(cWarn).bold(), -1)
-		label := " ingress"
+		label := " ingress /" + viewpkg.Duration(time.Duration(m.Snapshot.Ingress.WindowSeconds)*time.Second) + " TLS"
 		if x+width(label) > end-1 {
 			label = ""
 		}

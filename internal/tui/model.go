@@ -34,6 +34,7 @@ const (
 // Row is one selectable entry of a list (see view.Row).
 type Row = view.Row
 type Model struct {
+	requestDiagnostics                      func() []model.TransportEvent
 	diagnosticEvents                        []session.Event
 	Direct                                  bool   // process-local resource source, with no collector or history
 	ReconnectHint                           string // optional browser connection guidance, supplied by its language catalog

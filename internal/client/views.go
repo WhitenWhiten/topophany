@@ -26,7 +26,7 @@ func (c *Client) SourcedViews(ctx context.Context, observer string) (model.Snaps
 	var last error
 	for i, ep := range c.profile.Servers {
 		pairCtx, cancel := endpointContext(ctx, len(c.profile.Servers)-i)
-		pinned := &Client{topologies: map[string]cachedTopology{ep.URL: c.knownTopology(ep.URL)}, profile: Profile{Project: c.profile.Project, Servers: []Endpoint{ep}}, transports: []*http.Client{c.transports[i]}, Now: c.Now}
+		pinned := &Client{diagnostics: c.diagnostics, topologies: map[string]cachedTopology{ep.URL: c.knownTopology(ep.URL)}, profile: Profile{Project: c.profile.Project, Servers: []Endpoint{ep}}, transports: []*http.Client{c.transports[i]}, Now: c.Now}
 		scoped, all, err := pinned.readPair(pairCtx, observer)
 		expired := pairCtx.Err() != nil
 		cancel()

@@ -48,6 +48,7 @@ func NewRemote(profile client.Profile, reconnectHint string) (*Remote, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &Model{Collectors: c.URLs(), Project: c.Project(), Colors: colorTrue,
 		Now: time.Now(), Loading: "connecting to the collector", NerdFont: true}
+	m.requestDiagnostics = c.Diagnostics
 	m.initializeStartup(nil)
 	m.ReconnectHint = secure.Text(reconnectHint[:min(len(reconnectHint), 1024)])
 	m.NerdFont = true

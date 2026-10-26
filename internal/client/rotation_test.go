@@ -37,7 +37,10 @@ func TestPostRotationRetryPreservesSamplesAndIsBounded(t *testing.T) {
 				json.NewEncoder(w).Encode(map[string]any{"project": b.Project, "revision": b.Revision, "accepted": len(b.Observations)})
 			}))
 			defer server.Close()
-			err := PostBatch(context.Background(), server.Client(), Endpoint{URL: server.URL, Token: token}, batch)
+			diagnostic, err := PostBatchDetailed(context.Background(), server.Client(), Endpoint{URL: server.URL, Token: token}, batch)
+			if diagnostic.Attempts != 2 || diagnostic.PreviousCode != "connection_closed" || (!alwaysClose && diagnostic.RetryOutcome != "recovered") {
+				t.Fatal(diagnostic)
+			}
 			mu.Lock()
 			defer mu.Unlock()
 			if (err != nil) != alwaysClose || len(received) != 2 || !reflect.DeepEqual(received[0], received[1]) {

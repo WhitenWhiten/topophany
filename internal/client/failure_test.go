@@ -48,6 +48,8 @@ func TestDeliveryHTTPAndAcknowledgementFailures(t *testing.T) {
 		{409, `{"error":"contract_mismatch"}`, "configuration_mismatch"},
 		{503, `{"error":"storage_receipt_capacity"}`, "storage_backpressure"},
 		{202, `{"invalid`, "ack_format_invalid"},
+		{202, `{"project":"lab","revision":"r"}`, "ack_format_invalid"},
+		{202, `{"project":"lab","revision":"r","accepted":null}`, "ack_format_invalid"},
 		{202, `{"project":"other","revision":"r","accepted":0}`, "ack_identity_mismatch"},
 		{503, `{"error":"super-secret-token"}`, "server_error"},
 	} {

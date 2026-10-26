@@ -13,6 +13,7 @@ import "time"
 // SourceCount distinct addresses; when more addresses were seen than the
 // counter can track, Truncated says SourceCount is a lower bound.
 type Ingress struct {
+	FailureTypes  map[string]int  `json:"failure_types,omitempty"`
 	WindowSeconds int             `json:"window_seconds"`
 	Failures      int             `json:"failures"`
 	SourceCount   int             `json:"source_count"`

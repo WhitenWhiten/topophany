@@ -4,11 +4,13 @@ import (
 	"context"
 	"github.com/WhitenWhiten/topophany/internal/client"
 	"github.com/WhitenWhiten/topophany/internal/model"
+	"time"
 )
 
 // One destination owns the receipt stream for all of its addresses. Only
 // authenticated matching identities earn a POST; DNS/IP never merge targets.
 func (d *Delivery) post(ctx context.Context, dest *destination, b model.Batch) error {
+	dest.attemptID++
 	ep := dest.endpoint
 	addresses := append([]string{ep.URL}, ep.AlternateURLs...)
 	var last error
@@ -17,12 +19,17 @@ func (d *Delivery) post(ctx context.Context, dest *destination, b model.Batch) e
 		candidate := ep
 		candidate.URL = addresses[at]
 		if ep.CollectorID != "" {
+			start := time.Now()
 			if _, err := client.IdentifyWorker(ctx, dest.http, candidate, d.Project); err != nil {
+				stage, server, status, retry := client.FailureDetail(err)
+				dest.attempt = model.TransportEvent{At: d.Now().UTC(), Stage: stage, Code: client.FailureCode(err), ServerCode: server, HTTPStatus: status, RetryAfterSeconds: int(retry / time.Second), DurationMS: time.Since(start).Milliseconds(), Attempts: 1}
 				last = err
 				continue
 			}
 		}
-		err := client.PostBatch(ctx, dest.http, candidate, b)
+		event, err := client.PostBatchDetailed(ctx, dest.http, candidate, b)
+		event.At = d.Now().UTC()
+		dest.attempt = event
 		if err == nil {
 			dest.address = at
 			return nil

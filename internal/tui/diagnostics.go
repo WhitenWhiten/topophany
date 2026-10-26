@@ -4,6 +4,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/secure"
 	"github.com/WhitenWhiten/topophany/internal/session"
 )
@@ -42,10 +43,14 @@ func (m *Model) Diagnostics() session.State {
 			events = append(events, e)
 		}
 	}
-	return session.State{Project: m.Project, Server: secure.PublicURL(m.Server), Collectors: collectors, Observer: m.Observer,
+	var requests []model.TransportEvent
+	if m.requestDiagnostics != nil {
+		requests = m.requestDiagnostics()
+	}
+	return session.State{Requests: requests, Project: m.Project, Server: secure.PublicURL(m.Server), Collectors: collectors, Observer: m.Observer,
 		Filters: session.Filters{Search: m.Search, Application: m.Application, Environment: m.Environment, Service: m.ServiceFilter, AttentionOnly: m.AttentionOnly}, Tab: tab, Selection: selection,
 		SnapshotTime: m.Snapshot.GeneratedAt, Instance: m.Snapshot.Instance, Revision: m.Snapshot.Revision, Cached: m.Cached(), Fetching: m.Fetching, Loading: m.Loading, Error: m.Error,
-		Notice: session.Notice{Text: m.notice, Error: m.noticeErr, At: m.noticeAt}, History: session.History{Check: m.samples.check, Error: m.samples.err, Samples: len(m.samples.entries)}, Events: events}
+		Notice: session.Notice{Visible: m.notice != "" && m.Now.Sub(m.noticeAt) < noticeFor, Text: m.notice, Error: m.noticeErr, At: m.noticeAt}, History: session.History{Check: m.samples.check, Error: m.samples.err, Samples: len(m.samples.entries)}, Events: events}
 }
 func (m *Model) keepFetchError(err error) {
 	if err != nil {

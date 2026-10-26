@@ -614,3 +614,16 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   not borrow unseen or stale evidence. Aggregation/alert rules stay unchanged.
   Tests: `TestServiceSeparatesAvailabilityPathAndWorker`,
   `TestSingleRemoteCheckWarnsAndDoesNotConfirmOutage`.
+
+- Safe transport diagnostics preserve stage, stable error/server codes, HTTP
+  status, elapsed time, connection reuse and bounded retry outcome. Successful
+  delivery retains its most recent failure for 30 minutes; a recovered rotation
+  logs an informational recovery. Read clients retain 64 request records and
+  publish them through session diagnostics without tokens or payloads. Enriched
+  telemetry stays within the existing heartbeat byte budget. Ingress reports
+  rolling-window counts for TLS timeout, closure, certificate rejection, invalid
+  TLS and other handshake failures; raw peer error text is never logged. Tests:
+  `TestRateLimitRecoveryDiagnosticsReachSnapshotCLIAndTUI`,
+  `TestReadDiagnosticsRetainFailureWithoutSecrets`,
+  `TestRecoveredRotationIsInformationalAndStructured`,
+  `TestIngressKindsHaveWindowAndNeverLogPeerText`.

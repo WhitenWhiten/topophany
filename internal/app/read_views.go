@@ -175,6 +175,14 @@ func (a *App) status(v view.View, h header, asJSON bool) error {
 			count = "at least " + count
 		}
 		t.kv("Collector ingress", fmt.Sprintf("%d TLS handshake %s in %s from %s %s, last %s", in.Failures, failures, view.Duration(time.Duration(in.WindowSeconds)*time.Second), count, sources, view.Age(v.Now, in.Last)))
+		types := []string{}
+		for kind, count := range in.FailureTypes {
+			types = append(types, fmt.Sprintf("%s=%d", kind, count))
+		}
+		sort.Strings(types)
+		if len(types) > 0 {
+			t.kv("Ingress failure types", strings.Join(types, ", "))
+		}
 	}
 	look := []string{}
 	for i, b := range s.Tabs {

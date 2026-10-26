@@ -14,6 +14,8 @@ import (
 )
 
 type destination struct {
+	attempt, lastFailure model.TransportEvent
+	attemptID            uint64
 	// endpoint and http are immutable after construction. Read them by index
 	// or pointer: copying the whole destination also reads Tick's retry state.
 	endpoint      client.Endpoint
@@ -58,6 +60,7 @@ type Delivery struct {
 	revision          string // what the worker runs; a reload changes it mid-round
 }
 type Result struct {
+	Diagnostic  model.TransportEvent
 	Code        string // stable diagnostic code for logs; retained during retry backoff
 	Recipient   string
 	Accepted    int
@@ -210,10 +213,17 @@ func (d *Delivery) send(ctx context.Context, q *Queue, i int, hb *model.Heartbea
 	dest := &d.destinations[i]
 	rid := Recipient(dest.endpoint.URL)
 	result = Result{Recipient: rid}
+	serial := dest.attemptID
 	defer func() {
+		if serial != dest.attemptID {
+			result.Diagnostic = dest.attempt
+		}
 		result.Code = dest.diagnostic
 		if result.Code == "" || dest.code == "local_ack_failed" || dest.code == "local_quarantine_failed" || dest.code == "local_read_failed" {
 			result.Code = dest.code
+		}
+		if result.Error == "" && result.Diagnostic.RetryOutcome == "recovered" {
+			result.Code = "connection_rotation_recovered"
 		}
 		d.publish(q, dest, result)
 	}()
@@ -405,6 +415,22 @@ func (d *Delivery) beat(dest *destination, hb *model.Heartbeat, now time.Time) m
 	h := model.CloneHeartbeat(*hb)
 	if !dest.probing && !now.Before(dest.bareUntil) {
 		h.Delivery = d.Statuses()
+		// Enriched diagnostics must not consume the heartbeat's hard wire budget.
+		for i := len(h.Delivery) - 1; i >= 0; i-- {
+			raw, _ := json.Marshal(h)
+			if len(raw) <= model.MaxHeartbeatBytes {
+				break
+			}
+			h.Delivery[i].LastFailure = model.TransportEvent{}
+		}
+		for i := len(h.Delivery) - 1; i >= 0; i-- {
+			raw, _ := json.Marshal(h)
+			if len(raw) <= model.MaxHeartbeatBytes {
+				break
+			}
+			h.Delivery[i].Attempt = model.TransportEvent{}
+		}
+
 	}
 	return h
 }

@@ -5,12 +5,14 @@ package session
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/secure"
 )
 
@@ -31,9 +33,10 @@ type Filters struct {
 	AttentionOnly bool   `json:"attention_only"`
 }
 type Notice struct {
-	Text  string    `json:"text"`
-	Error bool      `json:"error"`
-	At    time.Time `json:"at,omitzero"`
+	Visible bool      `json:"visible"`
+	Text    string    `json:"text"`
+	Error   bool      `json:"error"`
+	At      time.Time `json:"at,omitzero"`
 }
 type History struct {
 	Check   string `json:"check"`
@@ -41,29 +44,30 @@ type History struct {
 	Samples int    `json:"samples"`
 }
 type State struct {
-	Schema       int       `json:"schema"`
-	ID           string    `json:"session"`
-	PID          int       `json:"pid"`
-	StartedAt    time.Time `json:"started_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	Live         bool      `json:"live"`
-	Project      string    `json:"project"`
-	Server       string    `json:"server"`
-	Collectors   []string  `json:"collectors"`
-	Observer     string    `json:"observer"`
-	Filters      Filters   `json:"filters"`
-	Tab          string    `json:"tab"`
-	Selection    string    `json:"selection"`
-	SnapshotTime time.Time `json:"snapshot_time,omitzero"`
-	Instance     string    `json:"instance"`
-	Revision     string    `json:"revision"`
-	Cached       bool      `json:"cached"`
-	Fetching     bool      `json:"fetching"`
-	Loading      string    `json:"loading"`
-	Error        string    `json:"error"`
-	Notice       Notice    `json:"notice"`
-	History      History   `json:"history"`
-	Events       []Event   `json:"events"`
+	Requests     []model.TransportEvent `json:"requests,omitempty"`
+	Schema       int                    `json:"schema"`
+	ID           string                 `json:"session"`
+	PID          int                    `json:"pid"`
+	StartedAt    time.Time              `json:"started_at"`
+	UpdatedAt    time.Time              `json:"updated_at"`
+	Live         bool                   `json:"live"`
+	Project      string                 `json:"project"`
+	Server       string                 `json:"server"`
+	Collectors   []string               `json:"collectors"`
+	Observer     string                 `json:"observer"`
+	Filters      Filters                `json:"filters"`
+	Tab          string                 `json:"tab"`
+	Selection    string                 `json:"selection"`
+	SnapshotTime time.Time              `json:"snapshot_time,omitzero"`
+	Instance     string                 `json:"instance"`
+	Revision     string                 `json:"revision"`
+	Cached       bool                   `json:"cached"`
+	Fetching     bool                   `json:"fetching"`
+	Loading      string                 `json:"loading"`
+	Error        string                 `json:"error"`
+	Notice       Notice                 `json:"notice"`
+	History      History                `json:"history"`
+	Events       []Event                `json:"events"`
 }
 
 type Writer struct {
@@ -123,7 +127,7 @@ func Read(root, id string, now time.Time) (State, error) {
 	if err != nil {
 		return state, err
 	}
-	if len(raw) > 128<<10 || json.Unmarshal(raw, &state) != nil || state.Schema != 1 || state.ID != id || len(state.Events) > MaxEvents {
+	if len(raw) > 128<<10 || json.Unmarshal(raw, &state) != nil || state.Schema != 1 || state.ID != id || len(state.Events) > MaxEvents || len(state.Requests) > MaxEvents {
 		return State{}, errors.New("invalid session diagnostic record")
 	}
 	state.Live = now.Sub(state.UpdatedAt) <= 10*time.Second && !state.UpdatedAt.After(now.Add(time.Second))
@@ -140,8 +144,8 @@ func List(root string, now time.Time) ([]State, error) {
 	}
 	defer dir.Close()
 	entries, err := dir.ReadDir(257)
-	if err != nil && len(entries) == 0 {
-		return out, nil
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
 	}
 	if len(entries) > 256 {
 		return nil, errors.New("session directory exceeds 256 entries; remove stale session files")

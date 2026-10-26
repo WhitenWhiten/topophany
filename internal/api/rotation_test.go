@@ -108,3 +108,30 @@ func TestTwoMinuteRotationDrainsPOST(t *testing.T) {
 		})
 	}
 }
+
+func TestAuthenticatedRotationHardBoundsDrain(t *testing.T) {
+	socket, peer := sourcePipe(t, "192.0.2.1:1")
+	listener := newLimitedListener(&scriptedListener{conns: []net.Conn{socket}}, 4, 1, maxConnectionLifetime)
+	conn, err := listener.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	limited := conn.(*limitedConn)
+	if !limited.authenticate("worker") {
+		t.Fatal("authentication refused")
+	}
+	limited.expire() // admission closes; existing work retains its slot
+	if len(listener.slots) != 1 {
+		t.Fatal("draining request lost its charged slot")
+	}
+	limited.expire() // end of the fixed grace, even if work is stuck
+	if len(listener.slots) != 0 {
+		t.Fatal("drain outlived hard quota bound")
+	}
+	peer.SetReadDeadline(time.Now().Add(time.Second))
+	var b [1]byte
+	if _, err = peer.Read(b[:]); err == nil {
+		t.Fatal("stalled connection survived drain")
+	}
+}
