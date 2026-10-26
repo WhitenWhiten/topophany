@@ -43,6 +43,8 @@ Get started
   topo                              open the TUI on the saved connection
 
 Read what the TUI shows
+  topo sessions --json              list running local viewers
+  topo diagnose --session ID --json inspect exactly what that viewer displays
   topo status                       the Overview as text; its exit status says it too
   topo show TAB [ID]                a tab, or the evidence behind one entry in it
   topo history CHECK                a check's recent samples
@@ -134,6 +136,8 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		return a.serve(ctx, args[1:])
 	case "worker":
 		return a.worker(ctx, args[1:])
+	case "sessions", "diagnose":
+		return a.diagnostics(args[0], args[1:])
 	case "sources":
 		return a.sources(ctx, args[1:])
 	case "monitor":

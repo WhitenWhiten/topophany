@@ -12,6 +12,7 @@ import (
 
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/secure"
+	"github.com/WhitenWhiten/topophany/internal/session"
 	"github.com/WhitenWhiten/topophany/internal/view"
 )
 
@@ -33,6 +34,7 @@ const (
 // Row is one selectable entry of a list (see view.Row).
 type Row = view.Row
 type Model struct {
+	diagnosticEvents                        []session.Event
 	Direct                                  bool   // process-local resource source, with no collector or history
 	ReconnectHint                           string // optional browser connection guidance, supplied by its language catalog
 	Snapshot                                model.Snapshot
@@ -126,6 +128,7 @@ func (m *Model) say(msg string, isErr bool) {
 		at = time.Now()
 	}
 	m.notice, m.noticeErr, m.noticeAt = secure.Text(msg), isErr, at
+	m.diagnosticEvent("notice", "", m.notice)
 }
 
 // view is what the model shows, as the view package derives it for the

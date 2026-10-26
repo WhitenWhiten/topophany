@@ -14,6 +14,7 @@ import (
 
 	"github.com/WhitenWhiten/topophany/internal/client"
 	"github.com/WhitenWhiten/topophany/internal/model"
+	"github.com/WhitenWhiten/topophany/internal/session"
 	"github.com/WhitenWhiten/topophany/internal/view"
 )
 
@@ -217,6 +218,18 @@ func loop(parent context.Context, m *Model, fetch Fetch, history History, bound 
 	}
 	m.Now = time.Now()
 	m.Width, m.Height = term.Size()
+	var diagnostics *session.Writer
+	if fetch != nil && m.Preview == nil {
+		root, err := session.DefaultRoot()
+		if err != nil {
+			return err
+		}
+		diagnostics, err = session.New(root)
+		if err != nil {
+			return err
+		}
+		defer diagnostics.Close()
+	}
 	ch := make(chan fetched, 1)
 	busy := false
 	request := func() {
@@ -224,6 +237,9 @@ func loop(parent context.Context, m *Model, fetch Fetch, history History, bound 
 			return
 		}
 		busy = true
+		if m.Error != "" {
+			m.diagnosticEvent("retry", "snapshot_retry", "retrying snapshot read")
+		}
 		m.Fetching = true
 		v := m.Observer
 		go func() {
@@ -263,6 +279,11 @@ func loop(parent context.Context, m *Model, fetch Fetch, history History, bound 
 		last = m.Now
 		n, e := scr.paint(out, m)
 		m.measured(time.Since(last), n, last)
+		if e == nil && diagnostics != nil {
+			if err := diagnostics.Publish(m.Diagnostics(), m.Now); err != nil {
+				m.say("Session diagnostics write failed", true)
+			}
+		}
 		return e
 	}
 	if e = draw(); e != nil {
@@ -282,11 +303,11 @@ func loop(parent context.Context, m *Model, fetch Fetch, history History, bound 
 			}
 			m.Loading = ""
 			if msg.err != nil {
-				m.Error = msg.err.Error()
+				m.keepFetchError(msg.err)
 			} else {
 				m.Snapshot = msg.snapshot
 				m.Server = msg.server
-				m.Error = ""
+				m.keepFetchError(nil)
 			}
 			samples.request(ctx, m, true)
 			if e = draw(); e != nil {

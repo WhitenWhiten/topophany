@@ -65,7 +65,11 @@ func (m *Model) KeepSamples(check string, entries []model.Observation, e error) 
 			m.samples = samples{check: check}
 		}
 		m.samples.err = e.Error()
+		m.diagnosticEvent("history_error", "history_read_failed", check+": "+m.samples.err)
 		return
+	}
+	if m.samples.check == check && m.samples.err != "" {
+		m.diagnosticEvent("recovered", "history_read_recovered", check)
 	}
 	m.samples = samples{check: check, entries: entries}
 }
@@ -220,6 +224,9 @@ func (s *sampler) keep(m *Model, got fetchedSamples) {
 		return
 	}
 	if got.trend {
+		if got.err != nil {
+			m.diagnosticEvent("history_error", "trend_read_failed", got.check+": "+got.err.Error())
+		}
 		m.KeepTrend(got.check, got.entries, got.err)
 	} else {
 		m.KeepSamples(got.check, got.entries, got.err)

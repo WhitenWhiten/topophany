@@ -4,29 +4,32 @@ package tui
 
 import (
 	"context"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/client"
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/secure"
+	"github.com/WhitenWhiten/topophany/internal/session"
 )
 
 // Remote is the native read-only viewer driven by browser events. Only this
 // owner's calls mutate its Model; background reads return through bounded
 // channels and never block keyboard handling or frame rendering.
 type Remote struct {
-	m         *Model
-	client    *client.Client
-	ctx       context.Context
-	cancel    context.CancelFunc
-	results   chan remoteSnapshot
-	samples   sampler
-	encoder   cellEncoder
-	requested time.Time
-	painted   time.Time
-	busy      bool
-	closed    bool
+	diagnostics *session.Writer
+	m           *Model
+	client      *client.Client
+	ctx         context.Context
+	cancel      context.CancelFunc
+	results     chan remoteSnapshot
+	samples     sampler
+	encoder     cellEncoder
+	requested   time.Time
+	painted     time.Time
+	busy        bool
+	closed      bool
 }
 
 type remoteSnapshot struct {
@@ -49,6 +52,18 @@ func NewRemote(profile client.Profile, reconnectHint string) (*Remote, error) {
 	m.ReconnectHint = secure.Text(reconnectHint[:min(len(reconnectHint), 1024)])
 	m.NerdFont = true
 	r := &Remote{m: m, client: c, ctx: ctx, cancel: cancel, results: make(chan remoteSnapshot, 1)}
+	if runtime.GOOS != "js" {
+		root, err := session.DefaultRoot()
+		if err != nil {
+			r.Close()
+			return nil, err
+		}
+		r.diagnostics, err = session.New(root)
+		if err != nil {
+			r.Close()
+			return nil, err
+		}
+	}
 	r.samples = sampler{results: make(chan fetchedSamples, 1), readAt: collectorHistory(c)}
 	return r, nil
 }
@@ -58,6 +73,9 @@ func (r *Remote) Close() {
 		r.closed = true
 		r.cancel()
 		r.client.Close()
+		if r.diagnostics != nil {
+			r.diagnostics.Close()
+		}
 	}
 }
 
@@ -88,6 +106,9 @@ func (r *Remote) request(now time.Time) {
 		return
 	}
 	r.busy, r.m.Fetching, r.requested = true, true, now
+	if r.m.Error != "" {
+		r.m.diagnosticEvent("retry", "snapshot_retry", "retrying snapshot read")
+	}
 	observer := r.m.Observer
 	go func() {
 		start := time.Now()
@@ -111,9 +132,10 @@ func (r *Remote) receive() bool {
 		r.m.Loading = ""
 		r.m.perf.fetch, r.m.perf.fetches = got.took, r.m.perf.fetches+1
 		if got.err != nil {
-			r.m.Error = got.err.Error()
+			r.m.keepFetchError(got.err)
 		} else {
-			r.m.Snapshot, r.m.Server, r.m.Error = got.snapshot, got.server, ""
+			r.m.Snapshot, r.m.Server = got.snapshot, got.server
+			r.m.keepFetchError(nil)
 		}
 		r.samples.request(r.ctx, r.m, true)
 	default:
@@ -152,6 +174,11 @@ func (r *Remote) Frame(now time.Time, cols, rows int, force bool) *DemoFrame {
 	if force || resized || changed {
 		f.Text = strings.Join(cv.Lines(colorNone), "\n")
 	}
+	if r.diagnostics != nil {
+		if err := r.diagnostics.Publish(r.m.Diagnostics(), now); err != nil {
+			r.m.say("Session diagnostics write failed", true)
+		}
+	}
 	r.painted = now
 	return f
 }
@@ -159,3 +186,6 @@ func (r *Remote) Frame(now time.Time, cols, rows int, force bool) *DemoFrame {
 func (r *Remote) Measured(render time.Duration, bytes int, at time.Time) {
 	r.m.measured(render, bytes, at)
 }
+
+// Diagnostics is the same state published for native session inspection.
+func (r *Remote) Diagnostics() session.State { return r.m.Diagnostics() }

@@ -594,3 +594,12 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   `collector_id` pins; an unverified target requires enrollment before probing.
   Covered by `TestAuthenticatedAliasesDeliverOnceAndFailOver` and
   `TestIndependentCollectorsWithSameDisplayNameRemainReplicas`.
+
+- Running viewer sessions: `topo sessions --json` lists live local viewers;
+  `topo diagnose --session ID --json` reads the model that paints that viewer,
+  including observer, filters, selected collector, snapshot/cache state, transient
+  notices and history errors. Error/retry/recovery events survive successful
+  refreshes for up to 30 minutes (64 events). Files are private, writes atomic,
+  leases expire after 10 seconds, and normal exit removes the session. Tests:
+  `TestDiagnosticsRetainErrorsAfterScreenRecovers`,
+  `TestDiagnoseReadsExactViewerStateAndRetainedHistory`.
