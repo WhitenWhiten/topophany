@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -24,8 +25,12 @@ func TestPrivateSessionLeaseAndLifecycle(t *testing.T) {
 		t.Fatal(got, err)
 	}
 	info, err := os.Stat(filepath.Join(root, w.ID()+".json"))
-	if err != nil || info.Mode().Perm() != 0600 {
+	if err != nil {
 		t.Fatal(info, err)
+	}
+	// Windows uses ACLs; FileMode does not expose POSIX permission bits.
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
+		t.Fatalf("session not written privately: %v", info.Mode())
 	}
 	list, err := List(root, now)
 	if err != nil || len(list) != 1 {

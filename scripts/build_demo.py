@@ -4,6 +4,7 @@
 The ignored binaries are built locally and before deploying the static site.
 --check verifies their source fingerprint and content without rebuilding;
 ordinary runs rebuild when stale. A fresh checkout must run this builder first.
+Use the exact Go version from go.mod so committed asset hashes match CI.
 """
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -25,9 +27,17 @@ def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def inputs() -> tuple[dict, bytes, bytes]:
-    goroot = Path(subprocess.check_output(["go", "env", "GOROOT"], cwd=ROOT, text=True).strip())
-    version = subprocess.check_output(["go", "env", "GOVERSION"], cwd=ROOT, text=True).strip()
+def toolchain_env() -> dict[str, str]:
+    version = re.search(r"^go ([0-9.]+)$", (ROOT / "go.mod").read_text(), re.MULTILINE)[1]
+    env = {**os.environ, "GOTOOLCHAIN": "go" + version}
+    # An exported GOROOT may point at the caller's different Go installation.
+    env.pop("GOROOT", None)
+    return env
+
+
+def inputs(env: dict[str, str]) -> tuple[dict, bytes, bytes]:
+    goroot = Path(subprocess.check_output(["go", "env", "GOROOT"], cwd=ROOT, env=env, text=True).strip())
+    version = subprocess.check_output(["go", "env", "GOVERSION"], cwd=ROOT, env=env, text=True).strip()
     runtime = (goroot / "lib/wasm/wasm_exec.js").read_bytes()
     license_text = (goroot / "LICENSE").read_bytes()
     paths = [ROOT / "go.mod", ROOT / "scripts/build_demo.py"]
@@ -42,7 +52,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    source, runtime, license_text = inputs()
+    env = toolchain_env()
+    source, runtime, license_text = inputs(env)
     wasm, viewer, manifest = OUT / "demo.wasm", OUT / "viewer.wasm", OUT / "demo.build.json"
     try:
         previous = json.loads(manifest.read_text())
@@ -56,7 +67,7 @@ def main() -> int:
     if args.check:
         print("browser demo is stale; run make site")
         return 1
-    env = {**os.environ, "GOOS": "js", "GOARCH": "wasm", "CGO_ENABLED": "0"}
+    env.update(GOOS="js", GOARCH="wasm", CGO_ENABLED="0")
     with tempfile.TemporaryDirectory(prefix="topophany-wasm-") as temp:
         binary = Path(temp) / "demo.wasm"
         binaries = {}
