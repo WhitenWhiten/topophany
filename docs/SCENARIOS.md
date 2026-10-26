@@ -1,6 +1,6 @@
 # Scenario Contracts and Test Mapping
 
-This document lists the finite, verifiable scenario contracts for version 1.5.0, deliberately avoiding unsubstantiated claims that "all conceivable network failure scenarios are verified." The unit and integration test cases below reproduce software mechanics under controlled conditions; live operational deployments require separate hardware acceptance per [ACCEPTANCE.md](ACCEPTANCE.md). Automated execution evidence is produced by `scripts/verify.py` and published as a CI artifact.
+This document lists the finite, verifiable scenario contracts for version 1.5.1, deliberately avoiding unsubstantiated claims that "all conceivable network failure scenarios are verified." The unit and integration test cases below reproduce software mechanics under controlled conditions; live operational deployments require separate hardware acceptance per [ACCEPTANCE.md](ACCEPTANCE.md). Automated execution evidence is produced by `scripts/verify.py` and published as a CI artifact.
 
 | Scenario and Invariant | Automated Test Evidence |
 |---|---|

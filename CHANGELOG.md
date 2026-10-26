@@ -7,8 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-26
+
+This release adds live viewer diagnostics, per-source HTTP consent for direct
+profiles and scoped service availability, and makes authenticated collector
+aliases and delivery failures easier to diagnose. See the
+[release notes](docs/releases/v1.5.1.md) for compatibility and upgrade details.
+
+### Added
+
+- Inspect running viewers: `topo sessions [--json]` lists local viewers and
+  `topo diagnose --session ID [--json]` reads the exact model behind one,
+  including observer, filters, collector, snapshot and cache state, transient
+  notices and history errors. Error, retry and recovery events survive
+  successful refreshes for up to 30 minutes (64 events); session files are
+  private, written atomically, leased for 10 seconds and removed on exit.
+- `allow_insecure:true` on a direct source permits HTTP for authentication,
+  discovery and resource reads on LAN or Tailscale addresses and hostnames.
+  The consent is saved with the private profile, returned by inspect/list and
+  advertised as `direct.allow_insecure`; loopback HTTP stays implicit and HTTPS
+  certificate verification is unchanged.
+- `availability_scope` on an HTTP application check declares `local`, `remote`
+  or `user_entry` evidence. Local scope requires an observer on the service
+  host and no remote path; a loopback check on that host infers it.
+
 ### Changed
 
+- Service views separate application availability, path reachability and
+  worker online state, so a remote access failure no longer reads as an
+  application outage. Host resource reports and adapter telemetry cannot
+  establish application health, and cached, stale or unseen checks cannot
+  supply scoped states. Configuration hints identify checks whose scope is
+  ambiguous.
+- Authenticated collector URLs are grouped into one outbox recipient with a
+  persistent `collector_id`, ordered address failover and migrated URL
+  receipts. URLs within one alternate group that name different identities
+  fail closed. Gateway 5xx responses move to the next authenticated alias,
+  while POST authorization, throttling, configuration and storage-budget
+  rejections do not.
+- Delivery reports, snapshots, CLI/TUI evidence and worker logs share bounded
+  transport stages, stable codes, HTTP status, elapsed time, connection reuse
+  and retry outcome. A successful delivery keeps its most recent failure for 30
+  minutes. Ingress publishes rolling handshake-failure counts without peer text.
+- Expiring authenticated connections drain for up to 15 seconds: HTTP/1.1
+  advertises close, HTTP/2 sends GOAWAY, and a deduplicated EOF is retried once
+  without changing sample identity or timestamps.
 - The homepage is drawn in ink on paper, as topophany-bar's new icon is: the
   icon's dithered globe turns in the hero, the wordmark is solid ink over a
   half-tone shadow, headings are set in a serif and labels in mono. The
@@ -18,6 +61,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The favicon, the Apple touch icon and the social card are topophany-bar's
   globe. `scripts/icon.py` draws them from the same dither as its app icon,
   in Python alone.
+- CI runs tests and site checks only for the paths a change touches; browser
+  builds and site checks require an explicit site change unless a manual run
+  opts in. Release builds pin the browser Go toolchain.
+
+### Fixed
+
+- Local service warnings survive confirmation and recovery: a local HTTP
+  failure below its threshold or a check still recovering keeps `HEALTH WARN`,
+  a confirmed local failure reads `LOCAL FAIL`, and completed recovery reads
+  `UP`.
+- Adapter telemetry and policy violations remain reported scope rather than
+  application responses or measured path failures.
+- Delivery failure categories such as DNS, TCP, TLS and response timeouts,
+  connection closure, throttling, authorization, configuration, storage
+  backpressure and acknowledgement format or identity failures reach snapshots,
+  CLI/TUI evidence and logs instead of collapsing into one generic error.
+- Collector address failover retains the most recent failed request through a
+  successful alias and later healthy rounds, bounds total attempts and elapsed
+  time, and expires retained failures after 30 minutes.
+- Viewers continue fetching live evidence when the optional session cache
+  cannot be opened; the failure becomes a notice instead of ending the session.
+
+### Security
+
+- Delivery and session diagnostics carry protocol metadata only: no tokens,
+  payloads, raw peer error text or arbitrary upstream strings. Ingress reports
+  bounded counts and stable kinds.
+- Direct HTTP consent is stored in the private direct profile and never
+  accepted from collector topology JSON; it applies only to the source that
+  records it and does not disable HTTPS certificate verification.
 
 ## [1.5.0] - 2026-10-23
 
@@ -1838,7 +1911,8 @@ Initial release.
 - Terminal UI with geographic and network topology maps, offline preview
   scenarios and a local topology editor.
 
-[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/WhitenWhiten/topophany/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/WhitenWhiten/topophany/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/WhitenWhiten/topophany/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/WhitenWhiten/topophany/compare/v1.4.0...v1.4.1

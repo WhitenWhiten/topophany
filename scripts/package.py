@@ -77,7 +77,7 @@ def validate_archive_names(names: list[str], source_names) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--name", default="Topophany-1.5.0-source")
+    parser.add_argument("--name", default="Topophany-1.5.1-source")
     parser.add_argument("--verification", type=Path, default=ROOT / ".verify-build" / "verification",
                         help="output directory of a passing scripts/verify.py run")
     args = parser.parse_args()
@@ -147,7 +147,7 @@ def main() -> int:
     with report_path.open("a", encoding="utf-8") as report:
         report.write("\n## Archive Rebuild Verification\n\nThe exported ZIP was verified per-member with CRC checks; all extracted file SHA-256 digests matched the source tree. The tar.gz archive content matched per-file as well. **Rebuilding from the extracted ZIP directory via `go test -count=1 ./...` and `go build` both returned 0.** For details, see Topophany-archive-rebuild.log and the delivery manifest included in this release.\n")
     manifest = {
-        "schema": 1, "project": "Topophany", "version": "1.5.0",
+        "schema": 1, "project": "Topophany", "version": "1.5.1",
         "exported_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "original_source_recovered": False,
         "verification": summary,
