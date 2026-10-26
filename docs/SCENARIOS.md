@@ -577,3 +577,10 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   GOAWAY, and a deduplicated EOF retry preserves all sample IDs and timestamps.
   Covered by `TestTwoMinuteRotationDrainsPOST` and
   `TestPostRotationRetryPreservesSamplesAndIsBounded`.
+
+- Delivery diagnostics distinguish DNS/TCP/TLS and response timeouts, connection
+  closure, HTTP throttling with bounded Retry-After, authorization, configuration,
+  storage backpressure and acknowledgement format/identity failures. Packet loss
+  during a local TLS handshake is `tls_timeout`; a 429 heartbeat budget is
+  `rate_limited`, never collector health. Reports use the same vocabulary in
+  snapshots, CLI/TUI evidence and worker logs; arbitrary peer strings are omitted.

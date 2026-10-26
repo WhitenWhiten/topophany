@@ -21,6 +21,10 @@ type DeliveryStatus struct {
 	LastAck            time.Time `json:"last_sample_ack_at,omitzero"`
 	LastContact        time.Time `json:"last_contact_at,omitzero"`
 	RetryAt            time.Time `json:"retry_at,omitzero"`
+	Stage              string    `json:"stage,omitempty"`
+	HTTPStatus         int       `json:"http_status,omitempty"`
+	ServerCode         string    `json:"server_code,omitempty"`
+	RetryAfterSeconds  int       `json:"retry_after_seconds,omitempty"`
 	Code               string    `json:"code,omitempty"`
 }
 
@@ -43,11 +47,16 @@ func ValidDelivery(reports []DeliveryStatus, now time.Time) bool {
 		if r.RetryAt.After(now.Add(time.Minute)) {
 			return false
 		}
-		switch r.Code {
-		case "", "collector_unreachable", "storage_backpressure", "authorization_rejected", "sample_rejected", "local_ack_failed", "local_quarantine_failed":
+
+		if !ValidDeliveryCode(r.Code) || r.HTTPStatus < 0 || r.HTTPStatus > 599 || r.RetryAfterSeconds < 0 || r.RetryAfterSeconds > 60 || (r.ServerCode != "" && SafeDeliveryServerCode(r.ServerCode) == "") {
+			return false
+		}
+		switch r.Stage {
+		case "", "dns", "tcp", "tls", "request", "response", "response_read", "http", "ack":
 		default:
 			return false
 		}
+
 	}
 	return true
 }

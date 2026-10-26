@@ -6,6 +6,7 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"slices"
 	"strings"
+	"time"
 )
 
 func (q *Queue) deliveryStats(recipient string) (int, int64, int64) {
@@ -29,22 +30,7 @@ func (d *Delivery) Statuses() []model.DeliveryStatus {
 	slices.SortFunc(out, func(a, b model.DeliveryStatus) int { return strings.Compare(a.Collector, b.Collector) })
 	return out
 }
-func deliveryCode(err error) string {
-	var h *client.HTTPError
-	if !errors.As(err, &h) {
-		return "collector_unreachable"
-	}
-	if h.DeliveryAction() == client.WaitForAuthorization {
-		return "authorization_rejected"
-	}
-	if h.DeliveryAction() == client.StorageBackpressure {
-		return "storage_backpressure"
-	}
-	if h.DeliveryAction() == client.RejectSample {
-		return "sample_rejected"
-	}
-	return "collector_unreachable"
-}
+func deliveryCode(err error) string { return client.FailureCode(err) }
 func (d *Delivery) publish(q *Queue, dest *destination, result Result) {
 	id := Recipient(dest.endpoint.URL)
 	n, bytes, quarantine := q.deliveryStats(id)
@@ -52,7 +38,7 @@ func (d *Delivery) publish(q *Queue, dest *destination, result Result) {
 		dest.lastAck = d.Now()
 	}
 	dest.quarantined += int64(result.Quarantined)
-	report := model.DeliveryStatus{Collector: id, ReportedAt: d.Now().UTC(), PendingRecords: n, PendingBytes: bytes, QuarantineBytes: quarantine, QuarantinedSamples: dest.quarantined, LastAck: dest.lastAck, LastContact: dest.lastContact, RetryAt: dest.next, Code: dest.code}
+	report := model.DeliveryStatus{Collector: id, ReportedAt: d.Now().UTC(), PendingRecords: n, PendingBytes: bytes, QuarantineBytes: quarantine, QuarantinedSamples: dest.quarantined, LastAck: dest.lastAck, LastContact: dest.lastContact, RetryAt: dest.next, Code: dest.code, Stage: dest.stage, HTTPStatus: dest.httpStatus, ServerCode: dest.serverCode, RetryAfterSeconds: dest.retryAfterSeconds}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.reports == nil {
@@ -65,16 +51,16 @@ func (d *Delivery) publish(q *Queue, dest *destination, result Result) {
 // response text. Wire delivery health retains its existing broader categories.
 func diagnosticCode(err error) string {
 	var h *client.HTTPError
-	if errors.As(err, &h) {
-		switch h.Code {
-		case "contract_mismatch", "observation_contract_mismatch", "revision_mismatch", "project_mismatch",
-			"observer_scope_violation", "sample_time_out_of_range", "unsupported_batch_schema",
-			"invalid_batch_revision", "invalid_batch_size", "invalid_observation_identity",
-			"received_at_is_collector_owned", "invalid_outcome", "evidence_kind_mismatch",
-			"heartbeat_limit_exceeded", "invalid_delivery_status", "invalid_batch_json",
-			"observer_storage_quota", "storage_receipt_capacity", "authentication_required", "invalid_token", "role_forbidden":
-			return h.Code
-		}
+	if errors.As(err, &h) && model.SafeDeliveryServerCode(h.Code) != "" {
+		return h.Code
 	}
 	return deliveryCode(err)
+}
+
+func (dest *destination) recordFailure(err error) time.Duration {
+	dest.code, dest.diagnostic = deliveryCode(err), diagnosticCode(err)
+	stage, serverCode, status, retry := client.FailureDetail(err)
+	dest.stage, dest.serverCode, dest.httpStatus = stage, serverCode, status
+	dest.retryAfterSeconds = int(retry / time.Second)
+	return retry
 }

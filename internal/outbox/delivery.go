@@ -32,6 +32,8 @@ type destination struct {
 	// is accepted, heartbeats go without it until bareUntil.
 	probing                               bool
 	bareUntil                             time.Time
+	stage, serverCode                     string
+	httpStatus, retryAfterSeconds         int
 	code                                  string
 	diagnostic                            string
 	lastAck, lastContact                  time.Time
@@ -219,6 +221,7 @@ func (d *Delivery) send(ctx context.Context, q *Queue, i int, hb *model.Heartbea
 	if now.Before(dest.next) {
 		if dest.separateBeat && hb != nil {
 			if e := d.heartbeat(ctx, dest, revision, hb); e != nil {
+				dest.recordFailure(e)
 				dest.separateBeat = false // an outage follows the normal retry clock
 				result.Error = "collector heartbeat unavailable"
 			}
@@ -299,6 +302,7 @@ func (d *Delivery) send(ctx context.Context, q *Queue, i int, hb *model.Heartbea
 		dest.code = deliveryCode(e)
 		dest.diagnostic = diagnosticCode(e)
 	}
+	retryAfter := dest.recordFailure(e)
 	var he *client.HTTPError
 	permanent := errors.As(e, &he) && he.DeliveryAction() == client.RejectSample
 	switch {
@@ -362,7 +366,7 @@ func (d *Delivery) send(ctx context.Context, q *Queue, i int, hb *model.Heartbea
 			return
 		}
 	} else {
-		result.Error = "collector unavailable or acknowledgement invalid"
+		result.Error = e.Error()
 		if he != nil {
 			result.Error = he.Error()
 		}
@@ -375,7 +379,7 @@ func (d *Delivery) send(ctx context.Context, q *Queue, i int, hb *model.Heartbea
 	// The backoff counts from when the attempt ended, which for one that
 	// timed out is long after it began.
 	delay := time.Duration(1<<n) * time.Second
-	dest.next = d.Now().Add(delay + time.Duration(rand.IntN(1000))*time.Millisecond)
+	dest.next = d.Now().Add(max(delay+time.Duration(rand.IntN(1000))*time.Millisecond, retryAfter))
 	return
 }
 

@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -476,8 +477,9 @@ func (c *Client) Rollups(ctx context.Context, check, step, span string) (Rollups
 const maxRollupBytes = 1 << 20
 
 type HTTPError struct {
-	Status int
-	Code   string
+	Status     int
+	Code       string
+	RetryAfter time.Duration
 }
 
 func (e *HTTPError) Error() string { return fmt.Sprintf("collector HTTP %d: %s", e.Status, e.Code) }
@@ -514,36 +516,51 @@ func postBatch(ctx context.Context, h *http.Client, ep Endpoint, b model.Batch) 
 		return e
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, e := h.Do(req)
+	trace := &requestTrace{}
+	resp, e := h.Do(trace.attach(req))
 	if e != nil {
-		return fmt.Errorf("collector transport interrupted: %w", e)
+		return transportFailure(e, trace.current())
 	}
 	defer resp.Body.Close()
 	payload, e := io.ReadAll(io.LimitReader(resp.Body, 4097))
 	if e != nil {
-		return fmt.Errorf("collector acknowledgement interrupted: %w", e)
+		return transportFailure(e, "response_read")
 	}
 	if len(payload) > 4096 {
-		return errors.New("invalid collector acknowledgement")
+		return &Failure{Code: "ack_format_invalid", Stage: "ack"}
 	}
 	if resp.StatusCode != 202 {
 		var v struct {
 			Error string `json:"error"`
 		}
 		_ = json.Unmarshal(payload, &v)
-		code := secure.Text(v.Error)
-		if len(code) > 128 {
+		code := model.SafeDeliveryServerCode(v.Error)
+		if code == "" {
 			code = "invalid_error"
 		}
-		return &HTTPError{Status: resp.StatusCode, Code: code}
+		return &HTTPError{Status: resp.StatusCode, Code: code, RetryAfter: retryAfter(resp.Header.Get("Retry-After"), time.Now())}
 	}
 	var ack struct {
 		Project  string `json:"project"`
 		Revision string `json:"revision"`
 		Accepted int    `json:"accepted"`
 	}
-	if e = json.Unmarshal(payload, &ack); e != nil || ack.Project != b.Project || ack.Revision != b.Revision || ack.Accepted != len(b.Observations) {
-		return errors.New("collector acknowledgement identity/count mismatch")
+	if e = json.Unmarshal(payload, &ack); e != nil {
+		return &Failure{Code: "ack_format_invalid", Stage: "ack", Cause: e}
+	}
+	if ack.Project != b.Project || ack.Revision != b.Revision || ack.Accepted != len(b.Observations) {
+		return &Failure{Code: "ack_identity_mismatch", Stage: "ack"}
 	}
 	return nil
+}
+
+// Retry-After is advisory and bounded to the worker's one-minute retry budget.
+func retryAfter(value string, now time.Time) time.Duration {
+	if n, err := strconv.ParseInt(value, 10, 32); err == nil {
+		return time.Duration(max(0, min(n, 60))) * time.Second
+	}
+	if at, err := http.ParseTime(value); err == nil {
+		return max(0, min(at.Sub(now), time.Minute))
+	}
+	return 0
 }

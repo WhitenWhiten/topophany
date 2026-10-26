@@ -348,7 +348,7 @@ func (rb *rowBuilder) observersRows(attentionOnly bool) []Row {
 			r.Details = append(r.Details, "", line)
 		}
 		for _, d := range e.Delivery {
-			r.Details = append(r.Details, "", "Worker-reported delivery: "+d.Collector, "Reported: "+Age(v.Now, d.ReportedAt), fmt.Sprintf("Pending: %d records / %d bytes; worker quarantine: %d bytes", d.PendingRecords, d.PendingBytes, d.QuarantineBytes), "Last sample ACK: "+Age(v.Now, d.LastAck), "Last contact: "+Age(v.Now, d.LastContact), "Retry: "+Stamp(v.Now, d.RetryAt), "Reason: "+d.Code)
+			r.Details = append(r.Details, "", "Worker-reported delivery: "+d.Collector, "Reported: "+Age(v.Now, d.ReportedAt), fmt.Sprintf("Pending: %d records / %d bytes; worker quarantine: %d bytes", d.PendingRecords, d.PendingBytes, d.QuarantineBytes), "Last sample ACK: "+Age(v.Now, d.LastAck), "Last contact: "+Age(v.Now, d.LastContact), "Retry: "+Stamp(v.Now, d.RetryAt), "Reason: "+d.Code, fmt.Sprintf("Stage: %s; HTTP: %d; server code: %s; Retry-After: %ds", d.Stage, d.HTTPStatus, d.ServerCode, d.RetryAfterSeconds))
 			if (d.Code != "" || d.QuarantineBytes > 0) && !v.Cached && e.Health == "up" {
 				r.Note = "delivery attention"
 			}

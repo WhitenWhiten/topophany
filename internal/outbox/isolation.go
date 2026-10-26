@@ -22,13 +22,13 @@ func (d *Delivery) sendIsolated(ctx context.Context, q *Queue, dest *destination
 		batch.Observations = batch.Observations[index : index+1]
 		batch.Heartbeat = nil
 		err := client.PostBatch(ctx, dest.http, dest.endpoint, batch)
+		retryAfter := dest.recordFailure(err)
 		if err != nil {
-			dest.code, dest.diagnostic = deliveryCode(err), diagnosticCode(err)
 			var he *client.HTTPError
 			if !errors.As(err, &he) || he.DeliveryAction() != client.RejectSample {
 				dest.failures++
-				dest.next = d.Now().Add(time.Duration(1<<min(dest.failures, 5)) * time.Second)
-				result.Error = "isolated observation delivery unavailable"
+				dest.next = d.Now().Add(max(time.Duration(1<<min(dest.failures, 5))*time.Second, retryAfter))
+				result.Error = err.Error()
 				return result
 			}
 			if err := q.QuarantinePart(item.ID, index, result.Recipient, he.Error()); err != nil {
