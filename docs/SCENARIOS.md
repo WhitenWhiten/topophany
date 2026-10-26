@@ -571,3 +571,9 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
 | Typed storage transaction stages preserve sync-before-publication, conflict admission, migration ordering and background checkpoint recovery | `TestExternalStatePersistsDeduplicatesAndDoesNotRefreshDeadline`, storage sync-lock, admission, downgrade and background-checkpoint regressions |
 | Explicit observer-scope rejection of a removed check still isolates that payload; authorization failures remain pending | `TestFanoutRejectionKeepsValidMembersAcrossRestart/removed_check`, `TestDeliveryFailureActions` |
 | Collector alert settling captures startup configuration before launching its goroutine, so an immediate reload cannot race that read | `TestInvalidSourceReloadPreservesProcess` under `-race` |
+
+- Connection rotation: a POST already authenticated at the two-minute boundary
+  finishes within a 15-second drain; HTTP/1.1 advertises close, HTTP/2 sends
+  GOAWAY, and a deduplicated EOF retry preserves all sample IDs and timestamps.
+  Covered by `TestTwoMinuteRotationDrainsPOST` and
+  `TestPostRotationRetryPreservesSamplesAndIsBounded`.

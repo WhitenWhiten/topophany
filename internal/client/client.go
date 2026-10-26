@@ -9,12 +9,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/config"
@@ -480,7 +482,26 @@ type HTTPError struct {
 
 func (e *HTTPError) Error() string { return fmt.Sprintf("collector HTTP %d: %s", e.Status, e.Code) }
 
+// PostBatch retries one interrupted, deduplicated sample batch. The encoded
+// samples (including IDs and timestamps) are reused exactly; heartbeat-only
+// requests have no receipt identity and use the ordinary delivery backoff.
 func PostBatch(ctx context.Context, h *http.Client, ep Endpoint, b model.Batch) error {
+	safe := len(b.Observations) > 0
+	for _, v := range b.Observations {
+		safe = safe && v.ID != ""
+	}
+	err := postBatch(ctx, h, ep, b)
+	if safe && ctx.Err() == nil && connectionClosed(err) {
+		h.CloseIdleConnections()
+		return postBatch(ctx, h, ep, b)
+	}
+	return err
+}
+func connectionClosed(err error) bool {
+	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.EPIPE)
+}
+
+func postBatch(ctx context.Context, h *http.Client, ep Endpoint, b model.Batch) error {
 	body, e := json.Marshal(b)
 	if e != nil {
 		return e
@@ -495,11 +516,14 @@ func PostBatch(ctx context.Context, h *http.Client, ep Endpoint, b model.Batch) 
 	req.Header.Set("Content-Type", "application/json")
 	resp, e := h.Do(req)
 	if e != nil {
-		return errors.New("collector transport unavailable")
+		return fmt.Errorf("collector transport interrupted: %w", e)
 	}
 	defer resp.Body.Close()
 	payload, e := io.ReadAll(io.LimitReader(resp.Body, 4097))
-	if e != nil || len(payload) > 4096 {
+	if e != nil {
+		return fmt.Errorf("collector acknowledgement interrupted: %w", e)
+	}
+	if len(payload) > 4096 {
 		return errors.New("invalid collector acknowledgement")
 	}
 	if resp.StatusCode != 202 {

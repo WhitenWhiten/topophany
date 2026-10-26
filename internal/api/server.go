@@ -357,6 +357,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/observations", s.authorize("worker", s.ingest))
 	handler := s.browser(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w = rotationWriter{ResponseWriter: w, ctx: r.Context()}
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
@@ -366,6 +367,11 @@ func (s *Server) Handler() http.Handler {
 		// net/http translates this into GOAWAY for HTTP/2 and removes the
 		// header from the wire, closing the connection once streams finish.
 		w.Header().Set("Connection", "close")
+		if rotatingConnection(r.Context(), 0) {
+			w.Header().Set("Retry-After", "1")
+			writeError(w, 503, "connection_rotating")
+			return
+		}
 		// A request that authenticates answers to the budgets of its own
 		// principal, whatever it asks for, never to the slots and the rate
 		// shared by everything anonymous, so anonymous traffic, however much

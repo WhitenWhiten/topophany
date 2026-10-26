@@ -10,6 +10,7 @@ import (
 
 const maxConnectionLifetime = 2 * time.Minute
 const maxAuthenticationLifetime = 5 * time.Second
+const connectionDrainTimeout = 15 * time.Second
 
 // LimitListener bounds connections before TLS or HTTP parsing. Each source gets
 // at most a quarter of the pending capacity (and never more than 16 slots).
@@ -156,10 +157,38 @@ func (l *limitedListener) Accept() (net.Conn, error) {
 		// A timer, rather than a socket deadline, also bounds active keep-alive
 		// and HTTP/2 connections: net/http cannot extend it with SetDeadline.
 		out.mu.Lock()
-		out.timer = time.AfterFunc(min(l.lifetime, maxAuthenticationLifetime), func() { _ = out.Close() })
+		out.timer = time.AfterFunc(min(l.lifetime, maxAuthenticationLifetime), out.expire)
 		out.mu.Unlock()
 		return out, nil
 	}
+}
+
+// expire never cuts an authenticated request off at the rotation boundary.
+// Admission and response headers stop reuse; the second timer bounds draining
+// even when a peer stops reading or a handler never returns. Slots stay charged.
+func (c *limitedConn) expire() {
+	c.listener.mu.Lock()
+	authenticated := c.principal != ""
+	closed := c.closed
+	c.listener.mu.Unlock()
+	if closed {
+		return
+	}
+	if !authenticated {
+		_ = c.Close()
+		return
+	}
+	c.mu.Lock()
+	if !c.stopped {
+		c.draining = true
+		c.timer.Reset(connectionDrainTimeout)
+		// Reset retains expire as the callback: the next expiration closes.
+		c.stopped = true
+		c.mu.Unlock()
+		return
+	}
+	c.mu.Unlock()
+	_ = c.Close()
 }
 
 type limitedConn struct {
@@ -167,6 +196,7 @@ type limitedConn struct {
 	once              sync.Once
 	mu                sync.Mutex
 	timer             *time.Timer
+	draining, stopped bool // protected by mu
 	release           func()
 	listener          *limitedListener
 	source, principal string // principal and closed are protected by listener.mu
@@ -178,6 +208,7 @@ func (c *limitedConn) Close() error {
 	err := c.Conn.Close()
 	c.once.Do(func() {
 		c.mu.Lock()
+		c.stopped = true
 		if c.timer != nil {
 			c.timer.Stop()
 		}
