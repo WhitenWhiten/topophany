@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/WhitenWhiten/topophany/internal/config"
 	"github.com/WhitenWhiten/topophany/internal/engine"
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/testkit"
@@ -64,6 +65,62 @@ func TestServiceMihomoPolicyKeepsReportedScope(t *testing.T) {
 	r := (View{Snapshot: s, Now: now}).Rows(Services)[0]
 	if r.Health != "degraded" || r.Assessment.Reachability != "unknown" || r.Assessment.Evidence[0].Scope != "reported" || Pill(r) == "ACCESS FAIL" {
 		t.Fatal("Mihomo policy became an access failure", r)
+	}
+}
+
+func TestLocalServiceWarningSurvivesConfirmationAndRecovery(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		outcomes     []string
+		health, pill string
+	}{
+		{"unconfirmed_failure", []string{"fail"}, "degraded", "HEALTH WARN"},
+		{"recovering", []string{"fail", "fail", "ok"}, "degraded", "HEALTH WARN"},
+		{"confirmed_failure", []string{"fail", "fail"}, "down", "LOCAL FAIL"},
+		{"recovered", []string{"fail", "fail", "ok", "ok"}, "up", "UP"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := model.Config{Schema: 1, Project: "lab",
+				Nodes:     []model.Node{{ID: "host"}},
+				Observers: []model.Observer{{ID: "local", Node: "host", Context: "service host", StaleSeconds: 90}},
+				Services:  []model.Service{{ID: "web", Node: "host"}},
+				Checks:    []model.Check{{ID: "health", Service: "web", Observer: "local", Kind: "http", Target: "http://127.0.0.1/health", FailureThreshold: 2, RecoveryThreshold: 2}},
+			}
+			config.Defaults(&c)
+			if err := config.Validate(c); err != nil {
+				t.Fatal(err)
+			}
+			now := time.Now()
+			rows := make([]model.Observation, 0, len(tc.outcomes))
+			for i, outcome := range tc.outcomes {
+				rows = append(rows, testkit.Observation(c, "health", uint64(i+1), now.Add(time.Duration(i-len(tc.outcomes))*time.Second), outcome))
+			}
+			s := engine.Build(c, "review", "", rows, nil, now)
+			v := View{Snapshot: s, Now: now}
+			r := v.Rows(Services)[0]
+			if r.Health != tc.health || r.Assessment.Availability != tc.health || r.Assessment.Reachability != "unknown" || Pill(r) != tc.pill || State(r) != tc.pill {
+				t.Fatal("local check state was lost", r)
+			}
+			card, _ := v.Fleet().ServiceCard("web")
+			if card.Assessment.Availability != tc.health {
+				t.Fatal("card differs from service row", card.Assessment)
+			}
+			for _, mode := range []string{"cached", "stale", "unseen"} {
+				v := View{Snapshot: s, Now: now}
+				v.Snapshot.Checks = append([]model.CheckState(nil), s.Checks...)
+				switch mode {
+				case "cached":
+					v.Cached = true
+				case "stale":
+					v.Snapshot.Checks[0].Freshness = "stale"
+				case "unseen":
+					v.Snapshot.Checks = nil
+				}
+				if a := v.Rows(Services)[0].Assessment; a.Availability != "unknown" || a.Reachability != "unknown" {
+					t.Fatal(mode+" view borrowed local health", a)
+				}
+			}
+		})
 	}
 }
 func TestServiceSeparatesAvailabilityPathAndWorker(t *testing.T) {

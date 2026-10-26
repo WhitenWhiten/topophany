@@ -100,7 +100,7 @@ func serviceAssessments(s model.Snapshot, cached bool) map[string]ServiceAssessm
 	for id, sv := range services {
 		a := ServiceAssessment{Availability: "unknown", Reachability: "unknown", WorkerOnline: "unknown", Evidence: []ScopedServiceEvidence{}, Hints: []string{}}
 		remote, local, entry := 0, 0, 0
-		pathUp, pathDown, localDown, available, workerUp, workerMissing := false, false, false, false, false, false
+		pathUp, pathDown, localDown, localWarn, available, workerUp, workerMissing := false, false, false, false, false, false, false
 		for _, x := range byService[id] {
 			if x.Kind == "host" {
 				continue
@@ -151,6 +151,7 @@ func serviceAssessments(s model.Snapshot, cached bool) map[string]ServiceAssessm
 			}
 			if scope == "local" {
 				localDown = localDown || x.Kind == "http" && health == "down"
+				localWarn = localWarn || x.Kind == "http" && health == "degraded"
 			} else {
 				pathUp = pathUp || health == "up"
 				pathDown = pathDown || health == "down" || health == "degraded"
@@ -161,6 +162,9 @@ func serviceAssessments(s model.Snapshot, cached bool) map[string]ServiceAssessm
 		}
 		if available {
 			a.Availability = "up"
+		}
+		if localWarn {
+			a.Availability = "degraded"
 		}
 		if localDown {
 			a.Availability = "down"

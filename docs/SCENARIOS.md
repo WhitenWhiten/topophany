@@ -643,3 +643,9 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   Separate HTTP evidence still establishes availability. Covered by
   `TestServiceRuntimeReportsDoNotEstablishReachability` and
   `TestServiceMihomoPolicyKeepsReportedScope`.
+
+- A local HTTP failure below its confirmation threshold and a local check still
+  recovering both retain `HEALTH WARN`. Confirmed local failure reads `LOCAL FAIL`;
+  completed recovery reads `UP`. Cached, stale and unseen checks cannot supply
+  these states. Covered by
+  `TestLocalServiceWarningSurvivesConfirmationAndRecovery`.
