@@ -182,8 +182,8 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 			if code == "" && r.Error != "" {
 				code = "delivery_retry"
 			}
-			if r.Diagnostic.RetryOutcome == "recovered" {
-				repeats.RotationRecovered("delivery", r.Recipient, r.Diagnostic, time.Now())
+			if r.Error == "" && r.Diagnostic.RetryOutcome == "recovered" {
+				repeats.RetryRecovered("delivery", r.Recipient, r.Diagnostic, time.Now())
 			} else {
 				repeats.UpdateDiagnostic("delivery", r.Recipient, code, r.Diagnostic, time.Now())
 			}

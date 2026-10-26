@@ -353,7 +353,7 @@ func (rb *rowBuilder) observersRows(attentionOnly bool) []Row {
 		for _, d := range e.Delivery {
 			r.Details = append(r.Details, "", "Worker-reported delivery: "+d.Collector, "Reported: "+Age(v.Now, d.ReportedAt), fmt.Sprintf("Pending: %d records / %d bytes; worker quarantine: %d bytes", d.PendingRecords, d.PendingBytes, d.QuarantineBytes), "Last sample ACK: "+Age(v.Now, d.LastAck), "Last contact: "+Age(v.Now, d.LastContact), "Retry: "+Stamp(v.Now, d.RetryAt), "Reason: "+d.Code, fmt.Sprintf("Stage: %s; HTTP: %d; server code: %s; Retry-After: %ds", d.Stage, d.HTTPStatus, d.ServerCode, d.RetryAfterSeconds))
 			if !d.Attempt.At.IsZero() {
-				r.Details = append(r.Details, fmt.Sprintf("Attempt: %dms; connection known=%t reused=%t; attempts=%d retry=%s", d.Attempt.DurationMS, d.Attempt.ConnectionKnown, d.Attempt.ConnectionReused, d.Attempt.Attempts, d.Attempt.RetryOutcome))
+				r.Details = append(r.Details, fmt.Sprintf("Attempt: %dms; connection known=%t reused=%t; attempts=%d addresses=%d retry=%s", d.Attempt.DurationMS, d.Attempt.ConnectionKnown, d.Attempt.ConnectionReused, d.Attempt.Attempts, d.Attempt.AddressAttempts, d.Attempt.RetryOutcome))
 			}
 			if !d.LastFailure.At.IsZero() {
 				r.Details = append(r.Details, fmt.Sprintf("Recent failure: %s at %s; stage=%s HTTP=%d server=%s", d.LastFailure.Code, Stamp(v.Now, d.LastFailure.At), d.LastFailure.Stage, d.LastFailure.HTTPStatus, d.LastFailure.ServerCode))

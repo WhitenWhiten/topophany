@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const failureRetention = 30 * time.Minute
+
 func (q *Queue) deliveryStats(recipient string) (int, int64, int64) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -32,6 +34,9 @@ func (d *Delivery) Statuses() []model.DeliveryStatus {
 }
 func deliveryCode(err error) string { return client.FailureCode(err) }
 func (d *Delivery) publish(q *Queue, dest *destination, result Result) {
+	if d.Now().Sub(dest.lastFailure.At) > failureRetention {
+		dest.lastFailure = model.TransportEvent{}
+	}
 	id := Recipient(dest.endpoint.URL)
 	n, bytes, quarantine := q.deliveryStats(id)
 	if result.Accepted > 0 {
@@ -62,25 +67,16 @@ func (dest *destination) recordFailure(err error) time.Duration {
 	stage, serverCode, status, retry := client.FailureDetail(err)
 	dest.stage, dest.serverCode, dest.httpStatus = stage, serverCode, status
 	dest.retryAfterSeconds = int(retry / time.Second)
-	if !dest.lastFailure.At.IsZero() && dest.attempt.At.Sub(dest.lastFailure.At) > 30*time.Minute {
-		dest.lastFailure = model.TransportEvent{}
-	}
-	if err != nil {
-		event := dest.attempt
-		event.Stage, event.ServerCode, event.Code = stage, serverCode, dest.code
-		if status != 0 {
-			event.HTTPStatus = status
-		}
-		if event.At.IsZero() {
-			event.At = time.Now().UTC()
-		}
+	return retry
+}
+
+func (dest *destination) retainFailure(event model.TransportEvent) {
+	if event.Code != "" {
 		dest.lastFailure = event
-	} else if dest.attempt.RetryOutcome == "recovered" {
-		event := dest.attempt
+	} else if event.RetryOutcome == "recovered" {
 		event.Code = event.PreviousCode
 		event.Stage = event.PreviousStage
 		event.HTTPStatus = event.PreviousHTTPStatus
 		dest.lastFailure = event
 	}
-	return retry
 }

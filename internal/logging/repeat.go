@@ -30,7 +30,7 @@ func (r *Repeater) emit(event string, v repetition, now time.Time) {
 	fmt.Fprintf(r.Out, "at=%s event=%s component=%s entity=%s code=%s reports=%d first_at=%s last_at=%s", now.UTC().Format(time.RFC3339), event, v.component, v.entity, v.code, v.count, v.first.UTC().Format(time.RFC3339), v.last.UTC().Format(time.RFC3339))
 	if !v.diagnostic.At.IsZero() {
 		e := v.diagnostic
-		fmt.Fprintf(r.Out, " stage=%s http_status=%d server_code=%s duration_ms=%d connection_known=%t connection_reused=%t attempts=%d retry_outcome=%s retry_after_seconds=%d", e.Stage, e.HTTPStatus, e.ServerCode, e.DurationMS, e.ConnectionKnown, e.ConnectionReused, e.Attempts, e.RetryOutcome, e.RetryAfterSeconds)
+		fmt.Fprintf(r.Out, " stage=%s http_status=%d server_code=%s duration_ms=%d connection_known=%t connection_reused=%t attempts=%d address_attempts=%d retry_outcome=%s retry_after_seconds=%d", e.Stage, e.HTTPStatus, e.ServerCode, e.DurationMS, e.ConnectionKnown, e.ConnectionReused, e.Attempts, e.AddressAttempts, e.RetryOutcome, e.RetryAfterSeconds)
 	}
 	fmt.Fprintln(r.Out)
 }
@@ -104,9 +104,9 @@ func (r *Repeater) UpdateDiagnostic(component, entity, code string, diagnostic m
 	r.entries[key] = v
 }
 
-// RotationRecovered is informational: a retry already recovered, so it must
+// RetryRecovered is informational: a retry already recovered, so it must
 // not create an error entry or contribute an outage report.
-func (r *Repeater) RotationRecovered(component, entity string, e model.TransportEvent, now time.Time) {
+func (r *Repeater) RetryRecovered(component, entity string, e model.TransportEvent, now time.Time) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.Out == nil || !model.ValidTransportEvent(e, now) {
@@ -114,5 +114,9 @@ func (r *Repeater) RotationRecovered(component, entity string, e model.Transport
 	}
 	component, entity = bounded(component), bounded(entity)
 	delete(r.entries, component+"\x00"+entity)
-	r.emit("connection_rotation_recovered", repetition{component: component, entity: entity, code: "connection_closed", diagnostic: e, count: 1, first: now, last: now}, now)
+	event := "connection_rotation_recovered"
+	if e.AddressAttempts > 1 {
+		event = "delivery_failover_recovered"
+	}
+	r.emit(event, repetition{component: component, entity: entity, code: e.PreviousCode, diagnostic: e, count: 1, first: now, last: now}, now)
 }

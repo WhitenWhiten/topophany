@@ -629,7 +629,7 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   `TestIngressKindsHaveWindowAndNeverLogPeerText`.
 
 - Collector address failover retries gateway 5xx responses through an authenticated
-  alias while retaining sample IDs and timestamps. Authorization, throttling,
+  alias while retaining sample IDs and timestamps. POST authorization, throttling,
   configuration and storage-budget rejections do not switch addresses. Covered by
   `TestAliasGatewayFailoverPreservesRecipientRejections`.
 
@@ -649,3 +649,14 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   completed recovery reads `UP`. Cached, stale and unseen checks cannot supply
   these states. Covered by
   `TestLocalServiceWarningSurvivesConfirmationAndRecovery`.
+
+- Collector address retries retain the most recent failed request through a
+  successful alias and later healthy rounds. Total request/address attempts and
+  bounded elapsed time describe the whole round; recovery logs distinguish
+  address failover from connection rotation. Retained failures expire after
+  30 minutes even without another attempt, and enriched heartbeats stay within
+  their wire budget. Covered by `TestAliasFailoverRetainsFailedAddressDiagnostics`,
+  `TestFailedAliasesKeepBoundedAttemptCounts`,
+  `TestCombinedAttemptDurationStaysWithinWireBudget`,
+  `TestRecoveredFailoverIsInformationalAndPreservesCause` and
+  `TestTransportAddressAttemptsAreBoundedAndBackwardCompatible`.

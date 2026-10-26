@@ -15,6 +15,7 @@ type TransportEvent struct {
 	ConnectionKnown    bool      `json:"connection_known,omitempty"`
 	ConnectionReused   bool      `json:"connection_reused,omitempty"`
 	Attempts           int       `json:"attempts,omitempty"`
+	AddressAttempts    int       `json:"address_attempts,omitempty"`
 	RetryOutcome       string    `json:"retry_outcome,omitempty"`
 	PreviousStage      string    `json:"previous_stage,omitempty"`
 	PreviousHTTPStatus int       `json:"previous_http_status,omitempty"`
@@ -22,6 +23,9 @@ type TransportEvent struct {
 }
 
 func ValidTransportEvent(e TransportEvent, now time.Time) bool {
+	if e.AddressAttempts < 0 || e.AddressAttempts > 8 || e.AddressAttempts > e.Attempts {
+		return false
+	}
 	if e.PreviousHTTPStatus < 0 || e.PreviousHTTPStatus > 599 {
 		return false
 	}

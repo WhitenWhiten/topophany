@@ -224,6 +224,9 @@ func (d *Delivery) send(ctx context.Context, q *Queue, i int, hb *model.Heartbea
 		}
 		if result.Error == "" && result.Diagnostic.RetryOutcome == "recovered" {
 			result.Code = "connection_rotation_recovered"
+			if result.Diagnostic.AddressAttempts > 1 {
+				result.Code = "delivery_failover_recovered"
+			}
 		}
 		d.publish(q, dest, result)
 	}()

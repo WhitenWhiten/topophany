@@ -14,23 +14,29 @@ func (d *Delivery) post(ctx context.Context, dest *destination, b model.Batch) e
 	dest.attemptID++
 	ep := dest.endpoint
 	addresses := append([]string{ep.URL}, ep.AlternateURLs...)
+	var attempt model.TransportEvent
 	var last error
 	for offset := range addresses {
 		at := (dest.address + offset) % len(addresses)
 		candidate := ep
 		candidate.URL = addresses[at]
+		start, stamp := time.Now(), d.Now().UTC()
 		if ep.CollectorID != "" {
-			start := time.Now()
 			if _, err := client.IdentifyWorker(ctx, dest.http, candidate, d.Project); err != nil {
 				stage, server, status, retry := client.FailureDetail(err)
-				dest.attempt = model.TransportEvent{At: d.Now().UTC(), Stage: stage, Code: client.FailureCode(err), ServerCode: server, HTTPStatus: status, RetryAfterSeconds: int(retry / time.Second), DurationMS: time.Since(start).Milliseconds(), Attempts: 1}
+				event := model.TransportEvent{At: stamp, Stage: stage, Code: client.FailureCode(err), ServerCode: server, HTTPStatus: status, RetryAfterSeconds: int(retry / time.Second), DurationMS: time.Since(start).Milliseconds(), Attempts: 1, AddressAttempts: 1}
+				dest.retainFailure(event)
+				attempt = combineAttempts(attempt, event)
+				dest.attempt = attempt
 				last = err
 				continue
 			}
 		}
 		event, err := client.PostBatchDetailed(ctx, dest.http, candidate, b)
-		event.At = d.Now().UTC()
-		dest.attempt = event
+		event.At, event.DurationMS, event.AddressAttempts = stamp, time.Since(start).Milliseconds(), 1
+		dest.retainFailure(event)
+		attempt = combineAttempts(attempt, event)
+		dest.attempt = attempt
 		if err == nil {
 			dest.address = at
 			return nil
@@ -44,6 +50,27 @@ func (d *Delivery) post(ctx context.Context, dest *destination, b model.Batch) e
 		}
 	}
 	return last
+}
+
+// Aggregate one bounded event for the round; retainFailure keeps the actual
+// most recent failed request separately, before a successful alias replaces it.
+func combineAttempts(previous, current model.TransportEvent) model.TransportEvent {
+	if previous.Attempts == 0 {
+		return current
+	}
+	current.At = previous.At
+	current.Attempts += previous.Attempts
+	current.AddressAttempts += previous.AddressAttempts
+	// The wire contract bounds elapsed telemetry to two minutes.
+	current.DurationMS = min(120000, current.DurationMS+previous.DurationMS)
+	if current.PreviousCode == "" {
+		current.PreviousCode, current.PreviousStage, current.PreviousHTTPStatus = previous.Code, previous.Stage, previous.HTTPStatus
+	}
+	current.RetryOutcome = "recovered"
+	if current.Code != "" {
+		current.RetryOutcome = "failed"
+	}
+	return current
 }
 
 func retryAddress(err error) bool {

@@ -10,7 +10,7 @@ import (
 
 func TestEnrichedDeliveryTelemetryKeepsHeartbeatBudget(t *testing.T) {
 	now := time.Now().UTC()
-	event := model.TransportEvent{At: now, Stage: "ack", Code: "ack_identity_mismatch", HTTPStatus: 202, DurationMS: 12000, Attempts: 2, RetryOutcome: "failed", PreviousCode: "connection_closed", PreviousStage: "response", ConnectionKnown: true, ConnectionReused: true}
+	event := model.TransportEvent{At: now, Stage: "ack", Code: "ack_identity_mismatch", HTTPStatus: 202, DurationMS: 120000, Attempts: 16, AddressAttempts: 8, RetryOutcome: "failed", PreviousCode: "connection_closed", PreviousStage: "response", ConnectionKnown: true, ConnectionReused: true}
 	d := &Delivery{Now: func() time.Time { return now }, reports: map[string]model.DeliveryStatus{}}
 	for i := range 8 {
 		rid := fmt.Sprintf("%016x", i)
