@@ -34,8 +34,14 @@ const (
 	MaxTunnelColos         = 8
 )
 
-// A Cloudflare account, zone, tunnel and pool identifier is 32 hex characters.
+// Account, zone and pool identifiers are 32 hex characters. Tunnel IDs use
+// UUIDs; keep the previously accepted compact form without normalizing it so
+// existing configurations retain their request paths and measurement contracts.
+// Share the tunnel shape with the request allowlist.
+const tunnelIDPattern = `(?:[0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`
+
 var hexID = regexp.MustCompile(`^[0-9a-fA-F]{32}$`)
+var tunnelID = regexp.MustCompile(`^` + tunnelIDPattern + `$`)
 
 // A connector version is a short token such as 2026.10.0. Anything that could
 // echo an arbitrary response string is not a version.
@@ -48,8 +54,11 @@ var versionToken = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z._+-]{0,23}$`)
 func Validate(o model.CloudflareOptions) error {
 	switch o.Read {
 	case ReadTunnel:
-		if err := requireIDs(o.AccountID, o.TunnelID); err != nil {
-			return err
+		if !hexID.MatchString(o.AccountID) {
+			return errors.New("cloudflare read requires a 32-character hex account_id")
+		}
+		if !tunnelID.MatchString(o.TunnelID) {
+			return errors.New("cloudflare tunnel read requires a UUID tunnel_id (or legacy 32-character hex ID)")
 		}
 		if o.ZoneID != "" || o.RecordName != "" || o.RecordType != "" || o.ExpectedProxied != nil || o.ExpectedContent != "" || o.PoolID != "" || len(o.ExpectedOrigins) > 0 {
 			return errors.New("cloudflare tunnel read accepts only account_id, tunnel_id, expected_connections and expected_colos")
@@ -114,8 +123,8 @@ func Validate(o model.CloudflareOptions) error {
 	return nil
 }
 
-// requireIDs checks the two identifiers the tunnel and pool reads share: an
-// account and one resource. The error names both so a misplaced field is
+// requireIDs checks the pool read's two hex identifiers: an account and a
+// pool. The error names both so a misplaced field is
 // reported as what is missing.
 func requireIDs(account, resource string) error {
 	if !hexID.MatchString(account) {

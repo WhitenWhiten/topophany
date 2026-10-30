@@ -2,14 +2,18 @@ package probe
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
 	"github.com/WhitenWhiten/topophany/internal/adapters/cloudflare"
+	"github.com/WhitenWhiten/topophany/internal/config"
 	"github.com/WhitenWhiten/topophany/internal/model"
+	"github.com/WhitenWhiten/topophany/internal/testkit"
 )
 
 func cloudflareCheck(target string) model.Check {
@@ -53,6 +57,49 @@ func TestRunCloudflareReportedRead(t *testing.T) {
 	}
 	if got := hits.Load(); got != 1 {
 		t.Fatalf("requests=%d", got)
+	}
+}
+
+// A reviewed topology with a canonical UUID must reach the existing tunnel
+// endpoint through the production transport. Compact IDs keep their spelling.
+func TestRunCloudflareTunnelID(t *testing.T) {
+	t.Setenv("TOPH_CLOUDFLARE_PROBE_TOKEN", "test-token")
+	for _, id := range []string{
+		"1bedc50d-42b3-473c-b108-ff3d10c0d925",
+		"1BEDC50D-42B3-473C-B108-FF3D10C0D925",
+		"22222222222222222222222222222222",
+	} {
+		t.Run(id, func(t *testing.T) {
+			var hits atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				hits.Add(1)
+				want := "/client/v4/accounts/11111111111111111111111111111111/cfd_tunnel/" + id
+				if r.Method != http.MethodGet || r.URL.EscapedPath() != want || r.URL.RawQuery != "" {
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL)
+				}
+				if r.Header.Get("Authorization") != "Bearer test-token" {
+					t.Error("missing synthetic bearer token")
+				}
+				io.WriteString(w, `{"success":true,"result":{"status":"healthy"}}`)
+			}))
+			defer srv.Close()
+			x := cloudflareCheck(srv.URL + "/client/v4")
+			x.Adapter.Cloudflare.TunnelID = id
+			c := testkit.Config()
+			c.Checks = []model.Check{x}
+			raw, err := json.Marshal(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c, err = config.Decode(strings.NewReader(string(raw)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			o := Runner{}.Run(context.Background(), c, c.Checks[0])
+			if hits.Load() != 1 || o.Outcome != "ok" || o.Evidence != "reported" || o.PathEvidence != cloudflare.PathEvidence || o.Connectivity {
+				t.Fatalf("requests=%d observation=%+v", hits.Load(), o)
+			}
+		})
 	}
 }
 

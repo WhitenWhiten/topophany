@@ -51,9 +51,20 @@ func TestReadOnceAllowlist(t *testing.T) {
 		allowed bool
 	}{
 		{"tunnel", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID}, true},
+		{"tunnel uppercase UUID", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + strings.ToUpper(testTunnelID)}, true},
+		{"tunnel legacy compact", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + legacyTunnelID}, true},
 		{"pool", readRequest{path: "/accounts/" + testAccountID + "/load_balancers/pools/" + testPoolID + "/health"}, true},
 		{"dns", readRequest{path: "/zones/" + testZoneID + "/dns_records", query: map[string][]string{"name": {"www.example.com"}, "type": {"A"}}}, true},
 		{"connections endpoint", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID + "/connections"}, false},
+		{"tunnel extra suffix", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID + "x"}, false},
+		{"tunnel extra prefix", readRequest{path: "/other/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID}, false},
+		{"tunnel trailing slash", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID + "/"}, false},
+		{"tunnel encoded slash", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID + "%2fconnections"}, false},
+		{"tunnel encoded traversal", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID + "/%2e%2e"}, false},
+		{"tunnel malformed UUID", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/1bedc50d4-2b3-473c-b108-ff3d10c0d925"}, false},
+		{"tunnel UUID account", readRequest{path: "/accounts/" + testTunnelID + "/cfd_tunnel/" + testTunnelID}, false},
+		{"pool UUID resource", readRequest{path: "/accounts/" + testAccountID + "/load_balancers/pools/" + testTunnelID + "/health"}, false},
+		{"dns UUID zone", readRequest{path: "/zones/" + testTunnelID + "/dns_records", query: map[string][]string{"name": {"www.example.com"}, "type": {"A"}}}, false},
 		{"traversal", readRequest{path: "/accounts/../cfd_tunnel/x"}, false},
 		{"encoded traversal", readRequest{path: "/accounts/%2e%2e/cfd_tunnel/x"}, false},
 		{"verify token", readRequest{path: "/user/tokens/verify"}, false},
@@ -64,6 +75,7 @@ func TestReadOnceAllowlist(t *testing.T) {
 		{"dns query on tunnel", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID, query: map[string][]string{"name": {"x"}}}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			before := hits.Load()
 			_, err := readOnce(context.Background(), client, srv.URL, tc.request, "token", 1<<10)
 			if tc.allowed {
 				if err != nil {
@@ -74,10 +86,13 @@ func TestReadOnceAllowlist(t *testing.T) {
 			if code := failureCode(err); code != "api_path_not_allowed" {
 				t.Fatalf("code=%q err=%v", code, err)
 			}
+			if hits.Load() != before {
+				t.Fatal("a disallowed path reached the server")
+			}
 		})
 	}
-	if got := hits.Load(); got != 3 {
-		t.Fatalf("disallowed paths reached the server: %d requests", got)
+	if got := hits.Load(); got != 5 {
+		t.Fatalf("requests=%d want 5 allowed requests", got)
 	}
 }
 

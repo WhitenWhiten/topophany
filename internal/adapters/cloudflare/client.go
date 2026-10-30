@@ -42,12 +42,12 @@ const (
 	maxJSONContainers = 1024
 )
 
-// The exact paths this adapter may request. The identifiers are 32 hex
-// characters and the DNS query carries only a name and a closed type, so a
+// The exact paths this adapter may request. Identifiers are 32 hex characters
+// or, for a tunnel, a UUID. The DNS query carries only a name and a closed type, so a
 // path outside these forms (including one with traversal segments) is refused
 // before any request is built. There is no prefix or suffix exception.
 var (
-	tunnelPath     = regexp.MustCompile(`^/accounts/[0-9a-fA-F]{32}/cfd_tunnel/[0-9a-fA-F]{32}$`)
+	tunnelPath     = regexp.MustCompile(`^/accounts/[0-9a-fA-F]{32}/cfd_tunnel/` + tunnelIDPattern + `$`)
 	dnsPath        = regexp.MustCompile(`^/zones/[0-9a-fA-F]{32}/dns_records$`)
 	poolHealthPath = regexp.MustCompile(`^/accounts/[0-9a-fA-F]{32}/load_balancers/pools/[0-9a-fA-F]{32}/health$`)
 )
@@ -201,8 +201,8 @@ func scrubToken(o *model.Observation, token string) {
 }
 
 // readFor builds the one request and body budget the selected read uses. Every
-// segment comes from a value Validate has already constrained: hex
-// identifiers, a DNS name and a closed record type.
+// segment comes from a value Validate has already constrained: hex identifiers
+// or a tunnel UUID, a DNS name and a closed record type.
 func readFor(options model.CloudflareOptions) (readRequest, int64) {
 	switch options.Read {
 	case ReadTunnel:

@@ -87,6 +87,44 @@ func TestCloudflareValidation(t *testing.T) {
 	}
 }
 
+// Validation and JSON decoding must preserve both UUID and legacy ID spelling.
+// The frozen probe.TestAdapterCompatibility fixture pins the legacy contract.
+func TestCloudflareTunnelIDRoundTripAndContract(t *testing.T) {
+	for _, id := range []string{
+		"1bedc50d-42b3-473c-b108-ff3d10c0d925",
+		"1BEDC50D-42B3-473C-B108-FF3D10C0D925",
+		"22222222222222222222222222222222",
+	} {
+		t.Run(id, func(t *testing.T) {
+			o := cloudflareTunnelOptions()
+			o.TunnelID = id
+			c := cloudflareConfig(o)
+			before := config.Contract(c, c.Checks[0])
+			if err := config.Validate(c); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := json.Marshal(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			back, err := config.Decode(strings.NewReader(string(raw)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if back.Checks[0].Adapter.Cloudflare.TunnelID != id || config.Contract(back, back.Checks[0]) != before {
+				t.Fatal("validation or JSON decoding changed the tunnel ID or contract")
+			}
+			public := config.Public(back)
+			if err := config.ValidatePublic(public); err != nil {
+				t.Fatal(err)
+			}
+			if public.Checks[0].Adapter.Cloudflare.TunnelID != id {
+				t.Fatal("public topology changed the tunnel ID")
+			}
+		})
+	}
+}
+
 // The nested options are part of the measurement contract: setting or
 // changing them changes that check's contract and no other, they are not
 // secrets, and clone and the typed view detach every pointer and slice. An

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Cloudflare Tunnel API checks accept standard hyphenated UUIDs in both
+  configuration validation and request paths. Legacy 32-hex tunnel IDs remain
+  accepted without changing their spelling or measurement contracts; account,
+  zone and pool ID validation remains unchanged.
+
 ## [1.5.1] - 2026-10-26
 
 This release adds live viewer diagnostics, per-source HTTP consent for direct

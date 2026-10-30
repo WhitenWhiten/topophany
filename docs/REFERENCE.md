@@ -953,8 +953,12 @@ Cloudflare's documented limit of about 1,200 requests per five minutes per user
 (the limit is shared by that user's tokens).
 
 `adapter.cloudflare.read` selects exactly one of `tunnel`, `dns_record` or
-`pool`. `account_id`, `zone_id`, `tunnel_id` and `pool_id` are 32 hex
-characters; `record_name` is a DNS name and `record_type` is `A`, `AAAA` or
+`pool`. `account_id`, `zone_id` and `pool_id` are 32 ASCII hex characters.
+`tunnel_id` accepts a UUID in `8-4-4-4-12` ASCII hex form, with uppercase or
+lowercase letters; legacy 32-hex inputs remain accepted. Its spelling is
+preserved in the configuration and request path, without normalization, so
+existing configurations keep their measurement contracts. `record_name` is a
+DNS name and `record_type` is `A`, `AAAA` or
 `CNAME`. `expected_proxied` and `expected_content` belong to the DNS read,
 `expected_connections` (1..64) and `expected_colos` (at most eight three-letter
 uppercase codes) to the tunnel read, and `expected_origins` (at most sixteen IP
