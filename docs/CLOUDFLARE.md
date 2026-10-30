@@ -137,6 +137,11 @@ permission needed for each read, restricted to the relevant account or zone:
 | `dns_record` | `zone_id`, `record_name`, `record_type` (`A`, `AAAA`, `CNAME`) | Zone › DNS › Read |
 | `pool` | `account_id`, `pool_id` | Account › Load Balancing: Monitors and Pools › Read |
 
+For `tunnel_id`, use the Tunnel's UUID, such as the placeholder
+`00000000-0000-4000-8000-000000000000`. Uppercase and lowercase ASCII hex are
+accepted, as are legacy 32-hex inputs; the spelling is preserved in the
+topology and request path. Account, zone and pool IDs remain 32 hex characters.
+
 For example, add this DNS check after replacing the zone ID and record name:
 
 ```json

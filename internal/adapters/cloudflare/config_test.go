@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/WhitenWhiten/topophany/internal/model"
@@ -12,10 +13,11 @@ import (
 const (
 	fixtureDir = "testdata/api-v4/2026-10-19"
 
-	testAccountID = "11111111111111111111111111111111"
-	testZoneID    = "33333333333333333333333333333333"
-	testTunnelID  = "22222222222222222222222222222222"
-	testPoolID    = "44444444444444444444444444444444"
+	testAccountID  = "11111111111111111111111111111111"
+	testZoneID     = "33333333333333333333333333333333"
+	testTunnelID   = "1bedc50d-42b3-473c-b108-ff3d10c0d925"
+	testPoolID     = "44444444444444444444444444444444"
+	legacyTunnelID = "22222222222222222222222222222222"
 )
 
 func boolPtr(v bool) *bool { return &v }
@@ -58,6 +60,7 @@ func TestValidateOptions(t *testing.T) {
 		{"tunnel missing account", model.CloudflareOptions{Read: ReadTunnel, TunnelID: testTunnelID}, false},
 		{"tunnel missing tunnel", model.CloudflareOptions{Read: ReadTunnel, AccountID: testAccountID}, false},
 		{"tunnel short id", model.CloudflareOptions{Read: ReadTunnel, AccountID: "abc", TunnelID: testTunnelID}, false},
+		{"tunnel UUID account", model.CloudflareOptions{Read: ReadTunnel, AccountID: testTunnelID, TunnelID: testTunnelID}, false},
 		{"tunnel non-hex id", model.CloudflareOptions{Read: ReadTunnel, AccountID: testAccountID, TunnelID: "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"}, false},
 		{"tunnel with zone", func() model.CloudflareOptions {
 			o := tunnelOptions()
@@ -95,6 +98,7 @@ func TestValidateOptions(t *testing.T) {
 		{"dns CNAME", func() model.CloudflareOptions { o := dnsOptions(); o.RecordType = "CNAME"; return o }(), true},
 		{"dns MX", func() model.CloudflareOptions { o := dnsOptions(); o.RecordType = "MX"; return o }(), false},
 		{"dns missing zone", model.CloudflareOptions{Read: ReadDNSRecord, RecordName: "www.example.com", RecordType: "A"}, false},
+		{"dns UUID zone", func() model.CloudflareOptions { o := dnsOptions(); o.ZoneID = testTunnelID; return o }(), false},
 		{"dns bad name", func() model.CloudflareOptions { o := dnsOptions(); o.RecordName = "www example.com"; return o }(), false},
 		{"dns wildcard name", func() model.CloudflareOptions { o := dnsOptions(); o.RecordName = "*.example.com"; return o }(), true},
 		{"dns with account", func() model.CloudflareOptions { o := dnsOptions(); o.AccountID = testAccountID; return o }(), false},
@@ -102,6 +106,8 @@ func TestValidateOptions(t *testing.T) {
 		{"dns expected content", func() model.CloudflareOptions { o := dnsOptions(); o.ExpectedContent = "198.51.100.7"; return o }(), true},
 		{"dns control content", func() model.CloudflareOptions { o := dnsOptions(); o.ExpectedContent = "198.51.100.7\nX"; return o }(), false},
 		{"pool", poolOptions(), true},
+		{"pool UUID account", func() model.CloudflareOptions { o := poolOptions(); o.AccountID = testTunnelID; return o }(), false},
+		{"pool UUID resource", func() model.CloudflareOptions { o := poolOptions(); o.PoolID = testTunnelID; return o }(), false},
 		{"pool expected origins", func() model.CloudflareOptions {
 			o := poolOptions()
 			o.ExpectedOrigins = []string{"192.0.2.10", "2001:db8::10", "origin.example.com"}
@@ -137,6 +143,44 @@ func TestValidateOptions(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := Validate(tc.options); (err == nil) != tc.valid {
+				t.Fatalf("valid=%v; got %v", tc.valid, err)
+			}
+		})
+	}
+}
+
+func TestValidateTunnelIDs(t *testing.T) {
+	for _, tc := range []struct {
+		name, id string
+		valid    bool
+	}{
+		{"UUID lowercase", testTunnelID, true},
+		{"UUID uppercase", strings.ToUpper(testTunnelID), true},
+		{"legacy compact", legacyTunnelID, true},
+		{"legacy compact uppercase", "ABCDEF0123456789ABCDEF0123456789", true},
+		{"empty", "", false},
+		{"short", testTunnelID[:len(testTunnelID)-1], false},
+		{"long", testTunnelID + "0", false},
+		{"wrong groups", "1bedc50d4-2b3-473c-b108-ff3d10c0d925", false},
+		{"non hex", "g" + testTunnelID[1:], false},
+		{"leading space", " " + testTunnelID, false},
+		{"trailing space", testTunnelID + " ", false},
+		{"newline", testTunnelID + "\n", false},
+		{"braces", "{" + testTunnelID + "}", false},
+		{"URN", "urn:uuid:" + testTunnelID, false},
+		{"encoded hyphens", strings.ReplaceAll(testTunnelID, "-", "%2D"), false},
+		{"unicode hyphen", strings.ReplaceAll(testTunnelID, "-", "‐"), false},
+		{"path", testTunnelID + "/connections", false},
+		{"traversal", "../" + testTunnelID, false},
+		{"encoded traversal", "%2e%2e%2f" + testTunnelID, false},
+		{"backslash", testTunnelID + "\\connections", false},
+		{"query", testTunnelID + "?x=1", false},
+		{"fragment", testTunnelID + "#x", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o := tunnelOptions()
+			o.TunnelID = tc.id
+			if err := Validate(o); (err == nil) != tc.valid {
 				t.Fatalf("valid=%v; got %v", tc.valid, err)
 			}
 		})

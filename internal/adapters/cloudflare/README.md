@@ -144,8 +144,12 @@ bearer token is attached only after the allowlist check.
 ### Options
 
 `adapter.cloudflare` is nested inside `adapter`: `read` is required and names
-one of the three reads. `account_id`, `zone_id`, `tunnel_id` and `pool_id` are
-32 hex characters; `record_name` is a DNS name (a whole `*` label is allowed for
+one of the three reads. `account_id`, `zone_id` and `pool_id` are 32 ASCII hex
+characters. `tunnel_id` accepts a UUID in `8-4-4-4-12` ASCII hex form, with
+uppercase or lowercase letters; legacy 32-hex inputs remain accepted. Its
+spelling is preserved in the configuration and request path, without
+normalization, so existing configurations keep their measurement contracts.
+`record_name` is a DNS name (a whole `*` label is allowed for
 a wildcard record); `record_type` is `A`, `AAAA` or `CNAME`. `expected_proxied`
 and `expected_content` belong to the DNS read; `expected_connections` (1..64)
 and `expected_colos` (≤ 8 three-uppercase-letter codes) to the tunnel read;
