@@ -143,6 +143,10 @@ func (r Runner) Run(ctx context.Context, c model.Config, x model.Check) model.Ob
 		since = time.Since
 	}
 	o.DurationMS = since(start).Milliseconds()
+	if o.Outcome == "ok" && x.MaxDurationMS > 0 && o.DurationMS > int64(x.MaxDurationMS) {
+		o.Outcome, o.Stage, o.Code = "policy", "latency_policy", "latency_exceeded"
+		o.Detail = "successful measurement exceeded the configured duration budget"
+	}
 	return o
 }
 func pinned(address, ip string) string {

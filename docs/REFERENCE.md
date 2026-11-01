@@ -1280,3 +1280,14 @@ confirmation using the existing policy mechanism.
 This assertion participates in the measurement contract. Zero/omitted values
 preserve legacy contracts. Upgrade collector, workers and viewers before adding
 the new topology field; older binaries reject unsupported configuration fields.
+
+### Sustained latency policy
+
+Measured network checks accept `max_duration_ms` (0 disables; maximum 300000).
+A successful request exceeding that elapsed-time budget records `policy` /
+`latency_exceeded`, preserving connectivity. Failed requests and other policy
+violations retain precedence. Use `policy_threshold` to require consecutive
+policy samples before confirmation; it counts all policy outcomes on that check.
+Use separate checks if certificate, exit and latency streaks must be independent.
+Upgrade all components before enabling new policy fields; disabled fields leave
+existing measurement contracts unchanged.

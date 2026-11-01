@@ -18,23 +18,24 @@ import (
 // can change without touching the contract, so the check keeps its
 // history and in-flight samples stay valid.
 type contract struct {
-	TLSMinDays int                  `json:"tls_min_days,omitempty"`
-	Schema     int                  `json:"schema"`
-	Project    string               `json:"project"`
-	Check      string               `json:"check"`
-	Observer   string               `json:"observer"`
-	Kind       string               `json:"kind"`
-	Target     string               `json:"target"`
-	Timeout    int                  `json:"timeout_seconds"`
-	BindIP     string               `json:"bind_ip,omitempty"`
-	Resolve    string               `json:"resolve_ip,omitempty"`
-	Server     string               `json:"server_name,omitempty"`
-	CAFile     string               `json:"ca_file,omitempty"`
-	HTTP       model.HTTPOptions    `json:"http"`
-	DNS        model.DNSOptions     `json:"dns"`
-	Adapter    model.AdapterOptions `json:"adapter"`
-	Host       *model.HostOptions   `json:"host,omitempty"`
-	Proxies    []model.Proxy        `json:"proxies,omitempty"`
+	MaxDurationMS int                  `json:"max_duration_ms,omitempty"`
+	TLSMinDays    int                  `json:"tls_min_days,omitempty"`
+	Schema        int                  `json:"schema"`
+	Project       string               `json:"project"`
+	Check         string               `json:"check"`
+	Observer      string               `json:"observer"`
+	Kind          string               `json:"kind"`
+	Target        string               `json:"target"`
+	Timeout       int                  `json:"timeout_seconds"`
+	BindIP        string               `json:"bind_ip,omitempty"`
+	Resolve       string               `json:"resolve_ip,omitempty"`
+	Server        string               `json:"server_name,omitempty"`
+	CAFile        string               `json:"ca_file,omitempty"`
+	HTTP          model.HTTPOptions    `json:"http"`
+	DNS           model.DNSOptions     `json:"dns"`
+	Adapter       model.AdapterOptions `json:"adapter"`
+	Host          *model.HostOptions   `json:"host,omitempty"`
+	Proxies       []model.Proxy        `json:"proxies,omitempty"`
 }
 
 // Contract is a check's contract in c. Executors stamp it on their samples
@@ -50,7 +51,7 @@ func Contract(c model.Config, x model.Check) string {
 
 func measurement(project string, x model.Check, target string, proxies []model.Proxy) string {
 	httpOpt, dnsOpt, adapter, host := measuredOptions(x)
-	b, _ := json.Marshal(contract{TLSMinDays: x.TLSMinDays, Schema: 2, Project: project, Check: x.ID, Observer: x.Observer, Kind: x.Kind, Target: target, Timeout: x.TimeoutSeconds, BindIP: x.BindIP, Resolve: x.ResolveIP, Server: x.ServerName, CAFile: x.CAFile, HTTP: httpOpt, DNS: dnsOpt, Adapter: adapter, Host: host, Proxies: proxies})
+	b, _ := json.Marshal(contract{MaxDurationMS: x.MaxDurationMS, TLSMinDays: x.TLSMinDays, Schema: 2, Project: project, Check: x.ID, Observer: x.Observer, Kind: x.Kind, Target: target, Timeout: x.TimeoutSeconds, BindIP: x.BindIP, Resolve: x.ResolveIP, Server: x.ServerName, CAFile: x.CAFile, HTTP: httpOpt, DNS: dnsOpt, Adapter: adapter, Host: host, Proxies: proxies})
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
 }
