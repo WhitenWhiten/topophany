@@ -26,6 +26,7 @@ var topologyTemplates = []topologyTemplate{
 	{"komari", "Komari resource collection through a collector", "internal/adapters/komari/README.md", "Resource mapping targets Komari 1.6.0; disk is aggregate and does not prove application availability."},
 	{"applications", "Group services by application and environment", "docs/GUIDE.md", "Unmonitored services remain unknown."},
 	{"address-registry", "Shared address definitions", "docs/REFERENCE.md", "Address changes can reset affected measurement contracts."},
+	{"mihomo", "Mihomo core runtime and an application check through it", "internal/adapters/mihomo/README.md", "Reported mode, TUN and selection do not prove that application traffic followed that route; keep the separate application check."},
 }
 
 func (a *App) templates(args []string) error {

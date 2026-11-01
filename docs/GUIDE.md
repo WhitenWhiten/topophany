@@ -23,11 +23,19 @@ Network setup prepares an installation bundle from a reviewed topology.
 `topo templates list` lists task descriptions, evidence boundaries and adapter
 compatibility notes bundled with this binary. `topo templates cloudflare --output
 cloudflare.json` writes a new topology; substitute `homelab`, `host-resources`,
-`beszel`, `komari`, `minimal`, `applications` or `address-registry` as needed.
-Every generated check is paused. Existing files are refused. Review the addresses,
-observer IDs, assertions and environment-variable credentials before enabling
-checks and running `topo validate`. The output identifies the relevant guide.
-Templates work offline and are validated by the same configuration parser.
+`beszel`, `komari`, `mihomo`, `minimal`, `applications` or `address-registry` as
+needed. Every generated check is paused. Existing files are refused. Review the
+addresses, observer IDs, assertions and environment-variable credentials before
+enabling checks and running `topo validate`. The output identifies the relevant
+guide. Templates work offline and are validated by the same configuration parser.
+
+The `mihomo` template runs its worker on the machine with the core. It reads
+the external controller at `http://127.0.0.1:9090` with the secret named by
+`adapter.token_env`, and asserts the reported mode and TUN state for the
+`root_proxy` group. Those are reported runtime state, not proof that application
+traffic followed that route, so the template keeps a separate HTTP application
+check through the core's local listener. See the
+[Mihomo adapter guide](../internal/adapters/mihomo/README.md).
 
 ## Monitor a website
 

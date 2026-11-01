@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   counters and keepalive matches, plus the expected WireGuard keepalive. Values
   that are not in a fact's closed shape are withheld, and peer names, addresses,
   keys and the DERP region name are never exported.
+- `topo templates mihomo` writes a paused starter topology: a worker beside the
+  core reads its loopback controller with `token_env`, `root_proxy`,
+  `expected_mode` and `expected_tun`, and a separate HTTP check through the
+  core's listener supplies application evidence.
 
 ## [1.5.2] - 2026-11-01
 
