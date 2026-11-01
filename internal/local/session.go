@@ -57,7 +57,7 @@ func profileConfig(p Profile, secrets map[string]string) (model.Config, error) {
 // start replaces the running scheduler with one for cfg. The previous one
 // has stopped and recorded its last sample before evidence is reconciled.
 func (s *Session) start(revision string, cfg model.Config, secrets map[string]string) error {
-	sched, err := runner.New(cfg, Observer, max(1, len(cfg.Checks)), probe.Runner{Secret: secretResolver(secrets)}.Run, s.record)
+	sched, err := runner.New(cfg, Observer, max(1, len(cfg.Checks)), probe.Runner{Secret: secretResolver(secrets), LocalViewer: true}.Run, s.record)
 	if err != nil {
 		return fail("invalid_request")
 	}

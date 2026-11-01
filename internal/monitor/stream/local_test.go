@@ -35,7 +35,7 @@ func localEngine(t *testing.T, reads *atomic.Int32) *httptest.Server {
 		case "/version":
 			_, _ = io.WriteString(w, `{"meta":true,"version":"v1.19.99"}`)
 		case "/proxies":
-			_, _ = io.WriteString(w, `{"proxies":{"Proxy":{"type":"Selector","now":"DIRECT","all":["test-net-a","DIRECT"]},"test-net-a":{"type":"Shadowsocks"}}}`)
+			_, _ = io.WriteString(w, `{"proxies":{"Proxy":{"type":"Selector","now":"test-net-a","all":["test-net-a","DIRECT"],"testUrl":"https://example.invalid/204"},"test-net-a":{"type":"Shadowsocks"}}}`)
 		case "/providers/proxies":
 			_, _ = io.WriteString(w, `{"providers":{}}`)
 		default:
@@ -112,7 +112,8 @@ func TestLocalStreamRunsChecksReloadsAndStopsWithItsLastHandle(t *testing.T) {
 		t.Fatal(string(b))
 	}
 	facts := diagnostic["facts"].(map[string]any)
-	if facts["mode"] != "rule" || facts["tun_enabled"] != "false" || facts["reported_selection"] != "DIRECT" || facts["peer_text"] != "withheld_secret_request" {
+	// The local viewer supplied the secret: names stay, other peer text not.
+	if facts["mode"] != "rule" || facts["tun_enabled"] != "false" || facts["reported_selection"] != "test-net-a" || facts["reported_chain"] != "test-net-a" || facts["peer_text"] != "names_kept_local_secret_request" || facts["test_url"] != nil {
 		t.Fatal(facts)
 	}
 	if list := frame.Rows[1].Value.([]monitor.CheckListEntry); len(list) != 1 || list[0].ID != check.ID || list[0].Health != "up" {

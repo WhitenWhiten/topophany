@@ -37,6 +37,9 @@ type Runner struct {
 	// Secret resolves a Mihomo check's token_env name. Nil reads the process
 	// environment; the local stream resolves its stored secrets instead.
 	Secret func(string) (string, error)
+	// LocalViewer marks reads shown only to this machine's local stream,
+	// never delivered to a collector; see mihomo.Dependencies.LocalViewer.
+	LocalViewer bool
 	// since defaults to time.Since; tests model wall-clock steps independently
 	// of the monotonic clock without changing the system clock.
 	since func(time.Time) time.Duration

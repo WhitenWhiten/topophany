@@ -25,7 +25,9 @@ type coreProviders struct {
 
 func collectProviders(ctx context.Context, deps Dependencies, client *http.Client, x model.Check, target, token string, name func(string) string, o *model.Observation, out *coreProviders, needChain bool) error {
 	options := x.Adapter.Mihomo()
-	private := o.Facts["peer_text"] == adapters.Withheld
+	// Comparison counts stay withheld for every secret-bearing read,
+	// including one whose names a local viewer keeps.
+	private := o.Facts["peer_text"] == adapters.Withheld || o.Facts["peer_text"] == adapters.NamesKeptLocal
 	if len(options.ProviderMatchModes) > 0 && Validate(options) != nil {
 		return adapters.Local("setup", "invalid_provider_options")
 	}

@@ -45,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--local-root` selects a private root. Capabilities advertise `local` and its
   configuration API. Reads never change the engine and nothing leaves the
   machine.
+- A local check sent the engine's secret keeps the real names in
+  `reported_chain` and `reported_selection`, sanitized as for a controller
+  without a secret, and marks the read `peer_text:
+  names_kept_local_secret_request`: its frames reach only the user who supplied
+  the secret. Worker reads still name only declared proxies and keep every
+  other secret redaction.
 
 ## [1.5.2] - 2026-11-01
 

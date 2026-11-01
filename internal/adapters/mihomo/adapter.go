@@ -23,6 +23,11 @@ type Dependencies struct {
 	// Secret resolves token_env. Nil reads the process environment; a
 	// local stream supplies its stored secrets without exporting them.
 	Secret func(string) (string, error)
+	// LocalViewer says the observation goes only to the local stream of
+	// the user who supplied the secret and never leaves the machine. A
+	// secret-bearing read then keeps proxy names, sanitized as for a public
+	// controller; its other redactions remain. Workers never set it.
+	LocalViewer bool
 }
 
 func (d Dependencies) secret(name string) (string, error) {
@@ -43,7 +48,8 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 		return adapters.Local("setup", "invalid_adapter_url")
 	}
 	// A controller sent a secret says its mode in a closed word and names
-	// only what the topology declares; see withheld.
+	// only what the topology declares; see withheld. For a local viewer,
+	// who holds the secret, its names are kept as a public controller's.
 	secret := token != "" || u.Scheme != "https" && deps.ProxyCredentials
 	if secret {
 		defer func() {
@@ -62,8 +68,10 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 	}
 	mode, name := adapters.SafeFact, func(s string) string { return s }
 	if secret {
-		known := declared(options)
 		mode = closedMode
+	}
+	if secret && !deps.LocalViewer {
+		known := declared(options)
 		name = func(s string) string {
 			if known[s] {
 				return s
@@ -102,6 +110,9 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 	o.Facts["mode"] = mode(cfg.Mode)
 	if secret {
 		o.Facts["peer_text"] = adapters.Withheld
+		if deps.LocalViewer {
+			o.Facts["peer_text"] = adapters.NamesKeptLocal
+		}
 	}
 	o.Facts["tun_enabled"] = "unknown"
 	if cfg.TUN.Enable != nil {

@@ -37,6 +37,11 @@ func Fail(stage string, err error) error {
 // Withheld marks peer-controlled text withheld after sending credentials.
 const Withheld = "withheld_secret_request"
 
+// NamesKeptLocal marks a secret-bearing read shown only to a local viewer:
+// the user who supplied the secret, on this machine. Peer-controlled names
+// are kept, sanitized as for a public peer; all other such text is withheld.
+const NamesKeptLocal = "names_kept_local_secret_request"
+
 // CommandFailure classifies only errors with reliable local provenance.
 func CommandFailure(err error, fallback string) error {
 	switch {

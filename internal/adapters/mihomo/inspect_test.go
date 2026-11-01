@@ -108,3 +108,48 @@ func TestInspectWithoutVersionOrSecretAndRefusedAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A local viewer holds the secret it supplied: its secret-bearing reads keep
+// the names a public controller's would, sanitized the same way, and every
+// other secret redaction. A worker's read of the same controller is unchanged.
+func TestSecretReadKeepsNamesOnlyForALocalViewer(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer synthetic-local-secret" {
+			http.Error(w, "unauthorized", 401)
+			return
+		}
+		switch r.URL.Path {
+		case "/configs":
+			_, _ = io.WriteString(w, `{"mode":"Rule","tun":{"enable":false}}`)
+		case "/proxies":
+			_, _ = io.WriteString(w, `{"proxies":{"Proxy":{"type":"Selector","now":"test-net‮-a","testUrl":"https://example.invalid/204?k=private","history":[{"time":"2026-01-01T00:00:00Z","delay":42}]},"test-net‮-a":{"type":"Shadowsocks","dialer-proxy":"entry"},"entry":{"type":"Shadowsocks"}}}`)
+		case "/providers/proxies":
+			_, _ = io.WriteString(w, `{"providers":{"pool":{"proxies":[{"name":"member-a"},{"name":"member-b"}],"updatedAt":"2026-01-01T00:00:00Z"}}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer s.Close()
+	x := httpCheck(s.URL)
+	x.Kind = "mihomo"
+	x.Adapter = model.AdapterOptions{TokenEnv: "SYNTHETIC_LOCAL", RootProxy: "Proxy", ExpectedMode: "rule", ExpectedProviders: map[string][]string{"pool": {"member-a"}}}
+	resolver := func(string) (string, error) { return "synthetic-local-secret", nil }
+	worker := (probe.Runner{Secret: resolver}).Run(context.Background(), testkit.Config(), x)
+	local := (probe.Runner{Secret: resolver, LocalViewer: true}).Run(context.Background(), testkit.Config(), x)
+	if worker.Facts["reported_chain"] != "undeclared -> undeclared" || worker.Facts["reported_selection"] != "undeclared" || worker.Facts["peer_text"] != adapters.Withheld || worker.Facts["provider.pool"] != "member-a,undeclared" {
+		t.Fatal("worker redaction changed", worker.Facts)
+	}
+	if local.Facts["reported_chain"] != "entry -> test-net-a" || local.Facts["reported_selection"] != "test-net-a" || local.Facts["peer_text"] != adapters.NamesKeptLocal || local.Facts["provider.pool"] != "member-a,member-b" {
+		t.Fatal("local viewer lost or did not sanitize names", local.Facts)
+	}
+	for _, o := range []model.Observation{worker, local} {
+		if o.Outcome != "policy" || o.Code != "provider_membership_mismatch" || o.Facts["mode"] != "rule" || o.Facts["provider_comparison"] != "pool=mismatch" {
+			t.Fatal(o.Outcome, o.Code, o.Facts)
+		}
+		for _, key := range []string{"test_url", "core_delay_ms", "core_last_checked", "provider_updated_at.pool"} {
+			if _, ok := o.Facts[key]; ok {
+				t.Fatal("secret-bearing read kept", key, o.Facts)
+			}
+		}
+	}
+}

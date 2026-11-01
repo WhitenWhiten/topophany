@@ -18,6 +18,11 @@ Provider expectations compare names **and order**. They cannot verify proxy
 parameters. Unknown group shapes, cycles and ambiguous load balancing remain
 unresolved. Credential-bearing controller responses may display only names
 already declared by the topology; arbitrary returned names are withheld.
+The one exception is a local check (`Dependencies.LocalViewer`, set only by
+the local stream): its frames reach only the user who supplied the secret, on
+the same machine, so chain, selection and provider member names are kept,
+sanitized as for a public controller, with `peer_text:
+names_kept_local_secret_request`; the redactions below still apply.
 Raw history delay/timestamps, provider load timestamps, numeric provider counts
 and exact unexpected HTTP statuses are also withheld when the controller receives
 a token or an unauthenticated HTTP response can be rewritten by a credentialed

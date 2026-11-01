@@ -41,7 +41,7 @@ func (r Runner) InspectMihomo(ctx context.Context, c model.Config, x model.Check
 }
 
 func (r Runner) mihomoDependencies(d Dialer) mihomo.Dependencies {
-	return mihomo.Dependencies{Secret: r.Secret, Client: func(x model.Check, target string) (*http.Client, func(), error) {
+	return mihomo.Dependencies{Secret: r.Secret, LocalViewer: r.LocalViewer, Client: func(x model.Check, target string) (*http.Client, func(), error) {
 		u, err := url.Parse(target)
 		if err != nil {
 			return nil, nil, local("setup", "invalid_adapter_url")
