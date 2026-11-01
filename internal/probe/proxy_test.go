@@ -412,6 +412,9 @@ func TestSSHJumpProcessBridgeAndStrictArguments(t *testing.T) {
 	x.Path = "direct"
 	x.HTTP.Contains = "jump-success"
 	x.BindIP = "127.0.0.1"
+	// This checks the bridge and argv, not process startup latency. A fresh
+	// helper executable can start slowly while other packages run in parallel.
+	x.TimeoutSeconds = 5
 	o := (Runner{}).Run(context.Background(), c, x)
 	if o.Outcome != "ok" {
 		t.Fatal("SSH stdio bridge failed", o)
