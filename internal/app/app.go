@@ -66,6 +66,7 @@ Run
   topo once                         run local checks once; write observations as JSON
 
 Describe your network
+  topo templates list               choose a reviewed, paused starter topology
   topo edit                         add, edit and delete topology entities in a TUI
   topo validate                     check a topology; print its revision
   topo address                      inspect or edit address definitions; report changed checks
@@ -149,6 +150,8 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		return a.monitor(ctx, args[1:])
 	case "preferences":
 		return a.preferences(args[1:])
+	case "templates":
+		return a.templates(args[1:])
 	case "rollout":
 		return a.rollout(ctx, args[1:])
 	case "doctor":

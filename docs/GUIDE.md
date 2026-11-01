@@ -18,6 +18,17 @@ menu bar. Credentials are entered without echo in a terminal; scripts use
 `--credential-file` with a private file. Existing source IDs are not overwritten.
 Network setup prepares an installation bundle from a reviewed topology.
 
+## Start from an adapter template
+
+`topo templates list` lists task descriptions, evidence boundaries and adapter
+compatibility notes bundled with this binary. `topo templates cloudflare --output
+cloudflare.json` writes a new topology; substitute `homelab`, `host-resources`,
+`beszel`, `komari`, `minimal`, `applications` or `address-registry` as needed.
+Every generated check is paused. Existing files are refused. Review the addresses,
+observer IDs, assertions and environment-variable credentials before enabling
+checks and running `topo validate`. The output identifies the relevant guide.
+Templates work offline and are validated by the same configuration parser.
+
 ## Monitor a website
 
 Prepare a real HTTP check from this machine without writing a topology by hand:
