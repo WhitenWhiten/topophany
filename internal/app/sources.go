@@ -23,6 +23,9 @@ type sourceEnvelope struct {
 }
 
 func (a *App) sources(ctx context.Context, args []string) error {
+	if len(args) > 0 && args[0] == "export" {
+		return a.exportDirect(args[1:])
+	}
 	cmd := ""
 	if len(args) > 0 {
 		cmd = args[0]

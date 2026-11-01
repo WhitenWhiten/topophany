@@ -262,3 +262,29 @@ checks with a short max_age_seconds. Restart with ready to exercise reconnect.
 Canonical serialization fixtures use the separate fixed clock
 2026-10-21T12:00:00Z and synthetic identifiers. Live harness timing is relative to
 its startup. See [HANDOFF](contracts/direct-v1/HANDOFF.md) for actual test evidence.
+
+## Move a profile to collector-backed monitoring
+
+```sh
+topo sources export --profile desktop --observer source-worker --output collector-topology.json
+```
+
+The exporter reads the selected profile without contacting its sources or reading
+credential records. It preserves project identity, source/object selections,
+node IDs, resource-check IDs and primary-disk semantics. All exported checks are
+paused, and the new file is private; existing output files are refused. The
+result lists one distinct credential environment variable per authenticated
+source. Provision tokens separately, review and enable the intended checks,
+then use `topo setup` to prepare collector and worker bundles.
+
+Direct-only consent for non-loopback HTTP cannot be copied into topology JSON.
+Configure a verified HTTPS source before exporting such a profile. Anonymous
+Komari sources need no credential variable. Beszel renewable login tokens need
+an appropriate runtime credential lifecycle; the collector adapter does not
+inherit the direct profile's login renewal session.
+
+After `topo doctor` confirms current samples, select the collector profile in
+Data sources settings. Pinned-server references retain their meaning because
+node IDs are unchanged; the app already preserves its section settings when
+switching sources. Keep the direct profile until the new deployment is verified.
+There is no direct history to import and the exporter never claims to migrate it.

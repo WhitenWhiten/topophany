@@ -22,7 +22,7 @@ code and appropriate verification, not merely a proposal.
 - [x] Configuration rollout: independently inspect collector public revisions, worker contract agreement, and affected public measurements (`topo rollout`).
 - [ ] Exact private worker revision verification through local deployment tooling (not viewer APIs).
 - [x] Bundled adapter templates, pinned compatibility notes and missing-evidence guidance.
-- [ ] Direct-to-collector migration preserving selected server identity and display preferences.
+- [x] Direct-to-collector migration preserving selected server identity and display preferences.
 - [ ] History: incident before/after and observer comparison with a shared time range.
 - [ ] Alerts: notification test, delivery/queue/drop visibility, timed silence, maintenance windows, service routing and explicit dual-collector notification policy.
 - [ ] Saved TUI views, contextual actions and issue-focused maps.

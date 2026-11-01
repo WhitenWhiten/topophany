@@ -100,6 +100,15 @@ func TestTaskSetupDirectDiscoversAndSavesWithoutPolling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	exported := filepath.Join(t.TempDir(), "collector.json")
+	exportOut, _, exportErr := invoke("", "sources", "export", "--profile", "desktop", "--direct-root", root, "--output", exported)
+	if exportErr != nil || strings.Contains(exportOut, secret) {
+		t.Fatal(exportOut, exportErr)
+	}
+	migrated, exportErr := config.Load(exported)
+	if exportErr != nil || migrated.Nodes[0].ID != "km."+id || !migrated.Checks[0].Disabled || migrated.Sources[0].CredentialEnv == "TOPO_DIRECT_RESOLVED" {
+		t.Fatal(migrated, exportErr)
+	}
 	if calls != 1 || strings.Contains(out+diag, secret) {
 		t.Fatal("unexpected requests or secret disclosure")
 	}
