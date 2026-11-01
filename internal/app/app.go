@@ -74,6 +74,7 @@ Describe your network
 Deploy
   topo init --role ROLE             make a private server, worker or client bundle
   topo install                      install a reviewed bundle (--dry-run, --rollback DIR)
+  topo rollout --config FILE        inspect configuration agreement at every collector address
   topo capacity                     preflight collector storage before a migration
   topo token                        make a random bearer token and its hash
 
@@ -148,6 +149,8 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		return a.monitor(ctx, args[1:])
 	case "preferences":
 		return a.preferences(args[1:])
+	case "rollout":
+		return a.rollout(ctx, args[1:])
 	case "doctor":
 		return a.doctor(ctx, args[1:])
 	case "setup":

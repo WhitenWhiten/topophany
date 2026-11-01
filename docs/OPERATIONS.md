@@ -242,3 +242,20 @@ Worker HTTP 401/403 responses pause delivery with bounded backoff while keeping
 original pending samples. Repair credentials or collector authorization and
 restart the worker when its saved credentials changed. Authentication failures
 do not quarantine samples; explicit data rejections still do.
+
+## Check rollout agreement
+
+`topo rollout --config topology.json --json` reads every saved collector address
+independently, including aliases, with a five-second deadline per address.
+One unavailable collector does not hide the others behind ordinary viewer
+failover. Each row reports instance identity, public configuration agreement,
+public measurement changes, and worker contract/liveness states. Exit 2 means
+at least one address or worker is not verified as matching; exit 0 means all
+reported public configurations and worker contract states agree.
+
+The viewer cannot inspect private execution settings or exact worker file
+revisions. A worker matching an old collector is labelled
+`matches_old_collector_contracts`, never as deployed to the desired configuration.
+Inspect private revisions locally with `topo validate`. Multiple address rows
+may refer to the same instance. This command only reads; it neither distributes
+configuration nor reloads a service.

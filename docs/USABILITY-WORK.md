@@ -19,7 +19,8 @@ code and appropriate verification, not merely a proposal.
 ## P1: daily use and maintenance
 
 - [x] Topology editing: external-modification conflict protection, batch edits, change preview.
-- [ ] Configuration rollout: per-collector/worker revision and affected measurement contracts.
+- [x] Configuration rollout: independently inspect collector public revisions, worker contract agreement, and affected public measurements (`topo rollout`).
+- [ ] Exact private worker revision verification through local deployment tooling (not viewer APIs).
 - [ ] Adapter templates, compatibility feedback and missing-evidence guidance.
 - [ ] Direct-to-collector migration preserving selected server identity and display preferences.
 - [ ] History: incident before/after and observer comparison with a shared time range.
