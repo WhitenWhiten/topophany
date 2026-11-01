@@ -7,6 +7,7 @@ import (
 	"errors"
 	"mime"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -127,6 +128,23 @@ func clip(s string, n int) string {
 
 func utf8Start(b byte) bool { return b&0xC0 != 0x80 }
 
+// EventKey is stable for retries and equivalent evidence on two collectors.
+// Receivers may deduplicate it; independent collector judgments can still differ.
+func EventKey(e Event, project string) string {
+	parts := []string{project, e.Kind}
+	if e.Incident != nil {
+		checks := slices.Clone(e.Incident.Checks)
+		slices.Sort(checks)
+		parts = append(parts, e.Incident.Scope, e.Incident.Since.UTC().Format(time.RFC3339Nano), e.Incident.Ended, strings.Join(checks, ","))
+	} else if e.State != nil {
+		parts = append(parts, e.State.ID, e.State.LastSeen.UTC().Format(time.RFC3339Nano))
+	} else {
+		parts = append(parts, e.At.UTC().Format(time.RFC3339Nano))
+	}
+	data, _ := json.Marshal(parts)
+	return secure.Hash(string(data))
+}
+
 // request is e as w's format posts it.
 func (w Webhook) request(ctx context.Context, e Event, project, instance string) (*http.Request, error) {
 	title, text := clip(e.Title, 250), clip(e.Text, maxText)
@@ -140,8 +158,9 @@ func (w Webhook) request(ctx context.Context, e Event, project, instance string)
 			Schema    int    `json:"schema"`
 			Project   string `json:"project"`
 			Collector string `json:"collector"`
+			EventKey  string `json:"event_key"`
 			Event
-		}{1, project, instance, e})
+		}{1, project, instance, EventKey(e, project), e})
 	case "ntfy":
 		content = "text/plain; charset=utf-8"
 		body = []byte(text + "\nCollector: " + instance + " · " + project)
@@ -164,6 +183,7 @@ func (w Webhook) request(ctx context.Context, e Event, project, instance string)
 	}
 	req.Header = header
 	req.Header.Set("Content-Type", content)
+	req.Header.Set("Idempotency-Key", EventKey(e, project))
 	req.Header.Set("User-Agent", "Topophany/"+model.Version)
 	if w.Bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+w.Bearer)

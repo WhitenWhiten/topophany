@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/config"
 	"github.com/WhitenWhiten/topophany/internal/model"
@@ -34,13 +35,18 @@ type Config struct {
 // saw. Bearer, when set, is sent as an Authorization header. Plain HTTP
 // is refused except to a literal loopback address or with AllowInsecure.
 type Webhook struct {
-	ID            string   `json:"id"`
-	Format        string   `json:"format"` // json, ntfy, slack, discord
-	URL           string   `json:"url"`
-	Bearer        string   `json:"bearer,omitempty"`
-	Events        []string `json:"events,omitempty"`
-	Observers     []string `json:"observers,omitempty"`
-	AllowInsecure bool     `json:"allow_insecure,omitempty"`
+	PrimaryInstance string        `json:"primary_instance,omitempty"`
+	QuietUntil      time.Time     `json:"quiet_until,omitzero"`
+	Windows         []QuietWindow `json:"maintenance_windows,omitempty"`
+	Services        []string      `json:"services,omitempty"`
+	serviceChecks   []string
+	ID              string   `json:"id"`
+	Format          string   `json:"format"` // json, ntfy, slack, discord
+	URL             string   `json:"url"`
+	Bearer          string   `json:"bearer,omitempty"`
+	Events          []string `json:"events,omitempty"`
+	Observers       []string `json:"observers,omitempty"`
+	AllowInsecure   bool     `json:"allow_insecure,omitempty"`
 }
 
 // Formats and event groups a webhook may name.
@@ -62,7 +68,10 @@ func Load(path string, c model.Config) (Config, error) {
 	if e = secure.Decode(strings.NewReader(string(b)), &a, 1<<20); e != nil {
 		return a, e
 	}
-	return a, Validate(a, c)
+	if err := Validate(a, c); err != nil {
+		return a, err
+	}
+	return BindServices(a, c), nil
 }
 
 // Validate checks an alerts file against topology c.
@@ -76,6 +85,9 @@ func Validate(a Config, c model.Config) error {
 	}
 	seen := map[string]bool{}
 	for _, w := range a.Webhooks {
+		if err := validatePolicy(w, c); err != nil {
+			return err
+		}
 		if !config.ID(w.ID) || seen[w.ID] {
 			return errors.New("webhook IDs must be valid and unique")
 		}

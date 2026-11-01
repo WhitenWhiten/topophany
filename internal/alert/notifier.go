@@ -260,7 +260,7 @@ func (n *Notifier) Observe(snap model.Snapshot, changes []ledger.Change, settled
 	for _, e := range events {
 		e, budgetErr := e.bounded()
 		for _, h := range n.hooks {
-			if !h.wants(e.group(), e.Observer) {
+			if !h.wantsEvent(e) {
 				continue
 			}
 			q := n.queues[h.ID]
@@ -319,6 +319,20 @@ func (n *Notifier) deliver(ctx context.Context, h *hook) {
 	defer close(h.done)
 	lastFailure := ""
 	for {
+		if h.PrimaryInstance != "" && h.PrimaryInstance != n.Instance {
+			<-ctx.Done()
+			return
+		}
+		if until := h.quietDeadline(time.Now()); !until.IsZero() {
+			timer := time.NewTimer(time.Until(until))
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
+			continue
+		}
 		n.mu.Lock()
 		q := n.queues[h.ID]
 		var next *queued
@@ -336,7 +350,7 @@ func (n *Notifier) deliver(ctx context.Context, h *hook) {
 				continue
 			}
 		}
-		if !h.wants(next.Event.group(), next.Observer) {
+		if !h.wantsEvent(next.Event) {
 			n.finish(h.ID, false, "alert %s to webhook %s dropped: it no longer takes it", next.Event.Kind, h.ID)
 			lastFailure = ""
 			continue

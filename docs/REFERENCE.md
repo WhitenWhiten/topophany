@@ -1183,3 +1183,61 @@ not create an incident, modify the ledger or enqueue retries. A successful
 response exits 0; failure exits 2 with bounded HTTP/error metadata. The command
 requires an explicit webhook ID and uses the normal verified transport and
 redirect policy. No test notification is sent during setup or status inspection.
+
+### Notification quiet periods, routing and a primary sender
+
+Optional webhook fields:
+
+```json
+{
+  "id": "ops",
+  "format": "json",
+  "url": "https://notifications.example/hook",
+  "services": ["web"],
+  "primary_instance": "collector-a",
+  "quiet_until": "2026-11-01T12:00:00Z",
+  "maintenance_windows": [
+    {"start": "2026-11-02T01:00:00Z", "end": "2026-11-02T02:00:00Z"}
+  ]
+}
+```
+
+`services` restricts incident notifications to checks explicitly attached to the
+listed services. Observer events have no service membership and are excluded
+from service-restricted hooks. Up to 128 services are allowed; routing is
+resolved again on reload, including for queued events.
+
+`quiet_until` defers delivery for at most 24 hours from configuration validation.
+`maintenance_windows` accepts up to 32 non-overlapping RFC3339 intervals, each
+at most 24 hours. These are **notification** windows: they do not pause probes,
+change health, mark uptime or alter the incident ledger. An in-flight request may
+finish when a quiet period begins. Waiting open and close events retain their
+original timestamps and resume in order; normal queue capacity and one-day age
+limits still apply, so status may show drops after long quiet periods.
+
+For convenient local changes:
+
+```sh
+topo alerts quiet --config topology.json --alerts alerts.json --webhook ops --for 30m --dry-run
+topo alerts quiet --config topology.json --alerts alerts.json --webhook ops --for 30m
+topo alerts resume --config topology.json --alerts alerts.json --webhook ops
+```
+
+Reload the collector after applying. Edits detect concurrent file changes and
+preserve credentials privately. Resume clears the manual quiet deadline, leaving
+scheduled windows intact. Notification tests explicitly bypass these policies.
+
+`primary_instance` permits delivery only from that collector's `--instance`.
+Other collectors remain in standby with bounded queues. This is an explicit
+operator policy, not leader election or automatic failover. Promote a different
+instance by reviewing and reloading the policy; inspect pending/expired events
+before promotion. Without the field, the existing behavior of each collector
+sending its own notifications remains unchanged.
+
+Every attempt carries `Idempotency-Key`; generic JSON also contains `event_key`.
+The key is stable across retries and equivalent incident/observer evidence,
+independent of collector send time. Receivers may use it to suppress duplicates;
+independent collectors can judge different evidence, so exactly-once delivery is
+not promised. Upgrade collectors before adding new policy fields. The canonical
+queue schema remains unchanged; older binaries require removing unsupported
+policy fields when rolling back.

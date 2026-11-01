@@ -18,13 +18,16 @@ type DeliveryState struct {
 	Code        string    `json:"code,omitempty"`
 }
 type WebhookStatus struct {
-	ID       string        `json:"id"`
-	Pending  int           `json:"pending"`
-	Sent     int           `json:"sent"`
-	Dropped  int           `json:"dropped"`
-	Tries    int           `json:"oldest_attempts"`
-	Oldest   time.Time     `json:"oldest_queued,omitzero"`
-	Delivery DeliveryState `json:"delivery"`
+	Mode            string        `json:"mode,omitempty"`
+	ResumeAt        time.Time     `json:"resume_at,omitzero"`
+	PrimaryInstance string        `json:"primary_instance,omitempty"`
+	ID              string        `json:"id"`
+	Pending         int           `json:"pending"`
+	Sent            int           `json:"sent"`
+	Dropped         int           `json:"dropped"`
+	Tries           int           `json:"oldest_attempts"`
+	Oldest          time.Time     `json:"oldest_queued,omitzero"`
+	Delivery        DeliveryState `json:"delivery"`
 }
 type StatusReport struct {
 	Schema       int             `json:"schema"`
@@ -38,6 +41,19 @@ func (n *Notifier) statusLocked(at time.Time) StatusReport {
 	out := StatusReport{Schema: 1, AsOf: at, QueueDurable: !n.unwritten, SnapshotOnly: true, Webhooks: []WebhookStatus{}}
 	for id, q := range n.queues {
 		s := WebhookStatus{ID: id, Pending: len(q.Waiting), Sent: q.Sent, Dropped: q.Dropped, Delivery: n.delivery[id]}
+		if h := n.hooks[id]; h != nil {
+			s.Mode = "ready"
+			s.PrimaryInstance = h.PrimaryInstance
+			if h.PrimaryInstance != "" && h.PrimaryInstance != n.Instance {
+				s.Mode = "standby"
+			}
+			if until := h.quietDeadline(at); !until.IsZero() {
+				s.ResumeAt = until
+				if s.Mode != "standby" {
+					s.Mode = "quiet"
+				}
+			}
+		}
 		if len(q.Waiting) > 0 {
 			s.Oldest = q.Waiting[0].Queued
 			s.Tries = q.Waiting[0].Tries
