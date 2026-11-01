@@ -11,6 +11,7 @@ import (
 // A rowBuilder shares one set of indexes across the tabs contributing to a list.
 // It belongs to one derivation; changing evidence or presentation never reuses it.
 type rowBuilder struct {
+	coverageGaps      map[string]string
 	assessments       map[string]ServiceAssessment
 	view              View
 	nodeNames         map[string]string
@@ -108,11 +109,15 @@ func newRowBuilder(v View, tab int) *rowBuilder {
 			opened[r.ID] = &s.Ledger[k]
 		}
 	}
+	coverageGaps := map[string]string{}
 	var assessments map[string]ServiceAssessment
 	if tab == Services || tab == Overview {
 		assessments = serviceAssessments(s, v.Cached)
+		for _, gap := range v.coverage(assessments).Gaps {
+			coverageGaps[gap.Service] = gap.Reason
+		}
 	}
-	return &rowBuilder{assessments: assessments,
+	return &rowBuilder{assessments: assessments, coverageGaps: coverageGaps,
 		view:              v,
 		nodeNames:         nodeNames,
 		endpointsByNode:   endpointsByNode,

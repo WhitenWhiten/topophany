@@ -1143,3 +1143,16 @@ Worker outboxes also accept `--outbox-records` (default 20,000, range
 this count or the pending byte budget stops execution explicitly; an existing
 queue above the configured count is refused at startup without deleting data.
 Use a larger explicit count to drain such a queue.
+
+### Service availability coverage
+
+`topo status --json` includes `coverage` with the selected `observer`, total
+`services`, `known` availability and `gaps` identifying why a service remains
+unknown. Known availability can be healthy, degraded or failed; it is not an
+uptime percentage. Remote connection evidence alone is insufficient. Gap codes
+are `unmonitored`, `suspended`, `outside_view`, `no_application_check`, `stale`,
+`no_samples`, `application_unconfirmed`, `cached` and `draft`.
+
+`summary.verdict` carries the same observer and counts without the detailed gap
+list. This additive protocol-1 field is optional for existing readers. A view's
+all-clear verdict concerns its active checks, independently of coverage.

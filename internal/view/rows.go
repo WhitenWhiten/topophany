@@ -220,6 +220,9 @@ func (rb *rowBuilder) servicesRows(attentionOnly bool) []Row {
 		}
 		assessment := rb.assessments[e.ID]
 		details = append(details, assessment.Lines()...)
+		if reason := rb.coverageGaps[e.ID]; reason != "" {
+			details = append(details, "Availability unknown: "+reason)
+		}
 		r := entityRow("service", e, title, meta, details)
 		r.Assessment = &assessment
 		r.Cols = cols

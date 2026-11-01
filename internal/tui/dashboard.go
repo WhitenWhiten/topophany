@@ -126,6 +126,9 @@ func (m *Model) statusCard(cv *Canvas, x, y, w, h int) {
 		}
 		cv.Text(lx, row+1, label, fg(cText), x+w-lx)
 		cv.Text(lx, row+2, sub, fg(cMuted), x+w-lx)
+		if m.Snapshot.Direct == nil {
+			cv.Text(x, row+4, m.view().Coverage().Line(), fg(cMuted), w)
+		}
 		row += 5
 	}
 	if row < y+h {

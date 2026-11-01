@@ -18,6 +18,7 @@ type SummaryCounts struct {
 	Maintenance int `json:"maintenance"`
 }
 type SummaryVerdict struct {
+	Coverage view.Coverage `json:"coverage"`
 	view.Verdict
 	Counts     SummaryCounts `json:"counts"`
 	Configured int           `json:"configured"`
@@ -181,6 +182,8 @@ func stamp(t time.Time) *time.Time {
 }
 func summary(v view.View) SummaryVerdict {
 	out := SummaryVerdict{Verdict: v.Verdict(), Counts: SummaryCounts{Counts: v.Counts()}, Incidents: len(v.Snapshot.Incidents)}
+	out.Coverage = v.Coverage()
+	out.Coverage.Gaps = nil // summary stays bounded; detailed gaps belong to status/show
 	out.Configured = out.Counts.Total()
 	out.Observers.Live, out.Observers.All = v.Live()
 	for _, c := range v.Snapshot.Checks {

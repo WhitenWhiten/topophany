@@ -103,10 +103,11 @@ type tabBadge struct {
 // does; Quiet is what the Overview says when nothing needs attention.
 type statusJSON struct {
 	header
-	Verdict   view.Verdict `json:"verdict"`
-	Status    string       `json:"status"`
-	Checks    view.Counts  `json:"checks"`
-	Incidents int          `json:"incidents"`
+	Verdict   view.Verdict  `json:"verdict"`
+	Status    string        `json:"status"`
+	Checks    view.Counts   `json:"checks"`
+	Coverage  view.Coverage `json:"coverage"`
+	Incidents int           `json:"incidents"`
 	Observers struct {
 		Live  int        `json:"live"`
 		Total int        `json:"total"`
@@ -131,6 +132,7 @@ func (a *App) status(v view.View, h header, asJSON bool) error {
 	sort.SliceStable(services, func(i, j int) bool { return view.ServiceRank(services[i]) < view.ServiceRank(services[j]) })
 	word, code := standing(v, attention)
 	s := statusJSON{header: h, Verdict: v.Verdict(), Status: word, Checks: v.Counts(), Incidents: len(v.Snapshot.Incidents), Attention: attention, Services: services, Ingress: v.Snapshot.Ingress}
+	s.Coverage = v.Coverage()
 	s.Observers.Live, s.Observers.Total = v.Live()
 	s.Observers.Rows = v.List(view.Observers, "")
 	for i := range view.Tabs {
@@ -154,6 +156,12 @@ func (a *App) status(v view.View, h header, asJSON bool) error {
 	t.line(s.Verdict.Glyph + " " + s.Verdict.Text)
 	h.print(t, v.Now)
 	t.kv("Checks", fmt.Sprintf("%d up, %d warning, %d down, %d unknown", s.Checks.Up, s.Checks.Warn, s.Checks.Down, s.Checks.Unknown))
+	if v.Snapshot.Direct == nil {
+		t.line(s.Coverage.Line())
+		for _, gap := range s.Coverage.Gaps {
+			t.kv("Coverage "+gap.Service, gap.Reason)
+		}
+	}
 	t.kv("Incidents", strconv.Itoa(s.Incidents))
 	t.kv("Observers", fmt.Sprintf("%d/%d live", s.Observers.Live, s.Observers.Total))
 	if in := s.Ingress; in != nil {
