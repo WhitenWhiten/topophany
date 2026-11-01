@@ -1245,3 +1245,23 @@ policy fields when rolling back.
 `topo monitor stream --capabilities` now advertises `investigation: true` when
 `doctor`, `compare` and the TUI's `--related-incidents` entry point are available.
 Consumers must treat a missing flag as false before offering those shortcuts.
+
+### Structured command failures
+
+Prefix a command with `topo --json-errors`, for example:
+
+```sh
+topo --json-errors validate --config topology.json
+```
+
+Command failures produce one schema-1 JSON envelope on **stderr** with `ok:false`,
+`error.code`, `message`, `next_action`, and `field`/`byte_offset` when the JSON
+decoder can identify them. Raw parser values, paths and upstream errors are not
+reflected. Unknown failures use `command_failed`; detailed local diagnostics
+remain available without this flag. Successful stdout is unchanged. Health
+exit codes and commands with their own error envelopes retain those contracts.
+
+Successful validation now includes non-fatal `diagnostics` for unmonitored
+services, missing application checks and inferred availability scope. These
+hints do not invent health or change the validation result. Batch edit dry runs
+provide the separate added/removed/changed measurement-contract report.

@@ -69,7 +69,8 @@ Run
 Describe your network
   topo templates list               choose a reviewed, paused starter topology
   topo edit                         add, edit and delete topology entities in a TUI
-  topo validate                     check a topology; print its revision
+  topo validate                     check a topology; print revision and coverage hints
+  topo --json-errors COMMAND         emit structured command errors on stderr
   topo address                      inspect or edit address definitions; report changed checks
   topo export                       export a redacted topology
 
@@ -131,7 +132,7 @@ func (a *App) flags(name string) *flag.FlagSet {
 	return f
 }
 
-func (a *App) Run(ctx context.Context, args []string) error {
+func (a *App) run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
 		return a.view(ctx, args)
 	}
@@ -243,11 +244,11 @@ func (a *App) topologyCommand(ctx context.Context, cmd string, args []string) er
 	}
 	c, e := config.Load(*path)
 	if e != nil {
-		return e
+		return &commandProblem{Code: "invalid_topology", Message: "Topology validation failed.", Cause: e}
 	}
 	switch cmd {
 	case "validate":
-		return printJSON(a.Out, map[string]any{"project": c.Project, "revision": config.Revision(c), "contracts": config.Contracts(c), "nodes": len(c.Nodes), "checks": len(c.Checks), "valid": true})
+		return printJSON(a.Out, map[string]any{"project": c.Project, "revision": config.Revision(c), "contracts": config.Contracts(c), "nodes": len(c.Nodes), "checks": len(c.Checks), "valid": true, "diagnostics": config.Diagnostics(c)})
 	case "export":
 		return printJSON(a.Out, config.Public(c))
 	case "once":

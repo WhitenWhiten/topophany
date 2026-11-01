@@ -32,7 +32,7 @@ code and appropriate verification, not merely a proposal.
 - [x] Browser connection recovery and actionable configuration help.
 - [x] Menu bar: in-app demo, collector enrollment and explicit migration of direct pins.
 - [ ] Signed and notarized distribution artifact.
-- [ ] Consistent structured CLI errors, field paths and change-impact output.
+- [x] Consistent structured CLI errors, field paths and change-impact output.
 - [ ] Operational status, backup/restore validation and upgrade compatibility checks.
 - [ ] Chinese status, error and troubleshooting copy; task-oriented documentation.
 
