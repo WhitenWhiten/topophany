@@ -671,3 +671,14 @@ uses its own supported observer scope, so save direct views without a collector
 observer. Maps retain their existing selected-item route highlighting.
 
 `--filter TEXT` and `--related-incidents` are also single-launch TUI flags.
+
+
+### Interface language
+
+`topo --lang zh`, `topo preview --lang zh` and `topo status/show --lang zh`
+localize critical verdicts, controls, coverage explanations and connection-error
+headlines. `ja` is also available; absent flags follow the locale. Language is
+owned by each view, so concurrent readers cannot change each other's wording.
+State codes, IDs and original evidence remain stable. Monitor protocol text keeps
+its existing default; native consumers localize their own presentation.
+The [Chinese task guide](GUIDE.zh.md) covers onboarding through recovery.

@@ -67,12 +67,12 @@ func (m *Model) bigText(cv *Canvas, x, y int, s string, st Style) int {
 func (m *Model) verdict() (string, Color) {
 	if m.Edit == nil && m.Loading != "" {
 		if m.Snapshot.GeneratedAt.IsZero() && len(m.Snapshot.Topology.Nodes) == 0 {
-			return m.spinner() + " CONNECTING", cAccent2
+			return m.spinner() + " " + m.ui("CONNECTING"), cAccent2
 		}
-		return m.spinner() + " LOADING", cAccent2
+		return m.spinner() + " " + m.ui("LOADING"), cAccent2
 	}
 	if m.waiting() {
-		return "◌ OFFLINE", cWarn
+		return "◌ " + m.ui("OFFLINE"), cWarn
 	}
 	v := m.view().Verdict()
 	return v.Glyph + " " + v.Text, verdictColors[v.State]
@@ -124,7 +124,15 @@ func (m *Model) statusCard(cv *Canvas, x, y, w, h int) {
 		if label == "checks without current evidence" && width(label) > x+w-lx {
 			label = "checks not current"
 		}
-		cv.Text(lx, row+1, label, fg(cText), x+w-lx)
+		cv.Text(lx, row+1, m.ui(label), fg(cText), x+w-lx)
+		if sub == "of "+itoa(total)+" configured" {
+			if m.Language == "zh" {
+				sub = "共 " + itoa(total) + " 项已配置检查"
+			}
+			if m.Language == "ja" {
+				sub = itoa(total) + " 件の設定済みチェック"
+			}
+		}
 		cv.Text(lx, row+2, sub, fg(cMuted), x+w-lx)
 		if m.Snapshot.Direct == nil {
 			cv.Text(x, row+4, m.view().Coverage().Line(), fg(cMuted), w)
@@ -159,7 +167,7 @@ func (m *Model) statusCard(cv *Canvas, x, y, w, h int) {
 				ns = fg(cText).bold()
 			}
 			cx += cv.Text(cx, row, itoa(n), ns, -1)
-			cx += cv.Text(cx, row, " "+word+gap, fg(cMuted), max(0, x+w-cx))
+			cx += cv.Text(cx, row, " "+m.ui(word)+gap, fg(cMuted), max(0, x+w-cx))
 		}
 		count('●', cUp, up, "up")
 		count('▲', cWarn, warn, "warn")
@@ -359,7 +367,7 @@ func (m *Model) applicationsCard(cv *Canvas, x, y, w, h int, apps []appLine) {
 		case n > 0:
 			note, nc = itoa(n)+" attention", cWarn
 		case unknown > 0:
-			note = itoa(unknown) + " unknown"
+			note = itoa(unknown) + " " + m.ui("unknown")
 		}
 		if !open[i] {
 			// A mark for each service, as many as fit before the note.
@@ -515,10 +523,10 @@ func (m *Model) mapTag() string {
 
 func (m *Model) overview(cv *Canvas, x, y, w, h int, rows []Row, sel Row, tag string) {
 	t := m.Snapshot.Topology
-	mapTitle := "NETWORK"
+	mapTitle := m.ui("NETWORK")
 	mapTag := m.mapTag() + " · m z"
 	attention := func(x, y, w, h int, active bool) {
-		ix, iy, iw, ih := m.panel(cv, x, y, w, h, "NEEDS ATTENTION", tag, active)
+		ix, iy, iw, ih := m.panel(cv, x, y, w, h, m.ui("NEEDS ATTENTION"), tag, active)
 		m.attentionCard(cv, ix, iy, iw, ih, rows, m.drawList)
 	}
 	nObservers := len(m.Snapshot.Observers)
@@ -538,7 +546,7 @@ func (m *Model) overview(cv *Canvas, x, y, w, h int, rows []Row, sel Row, tag st
 		if h < 34 {
 			sh = 6
 		}
-		ix, iy, iw, ih = m.panel(cv, x+mw, y, sw, sh, "STATUS", "", false)
+		ix, iy, iw, ih = m.panel(cv, x+mw, y, sw, sh, m.ui("STATUS"), "", false)
 		m.statusCard(cv, ix, iy, iw, ih)
 		left := h - sh
 		oh := max(1, min(nObservers, 6)) + 2
@@ -547,9 +555,9 @@ func (m *Model) overview(cv *Canvas, x, y, w, h int, rows []Row, sel Row, tag st
 			// keeps services and observers.
 			attention(x, y+mh, mw, h-mh, true)
 			vh := left - oh
-			ix, iy, iw, ih = m.panel(cv, x+mw, y+sh, sw, vh, "SERVICES", m.servicesTag(), false)
+			ix, iy, iw, ih = m.panel(cv, x+mw, y+sh, sw, vh, m.ui("SERVICES"), m.servicesTag(), false)
 			m.servicesCard(cv, ix, iy, iw, ih)
-			ix, iy, iw, ih = m.panel(cv, x+mw, y+sh+vh, sw, oh, "OBSERVERS", "", false)
+			ix, iy, iw, ih = m.panel(cv, x+mw, y+sh+vh, sw, oh, m.ui("OBSERVERS"), "", false)
 			m.observersCard(cv, ix, iy, iw, ih)
 			return
 		}
@@ -573,10 +581,10 @@ func (m *Model) overview(cv *Canvas, x, y, w, h int, rows []Row, sel Row, tag st
 		}
 		ah := left - vh - oh
 		attention(x+mw, y+sh, sw, ah, true)
-		ix, iy, iw, ih = m.panel(cv, x+mw, y+sh+ah, sw, vh, "SERVICES", m.servicesTag(), false)
+		ix, iy, iw, ih = m.panel(cv, x+mw, y+sh+ah, sw, vh, m.ui("SERVICES"), m.servicesTag(), false)
 		m.servicesCard(cv, ix, iy, iw, ih)
 		if oh > 0 {
-			ix, iy, iw, ih = m.panel(cv, x+mw, y+sh+ah+vh, sw, oh, "OBSERVERS", "", false)
+			ix, iy, iw, ih = m.panel(cv, x+mw, y+sh+ah+vh, sw, oh, m.ui("OBSERVERS"), "", false)
 			m.observersCard(cv, ix, iy, iw, ih)
 		}
 	case w >= 90 && h >= 22:
@@ -590,22 +598,22 @@ func (m *Model) overview(cv *Canvas, x, y, w, h int, rows []Row, sel Row, tag st
 		// beneath it when there is room, beside what needs attention.
 		sw := min(max(w*42/100, 44), 64)
 		sh := min(h-mh, 11)
-		ix, iy, iw, ih = m.panel(cv, x, y+mh, sw, sh, "STATUS", "", false)
+		ix, iy, iw, ih = m.panel(cv, x, y+mh, sw, sh, m.ui("STATUS"), "", false)
 		m.statusCard(cv, ix, iy, iw, ih)
 		under := h - mh - sh
 		if ah := 5; len(rows) == 0 && m.Search == "" && h-mh-ah >= 5 {
 			attention(x+sw, y+mh, w-sw, ah, true)
-			ix, iy, iw, ih = m.panel(cv, x+sw, y+mh+ah, w-sw, h-mh-ah, "SERVICES", m.servicesTag(), false)
+			ix, iy, iw, ih = m.panel(cv, x+sw, y+mh+ah, w-sw, h-mh-ah, m.ui("SERVICES"), m.servicesTag(), false)
 			m.servicesCard(cv, ix, iy, iw, ih)
 			if under >= 3 {
-				ix, iy, iw, ih = m.panel(cv, x, y+mh+sh, sw, under, "OBSERVERS", "", false)
+				ix, iy, iw, ih = m.panel(cv, x, y+mh+sh, sw, under, m.ui("OBSERVERS"), "", false)
 				m.observersCard(cv, ix, iy, iw, ih)
 			}
 			return
 		}
 		attention(x+sw, y+mh, w-sw, h-mh, true)
 		if under >= 4 {
-			ix, iy, iw, ih = m.panel(cv, x, y+mh+sh, sw, under, "SERVICES", m.servicesTag(), false)
+			ix, iy, iw, ih = m.panel(cv, x, y+mh+sh, sw, under, m.ui("SERVICES"), m.servicesTag(), false)
 			m.servicesCard(cv, ix, iy, iw, ih)
 		}
 	default:
@@ -621,15 +629,15 @@ func (m *Model) overview(cv *Canvas, x, y, w, h int, rows []Row, sel Row, tag st
 		if sh == 11 && w >= 76 && nObservers > 0 && m.Edit == nil {
 			sw = min(max(w*55/100, 44), 64)
 		}
-		ix, iy, iw, ih := m.panel(cv, x, y, sw, sh, "STATUS", "", false)
+		ix, iy, iw, ih := m.panel(cv, x, y, sw, sh, m.ui("STATUS"), "", false)
 		m.statusCard(cv, ix, iy, iw, ih)
 		if sw < w {
-			ix, iy, iw, ih = m.panel(cv, x+sw, y, w-sw, sh, "OBSERVERS", "", false)
+			ix, iy, iw, ih = m.panel(cv, x+sw, y, w-sw, sh, m.ui("OBSERVERS"), "", false)
 			m.observersCard(cv, ix, iy, iw, ih)
 		}
 		if left := h - sh; len(rows) == 0 && m.Search == "" && left >= 9 {
 			attention(x, y+sh, w, 4, true)
-			ix, iy, iw, ih = m.panel(cv, x, y+sh+4, w, left-4, "SERVICES", m.servicesTag(), false)
+			ix, iy, iw, ih = m.panel(cv, x, y+sh+4, w, left-4, m.ui("SERVICES"), m.servicesTag(), false)
 			m.servicesCard(cv, ix, iy, iw, ih)
 			return
 		}

@@ -6,20 +6,23 @@ import (
 	"fmt"
 
 	"github.com/WhitenWhiten/topophany/internal/preferences"
+	"github.com/WhitenWhiten/topophany/internal/preview"
 	"github.com/WhitenWhiten/topophany/internal/secure"
 	"github.com/WhitenWhiten/topophany/internal/tui"
 )
 
 type preferenceFlags struct {
-	path    *string
-	search  *string
-	related *bool
-	values  preferences.Settings
-	flags   *flag.FlagSet
+	language *string
+	path     *string
+	search   *string
+	related  *bool
+	values   preferences.Settings
+	flags    *flag.FlagSet
 }
 
 func addPreferenceFlags(f *flag.FlagSet) *preferenceFlags {
 	p := &preferenceFlags{flags: f, values: preferences.Defaults()}
+	p.language = f.String("lang", localeLanguage(), "interface language: en, zh or ja")
 	p.search = f.String("filter", "", "initial text filter")
 	p.related = f.Bool("related-incidents", false, "group the Incidents tab by declared target")
 	p.path = f.String("preferences", "", "local startup preferences file (default OS config directory/topophany/preferences.json)")
@@ -49,6 +52,9 @@ func (p *preferenceFlags) startup() (tui.Startup, error) { return p.resolveWith(
 func (p *preferenceFlags) resolveWith(lenient bool) (tui.Startup, error) {
 	if len(*p.search) > 256 || secure.Text(*p.search) != *p.search {
 		return tui.Startup{}, errors.New("filter must be at most 256 bytes of printable text")
+	}
+	if preview.Language(*p.language) != *p.language {
+		return tui.Startup{}, errors.New("--lang must be en, zh or ja")
 	}
 	path, err := p.pathName()
 	if err != nil && !lenient {
@@ -85,7 +91,7 @@ func (p *preferenceFlags) resolveWith(lenient bool) (tui.Startup, error) {
 		}
 		overrides = append(overrides, f.Name)
 	})
-	return tui.Startup{Search: *p.search, RelatedIncidents: *p.related, Settings: s, Path: path, Overrides: overrides, Notice: notice}, s.Validate()
+	return tui.Startup{Language: *p.language, Search: *p.search, RelatedIncidents: *p.related, Settings: s, Path: path, Overrides: overrides, Notice: notice}, s.Validate()
 }
 func (a *App) preferences(args []string) error {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {

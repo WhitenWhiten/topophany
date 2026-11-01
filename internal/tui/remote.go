@@ -40,7 +40,7 @@ type remoteSnapshot struct {
 	took     time.Duration
 }
 
-func NewRemote(profile client.Profile, reconnectHint string) (*Remote, error) {
+func NewRemote(profile client.Profile, reconnectHint string, language ...string) (*Remote, error) {
 	c, err := client.New(profile)
 	if err != nil {
 		return nil, err
@@ -50,6 +50,9 @@ func NewRemote(profile client.Profile, reconnectHint string) (*Remote, error) {
 		Now: time.Now(), Loading: "connecting to the collector", NerdFont: true}
 	m.requestDiagnostics = c.Diagnostics
 	m.initializeStartup(nil)
+	if len(language) > 0 {
+		m.Language = language[0]
+	}
 	m.ReconnectHint = secure.Text(reconnectHint[:min(len(reconnectHint), 1024)])
 	m.NerdFont = true
 	r := &Remote{m: m, client: c, ctx: ctx, cancel: cancel, results: make(chan remoteSnapshot, 1)}

@@ -63,6 +63,9 @@ func (a *App) views(ctx context.Context, args []string) error {
 		}
 		item := saved.Items[index]
 		flags := []string{"--page", item.Settings.Page, "--map-mode", item.Settings.MapMode, "--observer", item.Observer, "--filter", item.Search, "--related-incidents=" + strconv.FormatBool(item.Related), "--groups-collapsed=" + strconv.FormatBool(item.Settings.GroupsCollapsed), "--uniform-cards=" + strconv.FormatBool(item.Settings.UniformCards), "--service-cards=" + strconv.FormatBool(item.Settings.ServiceCards), "--full-map=" + strconv.FormatBool(item.Settings.FullMap), "--nerd-font-icons=" + strconv.FormatBool(item.Settings.NerdFontIcons)}
+		if item.Language != "" {
+			flags = append(flags, "--lang", item.Language)
+		}
 		flags = append(flags, forwarded...)
 		if *preview {
 			return a.preview(ctx, flags)
@@ -76,7 +79,7 @@ func (a *App) views(ctx context.Context, args []string) error {
 		if err != nil {
 			return err
 		}
-		item := preferences.NamedView{Name: pos[0], Settings: resolved.Settings, Observer: *observer, Search: *p.search, Related: *p.related}
+		item := preferences.NamedView{Language: resolved.Language, Name: pos[0], Settings: resolved.Settings, Observer: *observer, Search: *p.search, Related: *p.related}
 		if index < 0 {
 			saved.Items = append(saved.Items, item)
 		} else {

@@ -145,7 +145,7 @@ func (a *App) preview(ctx context.Context, args []string) error {
 	startupFlags := addPreferenceFlags(f)
 	device := deviceFlag(f)
 	noColor := f.Bool("no-color", os.Getenv("NO_COLOR") != "", "disable ANSI colors")
-	lang := f.String("lang", localeLanguage(), "language of the built-in topology and the scenarios: "+strings.Join(preview.Languages(), ", "))
+	lang := startupFlags.language
 	if e := f.Parse(args); e != nil {
 		return e
 	}
@@ -188,7 +188,7 @@ func (a *App) preview(ctx context.Context, args []string) error {
 	if f.NArg() > 0 {
 		switch cmd, rest := f.Arg(0), f.Args()[1:]; cmd {
 		case "status", "show", "history", "problems":
-			return a.read(ctx, cmd, rest, &previewed{config: c, sim: sim, now: now, observer: *observer, json: *dump})
+			return a.read(ctx, cmd, rest, &previewed{config: c, sim: sim, now: now, observer: *observer, json: *dump, language: *lang})
 		case "scenarios":
 			return a.scenarios(rest, sim.ScenarioIDs(), names, sim.Scenario(), *dump)
 		default:

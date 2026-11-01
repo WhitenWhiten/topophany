@@ -17,5 +17,5 @@ func newBrowserSession(input browserInput, _ time.Time) (browserSession, error) 
 		return nil, errors.New("this viewer requires a collector connection")
 	}
 	return tui.NewRemote(client.Profile{Project: input.Project,
-		Servers: []client.Endpoint{{URL: input.Server, Token: input.Token}}}, input.ReconnectHint)
+		Servers: []client.Endpoint{{URL: input.Server, Token: input.Token}}}, input.ReconnectHint, input.Language)
 }

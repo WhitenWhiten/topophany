@@ -36,14 +36,14 @@ func (m *Model) headerBar(cv *Canvas, x0, y, w int, touch bool) {
 	}
 	view := m.Observer
 	if view == "" {
-		view = "all observers"
+		view = m.ui("all observers")
 	}
 	var left []part
 	if m.Snapshot.Project != "" {
 		left = append(left, part{"  ╱  ", on(cFaint)}, part{m.Snapshot.Project, on(cText).bold()})
 	}
 	if !touch {
-		left = append(left, part{"   view: ", on(cMuted)}, part{view, on(cAccent2)})
+		left = append(left, part{"   " + m.ui("View") + ": ", on(cMuted)}, part{view, on(cAccent2)})
 	}
 	var right []part
 	add := func(s string, c Color) { right = append(right, part{s, on(c)}) }
@@ -62,7 +62,7 @@ func (m *Model) headerBar(cv *Canvas, x0, y, w int, touch bool) {
 				add(" / "+m.Snapshot.Direct.Profile, cMuted)
 			}
 		} else if m.Preview != nil {
-			add("◆ PREVIEW ", cEdit)
+			add("◆ "+m.ui("PREVIEW")+" ", cEdit)
 			if !touch {
 				add(m.scenario(), cText)
 			}
@@ -79,14 +79,14 @@ func (m *Model) headerBar(cv *Canvas, x0, y, w int, touch bool) {
 		add("  ", cFaint)
 		switch {
 		case m.Loading != "":
-			add(m.spinner()+" LOADING", cAccent2)
+			add(m.spinner()+" "+m.ui("LOADING"), cAccent2)
 		case m.waiting():
-			add("◌ OFFLINE", cWarn)
+			add("◌ "+m.ui("OFFLINE"), cWarn)
 		case m.Cached():
-			add("◌ CACHED", cWarn)
+			add("◌ "+m.ui("CACHED"), cWarn)
 		default:
 			// The live dot breathes with each repaint, never faster than data.
-			add("● LIVE", Mix(cUp, cGlow, .5*float64(m.Now.Second()%2)))
+			add("● "+m.ui("LIVE"), Mix(cUp, cGlow, .5*float64(m.Now.Second()%2)))
 		}
 	}
 	// Without room for both sides, the right keeps only its state, and
@@ -150,7 +150,7 @@ func (m *Model) tabBar(cv *Canvas, x0, y, w int) {
 	ts := make([]tab, len(tabs))
 	for i, name := range tabs {
 		n, c := m.badge(i)
-		ts[i] = tab{name, n, c}
+		ts[i] = tab{viewpkg.Text(m.Language, name), n, c}
 	}
 	// need is the width of the strip with or without counts and names.
 	need := func(counts, short bool) int {
@@ -435,7 +435,7 @@ type action struct {
 func (m *Model) actions() []action {
 	var opts []action
 	add := func(rank int, key, label, act string) {
-		opts = append(opts, action{keycap{key, label, act}, rank})
+		opts = append(opts, action{keycap{key, viewpkg.Text(m.Language, label), act}, rank})
 	}
 	if m.Edit != nil {
 		add(0, "a", "Add", "a")

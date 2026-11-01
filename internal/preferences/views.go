@@ -10,6 +10,7 @@ import (
 )
 
 type NamedView struct {
+	Language string   `json:"language,omitempty"`
 	Name     string   `json:"name"`
 	Settings Settings `json:"settings"`
 	Observer string   `json:"observer"`
@@ -29,6 +30,9 @@ func (v Views) Validate() error {
 	for _, item := range v.Items {
 		if !config.ID(item.Name) || seen[item.Name] || item.Observer != "" && !config.ID(item.Observer) || len(item.Search) > 256 || secure.Text(item.Search) != item.Search {
 			return errors.New("invalid saved view name, observer or filter")
+		}
+		if item.Language != "" && item.Language != "en" && item.Language != "zh" && item.Language != "ja" {
+			return errors.New("invalid saved view language")
 		}
 		if err := item.Settings.Validate(); err != nil {
 			return err

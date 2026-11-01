@@ -1,0 +1,142 @@
+# Topophany 使用指南
+
+先选择要完成的任务，再逐步增加观测点。检查结果只代表实际测量到的范围；
+没有检查、读数过期和监控端出错，都不能当作目标宕机或正常。
+
+## 首次接入
+
+运行 `topo setup`，选择网站、Beszel/Komari 直连，或多地部署。
+网站也可以直接创建：
+
+```sh
+topo init --url https://example.com/health --dir ./website
+```
+
+它会生成私密配置和配套凭据，并打印启动采集器和查看端的命令。生成时不会
+访问网站。先审阅 `topology.json`；默认每 60 秒检查一次，期望 HTTP 200。
+启动采集器后，等待第一条真实证据：
+
+```sh
+topo doctor --credentials ./website/credentials.json --wait 90s
+topo --credentials ./website/credentials.json --lang zh
+```
+
+收到样本只证明监控链路在工作；样本本身仍可能报告目标失败。
+`topo doctor --json` 可导出不含地址、凭据、拓扑正文的诊断报告。
+
+已有网络配置时，`topo templates list` 可选择模板：
+
+```sh
+topo templates cloudflare --output cloudflare.json
+topo validate --config cloudflare.json
+```
+
+模板中的检查全部暂停。先修改地址、观测点、断言和凭据环境变量，再启用
+需要的检查。模板的兼容说明针对已验证的上游格式，不代表所有未来版本。
+
+## 读懂状态
+
+- **当前检查全部通过**：此观测视角的活跃检查通过，不代表所有登记的服务都有应用级证据。
+- **服务可用性已知**：当前证据能判断可用性的服务数量，包括正常、降级和失败。
+- **未配置检查**：服务只有登记信息。
+- **此观测点没有检查**：其他观测点可能有证据，当前视角不能代替它们作答。
+- **只有连接检查**：TCP/TLS 成功不能单独证明应用可用。
+- **样本过期、缓存数据**：只能参考过去的结果，不能据此确认当前状态。
+- **监控端错误**：权限、配置、凭据或采集过程的问题，与目标故障分开显示。
+
+`--lang zh` 适用于查看端、预览和 `status` / `show`。状态代码、检查 ID 和
+原始证据不翻译，便于脚本、日志和不同语言界面相互对应。
+
+## 日常查看与排障
+
+```sh
+topo status --lang zh
+topo show services SERVICE_ID --lang zh
+topo problems
+topo problems node:TARGET_ID
+```
+
+`problems` 将指向同一声明目标的事件放在一起，保留各观测点的事件、检查和
+反证。归组说明相关性，不自动认定共同根因。在终端或浏览器的事件页按 `b`
+切换关联视图，按 Enter 查看完整证据。
+
+常用键：Tab 或 1–9 切换页面，方向键选择，Enter 打开详情，`/` 筛选，`v`
+切换观测点，`m` 切换地图，`f` 展开地图，`,` 打开设置，`q` 退出。
+
+```sh
+topo views save home-services --page services --observer home --filter web --lang zh
+topo views open home-services -- --profile production
+topo views list
+```
+
+命名视图保存展示选择，不保存登录凭据。
+
+## 对比历史
+
+```sh
+topo compare --checks home-http,cloud-http --step 5m --span 1h
+topo compare --incident INCIDENT_ID --span 30m --json
+```
+
+对比固定在同一个采集器、配置契约和时间窗口。事件前后窗口按步长对齐；
+事件后的窗口尚未结束时，请缩短范围。缺失历史、未测量时间和无法修正的
+历史不会填成正常；修改测量契约会开始新的序列。
+
+## 修改和部署配置
+
+```sh
+topo edit --config topology.json
+topo edit --config topology.json --apply proposed.json --dry-run
+```
+
+批量应用时，使用预览返回的两个完整版本：
+
+```sh
+topo edit --config topology.json --apply proposed.json \
+  --expect-revision BEFORE --expect-candidate-revision AFTER
+```
+
+审阅后任何一方文件发生变化都会拒绝应用。编辑器遇到外部修改时保留草稿，
+请重新打开文件并合并改动。分发并重载之后检查：
+
+```sh
+topo rollout --config topology.json --json
+topo runtime --data WORKER_DATA --config topology.json --json
+```
+
+前者逐个读取采集器地址，只验证公开配置和 worker 报告的测量契约；后者在
+本机检查进程实际加载的私有配置摘要。后者的报告不属于可公开分享的诊断导出。
+
+## 告警与恢复
+
+```sh
+topo alerts status --data COLLECTOR_DATA --json
+topo alerts test --config topology.json --alerts alerts.json --webhook ops
+topo alerts quiet --config topology.json --alerts alerts.json --webhook ops --for 30m
+```
+
+通知测试会明确发送一条测试消息。静默配置需要重载采集器才生效；它暂缓
+通知投递，不停止测量、不修改健康状态。排队、过期和丢弃仍受原有上限约束。
+双采集器可用 `primary_instance` 指定通知端，这不是自动选主。
+
+用新版本二进制验证停止写入后的备份：
+
+```sh
+topo recovery --data BACKUP_DATA --config topology.json --auth auth.json
+```
+
+验证在临时私密副本中执行，不改写原始数据，也不启动探针、投递或告警。
+根据实际部署传入存储预算。备份仍需保留匹配的配置、凭据与证书材料。
+
+## 直连与菜单栏
+
+`topo sources export --profile desktop --output collector-topology.json` 可生成
+采集器迁移拓扑，保留服务器 ID，所有检查先暂停。命令只列出需要的凭据环境
+变量，不复制凭据。直连的非环回 HTTP 授权不能迁移到拓扑，请先配置 HTTPS。
+
+菜单栏支持在应用内连接采集器、体验明确标注的模拟演示，并返回原连接。
+迁移完成后，在数据源设置中选择“沿用直连配置的固定服务器”，显式复制原来
+的固定项。直连没有历史可转移；确认采集器数据正常后再停用旧直连配置。
+
+完整字段、预算和兼容边界见 [配置参考](REFERENCE.md)、[运维](OPERATIONS.md)
+和 [直连说明](DIRECT.md)。

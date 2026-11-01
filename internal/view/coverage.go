@@ -9,6 +9,7 @@ import (
 // Coverage describes what this view can establish. It does not change health,
 // promote path evidence into application availability or count unknown as down.
 type Coverage struct {
+	Language string        `json:"-"`
 	Observer string        `json:"observer"`
 	Services int           `json:"services"`
 	Known    int           `json:"known"`
@@ -21,6 +22,9 @@ type CoverageGap struct {
 }
 
 func (c Coverage) Line() string {
+	if text := coverageLine(c.Language, c); text != "" {
+		return text
+	}
 	scope := c.Observer
 	if scope == "" {
 		scope = "all observers"
@@ -31,7 +35,7 @@ func (v View) Coverage() Coverage {
 	return v.coverage(serviceAssessments(v.Snapshot, v.Cached || v.Draft))
 }
 func (v View) coverage(assessments map[string]ServiceAssessment) Coverage {
-	out := Coverage{Observer: v.Snapshot.ViewObserver, Services: len(v.Snapshot.Topology.Services), Gaps: []CoverageGap{}}
+	out := Coverage{Language: v.Language, Observer: v.Snapshot.ViewObserver, Services: len(v.Snapshot.Topology.Services), Gaps: []CoverageGap{}}
 	byService := map[string][]model.Check{}
 	for _, c := range v.Snapshot.Topology.Checks {
 		byService[c.Service] = append(byService[c.Service], c)
@@ -84,6 +88,7 @@ func (v View) coverage(assessments map[string]ServiceAssessment) Coverage {
 		default:
 			gap.Code, gap.Reason = "application_unconfirmed", "Current checks do not establish application availability; inspect path and monitor-side evidence."
 		}
+		gap.Reason = Text(v.Language, gap.Reason)
 		out.Gaps = append(out.Gaps, gap)
 	}
 	return out

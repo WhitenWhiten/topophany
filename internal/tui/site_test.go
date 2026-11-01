@@ -66,7 +66,7 @@ func newRecorder(t *testing.T, lang string) *recorder {
 	r := &recorder{t: t, sim: sim}
 	// The page draws the providers' logos itself, so the tour shows them as
 	// a terminal with a Nerd Font does.
-	r.m = &Model{Now: now, Width: tourW, Height: tourH, Preview: sim, Server: "synthetic", Colors: colorTrue, NerdFont: true}
+	r.m = &Model{Language: lang, Now: now, Width: tourW, Height: tourH, Preview: sim, Server: "synthetic", Colors: colorTrue, NerdFont: true}
 	r.out.Size = [2]int{tourW, tourH}
 	r.out.Names = tabs
 	r.fetch()

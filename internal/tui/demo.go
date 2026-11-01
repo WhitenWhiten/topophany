@@ -34,7 +34,7 @@ func NewDemo(lang string, now time.Time) (*Demo, error) {
 		return nil, err
 	}
 	sim := preview.New(c, now, lang)
-	m := &Model{Now: now, Preview: sim, Server: "synthetic", Colors: colorTrue, Cell: 2}
+	m := &Model{Language: lang, Now: now, Preview: sim, Server: "synthetic", Colors: colorTrue, Cell: 2}
 	m.initializeStartup(nil)
 	m.NerdFont = true // Screen draws the same provider outlines without a font.
 	for _, o := range c.Observers {

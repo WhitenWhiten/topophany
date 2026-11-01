@@ -10,6 +10,7 @@ import (
 // Startup carries the resolved defaults and the location to save explicitly.
 // Notice, when set, says why the saved defaults were not used.
 type Startup struct {
+	Language         string
 	Search           string
 	RelatedIncidents bool
 	Settings         preferences.Settings
@@ -26,6 +27,9 @@ func (m *Model) initializeStartup(options []Startup) {
 	}
 	if d, e := DeviceByID(s.Device); s.Device != "" && e == nil {
 		m.Device = d
+	}
+	if s.Language != "" {
+		m.Language = s.Language
 	}
 	m.PreferencesPath = s.Path
 	m.PreferenceOverrides = s.Overrides

@@ -78,6 +78,7 @@ func remote(c *client.Client) reader {
 // moment it is read at, and the defaults its own flags give --observer and
 // --json.
 type previewed struct {
+	language string
 	config   model.Config
 	sim      *preview.Sim
 	now      time.Time
@@ -208,6 +209,11 @@ func (a *App) read(ctx context.Context, cmd string, args []string, pv *previewed
 	if cmd != "history" {
 		observer = f.String("observer", observerDefault, "observer view (default all)")
 	}
+	languageDefault := localeLanguage()
+	if pv != nil && pv.language != "" {
+		languageDefault = pv.language
+	}
+	language := f.String("lang", languageDefault, "interface language: en, zh or ja")
 	asJSON := f.Bool("json", jsonDefault, "print the view as JSON")
 	limit := new(int)
 	step, span := new(string), new(string)
@@ -219,6 +225,9 @@ func (a *App) read(ctx context.Context, cmd string, args []string, pv *previewed
 	pos, e := parseMixed(f, args)
 	if e != nil {
 		return e
+	}
+	if preview.Language(*language) != *language {
+		return errors.New("--lang must be en, zh or ja")
 	}
 	tab := 0
 	switch cmd {
@@ -295,8 +304,8 @@ func (a *App) read(ctx context.Context, cmd string, args []string, pv *previewed
 		return e
 	}
 	at := now()
-	v := view.View{Snapshot: snap, Now: at, Cached: view.Expired(snap, at)}
-	h := header{Project: snap.Project, Instance: snap.Instance, Server: server, Observer: snap.ViewObserver, GeneratedAt: snap.GeneratedAt, Cached: v.Cached}
+	v := view.View{Language: *language, Snapshot: snap, Now: at, Cached: view.Expired(snap, at)}
+	h := header{Language: *language, Project: snap.Project, Instance: snap.Instance, Server: server, Observer: snap.ViewObserver, GeneratedAt: snap.GeneratedAt, Cached: v.Cached}
 	if snap.Direct != nil {
 		status, _ := v.SourcesStatus()
 		h.Source = "direct"

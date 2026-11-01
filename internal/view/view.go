@@ -15,6 +15,7 @@ import (
 // known: the snapshot expired, or the collector stopped answering. Draft
 // means a local draft in the editor, which has no live evidence.
 type View struct {
+	Language string
 	Snapshot model.Snapshot
 	Now      time.Time
 	Cached   bool
@@ -277,7 +278,8 @@ type Verdict struct {
 	Text  string `json:"text"`
 }
 
-func (v View) Verdict() Verdict {
+func (v View) Verdict() Verdict { return localizedVerdict(v.Language, v.verdict()) }
+func (v View) verdict() Verdict {
 	if v.Snapshot.Direct != nil && !v.Draft && !v.Cached {
 		return v.directVerdict()
 	}
@@ -310,6 +312,10 @@ func (v View) Verdict() Verdict {
 // Calm is what the Overview says when nothing needs attention, and why:
 // a state (draft, cached, no-checks or clear), a headline and a line more.
 func (v View) Calm() (state, headline, more string) {
+	state, headline, more = v.calm()
+	return state, Text(v.Language, headline), Text(v.Language, more)
+}
+func (v View) calm() (state, headline, more string) {
 	if v.Snapshot.Direct != nil && !v.Draft && !v.Cached {
 		verdict := v.directVerdict()
 		return verdict.State, verdict.Glyph + " " + verdict.Text, DirectText("scope")

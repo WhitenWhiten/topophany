@@ -17,6 +17,7 @@ import (
 
 // header says where a view comes from, as the TUI's header bar does.
 type header struct {
+	Language        string              `json:"-"`
 	Source          string              `json:"source,omitempty"`
 	Profile         string              `json:"profile,omitempty"`
 	ProfileRevision string              `json:"profile_revision,omitempty"`
@@ -32,11 +33,12 @@ type header struct {
 }
 
 func (h header) print(t *text, now time.Time) {
+	t.language = h.Language
 	vantage := h.Observer
 	if vantage == "" {
-		vantage = "all observers"
+		vantage = view.Text(h.Language, "all observers")
 	}
-	t.kv("Project", h.Project)
+	t.kv(view.Text(h.Language, "Project"), h.Project)
 	if h.Source == "direct" {
 		status := view.SourcesStatus{}
 		if h.Sources != nil {
@@ -44,17 +46,17 @@ func (h header) print(t *text, now time.Time) {
 		}
 		t.kv(view.DirectText("source_label"), view.DirectConnection(status)+" / "+h.Profile)
 	} else {
-		t.kv("Collector", h.Instance+" @ "+h.Server)
+		t.kv(view.Text(h.Language, "Collector"), h.Instance+" @ "+h.Server)
 	}
 	if h.Scenario != "" {
-		t.kv("Scenario", h.Scenario)
+		t.kv(view.Text(h.Language, "Scenario"), h.Scenario)
 	}
-	t.kv("View", vantage)
+	t.kv(view.Text(h.Language, "View"), vantage)
 	updated := view.Stamp(now, h.GeneratedAt)
 	if h.Cached {
 		updated += " (cached: nothing current is known)"
 	}
-	t.kv("Updated", updated)
+	t.kv(view.Text(h.Language, "Updated"), updated)
 }
 
 // standing is what topo status concludes, as a word and an exit status:
@@ -155,15 +157,15 @@ func (a *App) status(v view.View, h header, asJSON bool) error {
 	t := &text{w: a.Out}
 	t.line(s.Verdict.Glyph + " " + s.Verdict.Text)
 	h.print(t, v.Now)
-	t.kv("Checks", fmt.Sprintf("%d up, %d warning, %d down, %d unknown", s.Checks.Up, s.Checks.Warn, s.Checks.Down, s.Checks.Unknown))
+	t.kv(view.Text(v.Language, "Checks"), fmt.Sprintf("%d %s, %d %s, %d %s, %d %s", s.Checks.Up, view.Text(v.Language, "up"), s.Checks.Warn, view.Text(v.Language, "warning"), s.Checks.Down, view.Text(v.Language, "down"), s.Checks.Unknown, view.Text(v.Language, "unknown")))
 	if v.Snapshot.Direct == nil {
 		t.line(s.Coverage.Line())
 		for _, gap := range s.Coverage.Gaps {
-			t.kv("Coverage "+gap.Service, gap.Reason)
+			t.kv(view.Text(v.Language, "Coverage")+" "+gap.Service, gap.Reason)
 		}
 	}
 	t.kv("Incidents", strconv.Itoa(s.Incidents))
-	t.kv("Observers", fmt.Sprintf("%d/%d live", s.Observers.Live, s.Observers.Total))
+	t.kv("Observers", fmt.Sprintf("%d/%d %s", s.Observers.Live, s.Observers.Total, view.Text(v.Language, "live")))
 	if in := s.Ingress; in != nil {
 		// A snapshot from before source_count existed still has its listed
 		// sources; do not print "from 0 sources" for it.
@@ -195,16 +197,16 @@ func (a *App) status(v view.View, h header, asJSON bool) error {
 	look := []string{}
 	for i, b := range s.Tabs {
 		if b.Count > 0 {
-			look = append(look, view.Tabs[i]+" "+strconv.Itoa(b.Count))
+			look = append(look, view.Text(v.Language, view.Tabs[i])+" "+strconv.Itoa(b.Count))
 		}
 	}
 	if len(look) == 0 {
-		look = []string{"nothing"}
+		look = []string{view.Text(v.Language, "nothing")}
 	}
 	t.kv("Needs a look", strings.Join(look, ", "))
 	t.line()
 	if s.Quiet != nil {
-		t.line("NEEDS ATTENTION · 0")
+		t.line(view.Text(v.Language, "NEEDS ATTENTION") + " · 0")
 		t.line(headline)
 		t.line(more)
 	} else {

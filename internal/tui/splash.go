@@ -129,12 +129,12 @@ func (m *Model) splashLines(offline bool) []vline {
 		case m.Direct:
 			out = append(out, vline{{m.spinner() + "  ", fg(cAccent2)}, {view.DirectText("opening"), fg(cText).bold()}})
 		case m.Preview != nil:
-			out = append(out, vline{{m.spinner() + "  ", fg(cAccent2)}, {"Starting the preview", fg(cText).bold()}},
+			out = append(out, vline{{m.spinner() + "  ", fg(cAccent2)}, {m.ui("Starting the preview"), fg(cText).bold()}},
 				vline{{"   synthetic evidence; no collector is dialled", fg(cMuted)}})
 		case len(hosts) == 0:
-			out = append(out, vline{{m.spinner() + "  ", fg(cAccent2)}, {"Connecting to the collector", fg(cText).bold()}})
+			out = append(out, vline{{m.spinner() + "  ", fg(cAccent2)}, {m.ui("Connecting to the collector"), fg(cText).bold()}})
 		default:
-			out = append(out, vline{{m.spinner() + "  ", fg(cAccent2)}, {"Connecting to ", fg(cText)}, {hosts[0], fg(cGlow).bold()}})
+			out = append(out, vline{{m.spinner() + "  ", fg(cAccent2)}, {m.ui("Connecting to "), fg(cText)}, {hosts[0], fg(cGlow).bold()}})
 			for _, h := range hosts[1:] {
 				out = append(out, vline{{"   or ", fg(cMuted)}, {h, fg(cText)}})
 			}
@@ -146,6 +146,7 @@ func (m *Model) splashLines(offline bool) []vline {
 		return out
 	}
 	head, why, hint := trouble(m.Error)
+	head, hint = m.ui(head), m.ui(hint)
 	if m.ReconnectHint != "" {
 		hint = m.ReconnectHint
 	}
@@ -171,7 +172,7 @@ func (m *Model) splashLines(offline bool) []vline {
 	}
 	out = append(out, vline{})
 	if m.Fetching {
-		out = append(out, vline{{m.spinner() + "  ", fg(cAccent2)}, {"Trying again…", fg(cAccent2)}})
+		out = append(out, vline{{m.spinner() + "  ", fg(cAccent2)}, {m.ui("Trying again…"), fg(cAccent2)}})
 	} else {
 		out = append(out, vline{{"↻  ", fg(cAccent2)}, {"Trying again every " + itoa(int(retryEvery/time.Second)) + " s", fg(cText)}, {" · r now", fg(cMuted)}})
 	}

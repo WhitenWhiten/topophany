@@ -34,7 +34,7 @@ code and appropriate verification, not merely a proposal.
 - [x] Signed and notarized universal 0.2.0 local distribution artifact; provenance in the companion repository.
 - [x] Consistent structured CLI errors, field paths and change-impact output.
 - [x] Operational status, isolated backup recovery validation and candidate-binary compatibility checks.
-- [ ] Chinese status, error and troubleshooting copy; task-oriented documentation.
+- [x] Chinese critical status, controls, coverage/connection-error explanations and task-oriented guide; Japanese counterparts retained.
 
 ## P2 and ongoing verification
 

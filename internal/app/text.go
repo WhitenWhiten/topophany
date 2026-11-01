@@ -13,8 +13,9 @@ import (
 // text writes plain lines. Every value from a snapshot passes through
 // clean, so a hostile name cannot reach the terminal as a control sequence.
 type text struct {
-	w   io.Writer
-	err error
+	language string
+	w        io.Writer
+	err      error
 }
 
 func clean(s string) string {
@@ -28,12 +29,19 @@ func (t *text) line(parts ...string) {
 	_, t.err = io.WriteString(t.w, strings.TrimRight(strings.Join(parts, ""), " ")+"\n")
 }
 
-func (t *text) kv(key, value string) { t.line(key, ": ", clean(value)) }
+func (t *text) kv(key, value string) { t.line(view.Text(t.language, key), ": ", clean(value)) }
 
 // table aligns cells in columns two spaces apart. A column is as wide as
 // its widest cell up to 48; a longer cell runs on rather than being cut,
 // and the last column is never padded.
 func (t *text) table(cells [][]string) {
+	if len(cells) > 0 && t.language != "" && t.language != "en" {
+		cells = append([][]string(nil), cells...)
+		cells[0] = append([]string(nil), cells[0]...)
+		for i, key := range cells[0] {
+			cells[0][i] = view.Text(t.language, key)
+		}
+	}
 	widths := []int{}
 	for _, row := range cells {
 		for i, c := range row {
@@ -68,9 +76,9 @@ func word(r view.Row) string {
 // rows writes a titled table of a tab's rows: the state, the ID, the
 // title with its tree guide, and the tab's columns.
 func (t *text) rows(title string, tab int, rows []view.Row) {
-	t.line(title + " · " + strconv.Itoa(len(rows)))
+	t.line(view.Text(t.language, title) + " · " + strconv.Itoa(len(rows)))
 	if len(rows) == 0 {
-		t.line("none")
+		t.line(view.Text(t.language, "none"))
 		return
 	}
 	cells := [][]string{append([]string{"STATE", "ID"}, view.Columns(tab)...)}

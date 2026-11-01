@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://topophany.com/zh/"><b>topophany.com</b></a> ·
   <a href="https://github.com/WhitenWhiten/topophany/releases">下载</a> ·
-  <a href="docs/GUIDE.md">用户指南（英文）</a>
+  <a href="docs/GUIDE.zh.md">用户指南</a>
 </p>
 
 <p align="center"><sub><a href="README.md">English</a> · <a href="README.ja.md">日本語</a> · <b>简体中文</b></sub></p>
@@ -192,7 +192,7 @@ Topophany 1.4.0 可以把 Cloudflare 部署的公网域名、源站、Tunnel 连
 
 ## 文档
 
-文档目前只有英文版。
+新增中文[使用指南](docs/GUIDE.zh.md)，涵盖接入、状态解释、排障、配置变更、告警和恢复。详细字段参考仍以英文文档为准。
 
 | | |
 |---|---|

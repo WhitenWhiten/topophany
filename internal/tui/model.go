@@ -34,6 +34,7 @@ const (
 // Row is one selectable entry of a list (see view.Row).
 type Row = view.Row
 type Model struct {
+	Language                                string
 	RelatedIncidents                        bool
 	requestDiagnostics                      func() []model.TransportEvent
 	diagnosticEvents                        []session.Event
@@ -136,7 +137,7 @@ func (m *Model) say(msg string, isErr bool) {
 // view is what the model shows, as the view package derives it for the
 // TUI and the CLI alike.
 func (m *Model) view() view.View {
-	return view.View{Snapshot: m.Snapshot, Now: m.Now, Cached: m.Cached(), Draft: m.Edit != nil}
+	return view.View{Language: m.Language, Snapshot: m.Snapshot, Now: m.Now, Cached: m.Cached(), Draft: m.Edit != nil}
 }
 
 // Rows lists the current tab, filtered by the search and marked when the
@@ -184,9 +185,13 @@ func (m *Model) tabRows(tab int) []Row { return m.view().Rows(tab) }
 // first, then one heading per Row.Cols entry.
 func (m *Model) tabColumns() []string {
 	if m.Tab == tabIncidents && m.RelatedIncidents {
-		return []string{"DECLARED TARGET", "INCIDENTS", "OBSERVERS"}
+		return []string{m.ui("DECLARED TARGET"), m.ui("INCIDENTS"), m.ui("OBSERVERS")}
 	}
-	return view.Columns(m.Tab)
+	columns := slices.Clone(view.Columns(m.Tab))
+	for i, key := range columns {
+		columns[i] = m.ui(key)
+	}
+	return columns
 }
 
 func age(now, t time.Time) string { return view.Age(now, t) }
