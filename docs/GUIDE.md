@@ -248,6 +248,20 @@ The full `topo preview --lang zh` topology includes independent CPU, memory, dis
 
 When collectors are unreachable, cached data is retained but items transition to `unknown` and are marked CACHED; `topo status`, which keeps no cache, exits 4 instead. Switching to a backup collector never silently changes the observer vantage point. The TUI queries the HTTP API every 3 seconds (preview mode regenerates synthetic snapshots every second); SSE and browser-based frontends are not implemented.
 
+## Investigate related incidents
+
+`topo problems` groups confirmed incidents with the same declared target.
+`topo problems node:ID` opens the group's original incidents, failed checks,
+independent counter-evidence, observers, affected services and next actions.
+Use `--json` for the same structured evidence, and `--observer ID` to retain a
+specific vantage point. `topo preview --scenario 1 problems` rehearses the flow
+without contacting infrastructure.
+
+A group is a navigation aid, not a shared-root-cause verdict. Incident identities
+remain separate, references to unavailable counter-evidence stay explicitly
+unknown, and cached groups are labelled non-current. Warnings and missing data
+remain in `topo status` even when no confirmed incident exists.
+
 ## Reading from Scripts and Agents
 
 Everything the TUI shows can be read from the command line, for a script, a cron job or an AI agent. The TUI and these commands draw on one derivation of the snapshot (`internal/view`), so they cannot disagree, and a test holds them to it across every preview scenario.

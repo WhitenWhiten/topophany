@@ -48,6 +48,7 @@ Get started
 Read what the TUI shows
   topo sessions --json              list running local viewers
   topo diagnose --session ID --json inspect exactly what that viewer displays
+  topo problems [ID]                related incidents, evidence and next actions
   topo status                       the Overview as text; its exit status says it too
   topo show TAB [ID]                a tab, or the evidence behind one entry in it
   topo history CHECK                a check's recent samples
@@ -161,7 +162,7 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		return a.edit(ctx, args[1:])
 	case "preview":
 		return a.preview(ctx, args[1:])
-	case "status", "show", "history":
+	case "status", "show", "history", "problems":
 		return a.read(ctx, args[0], args[1:], nil)
 	case "validate", "export", "once":
 		return a.topologyCommand(ctx, args[0], args[1:])

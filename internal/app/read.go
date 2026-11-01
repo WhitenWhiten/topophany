@@ -222,6 +222,10 @@ func (a *App) read(ctx context.Context, cmd string, args []string, pv *previewed
 	}
 	tab := 0
 	switch cmd {
+	case "problems":
+		if len(pos) > 1 {
+			return errors.New("usage: topo problems [GROUP_ID] [--json]")
+		}
 	case "status":
 		if len(pos) != 0 {
 			return errors.New("usage: topo status [--observer ID] [--json]")
@@ -305,6 +309,12 @@ func (a *App) read(ctx context.Context, cmd string, args []string, pv *previewed
 		h.Scenario, _, _ = strings.Cut(pv.sim.Scenarios()[pv.sim.Scenario()], "\t")
 	}
 	switch {
+	case cmd == "problems":
+		id := ""
+		if len(pos) > 0 {
+			id = pos[0]
+		}
+		return a.problems(v, h, id, *asJSON)
 	case cmd == "status":
 		return a.status(v, h, *asJSON)
 	case tab == mapTab:

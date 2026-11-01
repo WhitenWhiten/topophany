@@ -10,7 +10,8 @@ code and appropriate verification, not merely a proposal.
 - [x] Task-based onboarding entry point: direct resources, website/server, multi-location network.
 - [x] First-sample progress and guided handling of failed enrollment.
 - [x] Status scope, monitoring coverage and explicit unknown reasons across viewers.
-- [ ] Related-incident grouping with independent evidence and counter-evidence preserved.
+- [x] CLI related-incident grouping with independent evidence and counter-evidence preserved (`topo problems`).
+- [ ] Related-incident navigation in graphical viewers.
 - [ ] Unified diagnostics, next actions and redacted diagnostic export.
 
 ## P1: daily use and maintenance

@@ -177,7 +177,7 @@ func (a *App) preview(ctx context.Context, args []string) error {
 	}
 	if f.NArg() > 0 {
 		switch cmd, rest := f.Arg(0), f.Args()[1:]; cmd {
-		case "status", "show", "history":
+		case "status", "show", "history", "problems":
 			return a.read(ctx, cmd, rest, &previewed{config: c, sim: sim, now: now, observer: *observer, json: *dump})
 		case "scenarios":
 			return a.scenarios(rest, sim.ScenarioIDs(), names, sim.Scenario(), *dump)
