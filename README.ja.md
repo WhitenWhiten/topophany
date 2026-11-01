@@ -118,6 +118,7 @@ topo --credentials ./demo/credentials.json
 
 ### アップグレード時の注意
 
+- **ローカルチェックと最新のストリーム診断には 1.5.3 を使ってください。** ローカルの mihomo チェックには新しいローカルバイナリが必要です。利用側は `monitor stream --capabilities` で `local` とメトリクス一覧を確認してください。既存の 1.5.2 の設定と状態に移行は不要です。Cloudflare のトークン秘匿とアダプターの証拠判定の修正には collector と worker を更新してください。保存済みのジャーナルは書き換えません。詳しくは [1.5.3 のリリースノート](docs/releases/v1.5.3.md)を参照してください。
 - **1.5.2 のポリシーを有効にする前に更新してください。** `tls_min_days`、`max_duration_ms`、`http.json_equals` をトポロジーへ追加する前に、collector、worker、閲覧クライアントを対応版へ更新してください。JSON アサーションには非公開の設定ファイルが必要です。通知ポリシーのフィールドを追加する前に collector を更新し、ロールバック用に対応する設定のバックアップを保持してください。詳しくは [1.5.2 のリリースノート](docs/releases/v1.5.2.md)を参照してください。
 - **1.5.1 へ更新するときは、worker より先に collector を更新してください。** 1.5.1 の worker は旧版の collector が拒否する可能性のある配信診断と collector エイリアスを報告します。複数の collector を使う worker には `collector_id` を返す collector が必要です。`availability_scope` を使うトポロジーは collector、worker、閲覧クライアントをすべて更新し、`allow_insecure` を使う直接接続プロファイルはローカルの 1.5.1 バイナリが必要です。詳しくは [1.5.1 のリリースノート](docs/releases/v1.5.1.md)を参照してください。
 - **Komari を有効にする前に 1.5.0 へ更新してください。** Komari のリソース収集と直接接続プロファイルには新しいアダプターが必要です。更新前に、新しい送信先ごとの容量枠を超える worker キューを排出または保管し、拡張された外部状態を戻す場合に備えて collector のバックアップを保持してください。詳しくは [1.5.0 のリリースノート](docs/releases/v1.5.0.md)を参照してください。
@@ -150,6 +151,17 @@ topo --credentials ./demo/credentials.json
 direct モードでは、各 `topo` プロセスが Beszel Hub や Komari サーバーから CPU、メモリー、ディスクを直接読みます。コレクターは要りません：`topo --source direct --profile desktop`。同じプロファイルを `--json`、`status`、`show`、`monitor configure`/`run` でも使えます。プロファイルは `topo sources inspect|save|remove --json-stdin` で設定し、`topo sources list --json` で一覧できます。コレクターへの接続とは別に保存され、ひとつのプロファイルに Beszel と Komari のソースを混在させられます。既定では 60 秒ごとに収集して 5 秒ごとに表示し、データは 180 秒間有効です。単発の読み取りは最初のサンプルを最大 15 秒待ちます (`--wait`)。
 
 direct モードはリソースの履歴を持たず (`history --source direct` は未対応と答えます)、バックグラウンドサービスも動かさず、リソースの読み取りからネットワークの到達性を推測しません。対応するのは Beszel v0.21.0 のリソース形式と Komari 1.6.0 です。Komari は API キーか公開ノードへの匿名アクセスで読み、ディスクは集計値です。任意のバージョンや完全な MFA/SSO への対応は保証しません。[設定と制限](docs/DIRECT.md)、[Komari の設定例](docs/DIRECT.md#configure-komari)、[D1 契約](docs/contracts/direct-v1/contract.md) (いずれも英語) を参照してください。
+
+## このマシンの mihomo エンジンを見る
+
+`topo local list --json` と `topo local inspect|save|remove --json-stdin` で、
+ループバックのコントローラーを読む非公開のチェックを最大 4 件管理できます。
+`topo monitor stream` に `"source":"local"` を指定すると、ストリームを開いている
+間だけ読み取り、collector や direct のストリームと並行して実行できます。秘密情報は
+非公開の別ファイルに保存し、読み取った内容はこのマシン内にとどまります。モード、
+TUN の状態、選択先はエンジン自身の報告です。実際の通信は別のアプリケーション
+チェックで確認してください。[設定ガイド](docs/GUIDE.md#watch-this-machines-proxy-engine)と
+[API リファレンス](docs/REFERENCE.md#local-checks-this-machine)（英語）を参照してください。
 
 ## Cloudflare：エッジからオリジンまで
 

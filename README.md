@@ -118,6 +118,7 @@ The [operations guide](docs/OPERATIONS.md) covers dual collectors, systemd units
 
 ### Upgrading
 
+- **Use 1.5.3 for local checks and current stream diagnostics.** Local mihomo checks require the new local binary; consumers should check `monitor stream --capabilities` for `local` and its metric catalog. Existing 1.5.2 configurations and state need no migration. Upgrade collectors and workers for Cloudflare token redaction and corrected adapter evidence; existing stored journals are not rewritten. See the [1.5.3 release notes](docs/releases/v1.5.3.md).
 - **Upgrade before enabling 1.5.2 policies.** Collectors, workers and viewers must support `tls_min_days`, `max_duration_ms` and `http.json_equals` before those fields enter a topology. JSON assertions require a private configuration file. Upgrade collectors before adding notification policy fields; retain matching configuration backups for rollback. See the [1.5.2 release notes](docs/releases/v1.5.2.md).
 - **Upgrade collectors before workers to 1.5.1.** A 1.5.1 worker can report delivery diagnostics and collector aliases that older collectors reject; upgrade collectors first. A worker with several collectors needs a collector that returns `collector_id`. Topologies using `availability_scope` require upgraded collectors, workers and viewers, and direct profiles using `allow_insecure` require the local 1.5.1 binary. See the [1.5.1 release notes](docs/releases/v1.5.1.md).
 - **Upgrade to 1.5.0 before enabling Komari.** Komari resources and direct profiles require the new adapter. Drain or archive worker backlogs that exceed the new per-recipient capacity shares, and retain collector backups before downgrading expanded external state. See the [1.5.0 release notes](docs/releases/v1.5.0.md).
@@ -150,6 +151,17 @@ The [changelog](CHANGELOG.md) has the notes for every earlier release.
 Direct mode reads CPU, memory and disk from a Beszel Hub or a Komari server inside each `topo` process, with no collector to run: `topo --source direct --profile desktop`. The same profile serves `--json`, `status`, `show` and `monitor configure`/`run`. Set profiles up with `topo sources inspect|save|remove --json-stdin` and list them with `topo sources list --json`; they are kept apart from collector connections, and one profile can mix Beszel and Komari sources. By default sources are polled every 60 seconds, shown every 5 and valid for 180, and a one-off read waits up to 15 seconds for its first samples (`--wait`).
 
 Direct mode keeps no resource history (`history --source direct` says so), runs no background service, and infers nothing about network reachability from a resource reading. It supports the Beszel v0.21.0 resource format and Komari 1.6.0; Komari takes an API key or reads its public nodes anonymously, and reports one aggregate disk. Arbitrary versions and complete MFA or SSO flows are not promised. See [Direct setup and limits](docs/DIRECT.md), the [Komari example](docs/DIRECT.md#configure-komari) and the [D1 contract](docs/contracts/direct-v1/contract.md).
+
+## Watch this machine's mihomo engine
+
+`topo local list --json` and `topo local inspect|save|remove --json-stdin` manage
+up to four private loopback controller checks. `topo monitor stream` with
+`"source":"local"` reads them while the stream is open, alongside a collector
+or direct stream. Secrets stay in private files, and readings stay on this
+machine. Runtime mode, TUN state and selections describe what the engine reports;
+use a separate application check to verify traffic. See the
+[local-check setup guide](docs/GUIDE.md#watch-this-machines-proxy-engine) and
+[API reference](docs/REFERENCE.md#local-checks-this-machine).
 
 ## Cloudflare, from edge to origin
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-11-01
+
+This release adds collector-free local mihomo checks, brings service assessments
+and adapter policy evidence to monitor streams, and fixes incomplete adapter
+judgments and private credential reads. See the
+[release notes](docs/releases/v1.5.3.md) for compatibility and upgrade details.
+
 ### Added
 
 - `service.card` stream values carry the Services tab's `assessment`: a closed
@@ -51,6 +58,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names_kept_local_secret_request`: its frames reach only the user who supplied
   the secret. Worker reads still name only declared proxies and keep every
   other secret redaction.
+
+### Fixed
+
+- Resolving a Mihomo chain through its provider inventory no longer erases
+  missing TUN evidence or a provider-publication change. Independent policy
+  violations take precedence over unknown results, and incomplete older
+  samples cannot establish a matched TUN policy.
+- Cloudflare Tunnel connection policies remain unknown when the API omits the
+  connection list or complete colo evidence. Older samples without the needed
+  facts cannot establish a matched policy.
+- Local HTTPS checks pin `localhost` to loopback while retaining `localhost`
+  for certificate verification. Saved checks and their secrets are read as
+  one locked snapshot, including on Windows, so concurrent saves and removals
+  cannot mix configuration revisions and credentials.
+- The process smoke test passes the JSON option before the `show` positional
+  argument, matching the CLI's flag parsing.
+
+### Security
+
+- Cloudflare API reads no longer retain arbitrary `connector_versions` strings,
+  which could echo fragments of the bearer token. Token-fragment scrubbing also
+  covers substrings of retained values. Collectors remove legacy
+  `connector_versions` facts from snapshots and history responses, including
+  monitor history; existing stored journals are not rewritten.
 
 ## [1.5.2] - 2026-11-01
 
@@ -2007,7 +2038,8 @@ Initial release.
 - Terminal UI with geographic and network topology maps, offline preview
   scenarios and a local topology editor.
 
-[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.5.2...HEAD
+[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.5.3...HEAD
+[1.5.3]: https://github.com/WhitenWhiten/topophany/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/WhitenWhiten/topophany/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/WhitenWhiten/topophany/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/WhitenWhiten/topophany/compare/v1.4.2...v1.5.0

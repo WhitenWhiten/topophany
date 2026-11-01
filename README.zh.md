@@ -118,6 +118,7 @@ topo --credentials ./demo/credentials.json
 
 ### 升级注意事项
 
+- **本机检查和最新流式诊断请使用 1.5.3。** 本机 mihomo 检查需要新版本机二进制；消费端应通过 `monitor stream --capabilities` 确认 `local` 和指标目录。现有 1.5.2 配置及状态无需迁移。请升级 collector 和 worker，以获得 Cloudflare 令牌脱敏和适配器证据修复；既有日志不会被重写。详见 [1.5.3 发布说明](docs/releases/v1.5.3.md)。
 - **启用 1.5.2 策略前先升级。** 在拓扑中加入 `tls_min_days`、`max_duration_ms` 和 `http.json_equals` 前，collector、worker 和查看端都必须支持这些字段。JSON 断言要求配置文件保持私密。新增通知策略字段前请先升级 collector，并保留匹配的配置备份以便回滚。详见 [1.5.2 发布说明](docs/releases/v1.5.2.md)。
 - **升级到 1.5.1 时，先升级 collector，再升级 worker。** 1.5.1 的 worker 会报告旧版 collector 可能拒绝的投递诊断信息和 collector 别名，请先升级 collector。使用多个 collector 的 worker 需要返回 `collector_id` 的 collector。使用 `availability_scope` 的拓扑需要同时升级 collector、worker 和查看端；使用 `allow_insecure` 的直连配置需要本机 1.5.1 二进制。详见 [1.5.1 发布说明](docs/releases/v1.5.1.md)。
 - **启用 Komari 前先升级到 1.5.0。** Komari 资源采集和直连配置需要新适配器。升级前请排空或归档超过新版各接收端容量份额的 worker 积压队列；回滚已扩大的外部状态前，请保留 collector 备份。详见 [1.5.0 发布说明](docs/releases/v1.5.0.md)。
@@ -150,6 +151,16 @@ topo --credentials ./demo/credentials.json
 direct 模式下，每个 `topo` 进程直接从 Beszel Hub 或 Komari 服务器读取 CPU、内存和磁盘，无需运行 collector：`topo --source direct --profile desktop`。`--json`、`status`、`show` 和 `monitor configure`/`run` 使用同一个 profile。用 `topo sources inspect|save|remove --json-stdin` 配置 profile，用 `topo sources list --json` 列出；它们与 collector 连接分开保存，一个 profile 可以混用 Beszel 和 Komari 数据源。默认每 60 秒采集一次、每 5 秒刷新显示，数据有效期 180 秒；一次性读取最多等待 15 秒拿到首批样本（`--wait`）。
 
 direct 模式不保存资源历史（`history --source direct` 会明确返回不支持），不运行后台服务，也不会从资源读数推断网络是否可达。支持 Beszel v0.21.0 资源格式和 Komari 1.6.0；Komari 可用 API Key 或匿名读取公开节点，磁盘为聚合统计。不承诺兼容任意版本或完整的 MFA/SSO 流程。参见[配置与限制](docs/DIRECT.md)、[Komari 配置示例](docs/DIRECT.md#configure-komari)和 [D1 规范包](docs/contracts/direct-v1/contract.md)（均为英文）。
+
+## 查看本机的 mihomo 引擎
+
+`topo local list --json` 和 `topo local inspect|save|remove --json-stdin`
+管理最多四项私密的回环控制器检查。`topo monitor stream` 使用
+`"source":"local"` 时，仅在流保持打开期间读取这些检查，可以与 collector
+或直连流同时运行。密钥单独存入私密文件，读数留在本机。模式、TUN 状态和代理选择
+只代表引擎报告的运行状态；验证实际流量仍需独立的应用检查。详见
+[本机检查设置指南](docs/GUIDE.zh.md)和
+[API 参考](docs/REFERENCE.md#local-checks-this-machine)（英文）。
 
 ## Cloudflare：从边缘到源站
 

@@ -790,7 +790,8 @@ A check is:
   query or fragment; anything else is `not_local_address`. It is stored in a
   canonical form (lowercase scheme and host, canonical IP, no trailing slash).
   `localhost` is read as `127.0.0.1`, so no resolver or hosts entry can send a
-  local check off the machine.
+  local check off the machine. HTTPS keeps `localhost` as the TLS server name
+  and verifies the certificate against it while dialing the pinned address.
 - `interval_seconds` 5..3600 (default 30), `timeout_seconds` 1..30 and below
   the interval (default 5), `stale_seconds` at least twice the interval and at
   most 86400 (default three intervals).
@@ -840,7 +841,10 @@ address or secret is echoed.
 
 Secrets are never printed, logged or written into the configuration: each is
 kept in its own `credential-REF.json` (0600) under the 0700 root, beside
-`checks.json` (0600) and a lock file. Reads use only `GET /configs`, `GET
+`checks.json` (0600) and a lock file. The stream loads configuration and its
+secrets under the same lock, including on Windows; concurrent saves or removals
+cannot mix one revision's checks with another revision's credentials. Reads
+use only `GET /configs`, `GET
 /proxies` and `GET /providers/proxies` (plus `GET /version` for inspection)
 over a direct loopback connection without proxies, compression, keep-alive or
 redirects. Topophany never changes the engine's configuration, never switches a
