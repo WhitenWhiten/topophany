@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/view"
@@ -113,6 +114,7 @@ func cloneDiagnostic(d *CheckDiagnostic) *CheckDiagnostic {
 // controller objects, URLs, credentials or arbitrary new adapter fields.
 func diagnosticFacts(c model.Check, facts map[string]string) map[string]string {
 	keys := strings.Fields("response_proof connection_semantics edge_provider edge_pop edge_cache edge_access edge_mitigation edge_rtt_ms trace_colo trace_warp trace_gateway trace_http trace_tls")
+	shapes := map[string]factShape{}
 	switch c.Kind {
 	case "http", "tls":
 		// Written only while tls_min_days asks for the peer certificate's expiry.
@@ -131,6 +133,11 @@ func diagnosticFacts(c model.Check, facts map[string]string) map[string]string {
 		for _, name := range slices.Sorted(maps.Keys(providers)) {
 			keys = append(keys, "provider."+name, "provider_updated_at."+name)
 		}
+	case "tailscale", "wireguard":
+		for _, f := range runtimeFacts[c.Kind] {
+			keys = append(keys, f.key)
+			shapes[f.key] = f.shape
+		}
 	case "cloudflared":
 		keys = append(keys, strings.Fields("ready_connections ha_connections connection_colos requests_total request_errors active_streams connector_version")...)
 	case "cloudflare":
@@ -141,11 +148,56 @@ func diagnosticFacts(c model.Check, facts map[string]string) map[string]string {
 	}
 	out := map[string]string{}
 	for _, key := range keys {
+		if shape := shapes[key]; shape != nil && !shape(facts[key]) {
+			continue
+		}
 		if value, ok := facts[key]; ok && len(key) <= 128 && len(value) <= 2048 && len(out) < 32 {
 			out[key] = value
 		}
 	}
 	return out
+}
+
+// Local runtime adapters export only facts that are closed words, booleans,
+// counts or timestamps: never addresses, hostnames, keys, peer text or other
+// upstream strings, such as Tailscale's DERP region name in `relay`. Each is
+// exported only in its closed shape. Another value, which an older worker
+// may have written under the same key, is withheld.
+type factShape func(string) bool
+
+func oneOf(words ...string) factShape {
+	return func(v string) bool { return slices.Contains(words, v) }
+}
+func countFact(v string) bool { _, err := strconv.ParseUint(v, 10, 64); return err == nil }
+func timeFact(v string) bool  { _, err := time.Parse(time.RFC3339, v); return err == nil }
+
+var booleanFact = oneOf("true", "false")
+
+var runtimeFacts = map[string][]struct {
+	key   string
+	shape factShape
+}{
+	"tailscale": {
+		{"backend_state", oneOf("NoState", "NeedsLogin", "NeedsMachineAuth", "Stopped", "Starting", "Running", "other")},
+		{"online_reported", oneOf("true", "false", "unknown")},
+		{"active_reported", booleanFact},
+		{"health_warning_count", countFact},
+		{"last_seen", func(v string) bool { return v == "not reported" || timeFact(v) }},
+		{"transport_hint", oneOf("peer_relay_reported", "direct_endpoint_reported", "relay_preference_reported", "unknown")},
+		{"diagnostic_protocol", oneOf("disco", "tsmp")},
+		{"diagnostic_response", oneOf("received", "timed_out")},
+		{"diagnostic_route", oneOf("direct", "derp", "peer_relay", "unknown")},
+		{"diagnostic_latency_ms", countFact},
+	},
+	"wireguard": {
+		{"sampling_atomicity", oneOf("separate_command_reads_not_atomic")},
+		{"last_handshake", timeFact},
+		{"rx_bytes", countFact},
+		{"tx_bytes", countFact},
+		{"allowed_ips_match", booleanFact},
+		{"keepalive_match", booleanFact},
+		{"keepalive_seconds", countFact},
+	},
 }
 
 // Expectations are the check's own declared policy, never its private
@@ -173,6 +225,12 @@ func expectedFacts(c model.Check) map[string]string {
 		}
 		if c.Adapter.ExpectedTUN != nil {
 			out["tun_enabled"] = strconv.FormatBool(*c.Adapter.ExpectedTUN)
+		}
+	case "wireguard":
+		// Expected AllowedIPs are addresses and stay out; allowed_ips_match
+		// says whether the runtime matched them.
+		if n := c.Adapter.ExpectedKeepaliveSeconds; n != nil {
+			out["keepalive_seconds"] = strconv.Itoa(*n)
 		}
 	case "cloudflared":
 		a := c.Adapter.CloudflaredOptions()

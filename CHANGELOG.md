@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Software adapter diagnostics carry the TUI's policy state as `policy`
   (`not_configured`, `unverified`, `matched` or `violated`), so a consumer can
   tell a check with no declared policy from one whose runtime matches it.
+- Tailscale and WireGuard diagnostics export their closed runtime facts, such
+  as backend and online state, transport hints, handshake time, transfer
+  counters and keepalive matches, plus the expected WireGuard keepalive. Values
+  that are not in a fact's closed shape are withheld, and peer names, addresses,
+  keys and the DERP region name are never exported.
 
 ## [1.5.2] - 2026-11-01
 

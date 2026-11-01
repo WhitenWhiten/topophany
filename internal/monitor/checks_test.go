@@ -1,12 +1,18 @@
 package monitor
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/WhitenWhiten/topophany/internal/adapters/tailscale"
+	"github.com/WhitenWhiten/topophany/internal/adapters/wireguard"
 	"github.com/WhitenWhiten/topophany/internal/model"
 )
 
@@ -226,5 +232,101 @@ func TestDiagnosticAdapterPolicy(t *testing.T) {
 	violated := build(snapshot(model.Check{Kind: "mihomo", Target: controller.Target, Adapter: model.AdapterOptions{ExpectedMode: "rule"}}, "ok", map[string]string{"mode": "global"}))
 	if safetyState(matched) == safetyState(violated) {
 		t.Fatal("a policy violation waited for cadence")
+	}
+}
+
+// Tailscale and WireGuard diagnostics carry their closed runtime readings
+// and nothing that can name an address, a host, a key or a peer's text.
+func TestDiagnosticRuntimeAdapterFacts(t *testing.T) {
+	for _, tc := range []struct {
+		check              model.Check
+		included, excluded map[string]string
+		malformed          map[string]string
+		expected           map[string]string
+	}{
+		{
+			check: model.Check{Kind: "tailscale", Adapter: model.AdapterOptions{Peer: "nodekey:private-peer", TailscaleDiagnostic: "disco"}},
+			included: map[string]string{"backend_state": "Running", "online_reported": "true", "active_reported": "false", "health_warning_count": "2", "last_seen": "2026-11-01T07:30:00Z",
+				"transport_hint": "relay_preference_reported", "diagnostic_protocol": "disco", "diagnostic_response": "received", "diagnostic_route": "derp", "diagnostic_latency_ms": "41"},
+			excluded: map[string]string{"relay": "sea", "peer": "host.tailnet-private.ts.net", "tailscale_ips": "100.64.0.2", "cur_addr": "198.51.100.7:41641", "dns_name": "host.tailnet-private.ts.net.", "public_key": "nodekey:private-peer"},
+			// An older worker wrote the backend's own text; a timestamp or count of another shape is not one.
+			malformed: map[string]string{"backend_state": "Running on 100.64.0.2", "last_seen": "host.tailnet-private.ts.net", "transport_hint": "direct 198.51.100.7:41641", "health_warning_count": "-1", "diagnostic_latency_ms": "41ms", "diagnostic_route": "DERP(sea)"},
+			expected:  map[string]string{},
+		},
+		{
+			check: model.Check{Kind: "wireguard", Adapter: model.AdapterOptions{Interface: "wg0", Peer: "private-public-key=", ExpectedAllowedIPs: []string{"10.0.0.2/32"}, ExpectedKeepaliveSeconds: ptr(25)}},
+			included: map[string]string{"sampling_atomicity": "separate_command_reads_not_atomic", "last_handshake": "2026-11-01T07:37:00Z", "rx_bytes": "123456", "tx_bytes": "654321",
+				"allowed_ips_match": "true", "keepalive_match": "false", "keepalive_seconds": "0"},
+			excluded:  map[string]string{"allowed_ips": "10.0.0.2/32", "endpoint": "198.51.100.7:51820", "public_key": "private-public-key=", "preshared_key": "private-psk", "interface": "wg0"},
+			malformed: map[string]string{"rx_bytes": "1e9", "last_handshake": "1730446620", "allowed_ips_match": "10.0.0.2/32", "keepalive_seconds": "25s"},
+			expected:  map[string]string{"keepalive_seconds": "25"},
+		},
+	} {
+		facts := maps.Clone(tc.included)
+		maps.Copy(facts, tc.excluded)
+		if got := diagnosticFacts(tc.check, facts); !maps.Equal(got, tc.included) {
+			t.Fatalf("%s: %v", tc.check.Kind, got)
+		}
+		maps.Copy(facts, tc.malformed)
+		got := diagnosticFacts(tc.check, facts)
+		for key := range tc.malformed {
+			if _, ok := got[key]; ok {
+				t.Fatalf("%s: %s exported as %q", tc.check.Kind, key, got[key])
+			}
+		}
+		if len(got) != len(tc.included)-len(tc.malformed) {
+			t.Fatalf("%s: %v", tc.check.Kind, got)
+		}
+		if e := expectedFacts(tc.check); !maps.Equal(e, tc.expected) {
+			t.Fatalf("%s: expected %v", tc.check.Kind, e)
+		}
+		// The same keys mean nothing for another kind.
+		if got := diagnosticFacts(model.Check{Kind: "http"}, tc.included); len(got) != 0 {
+			t.Fatal(got)
+		}
+	}
+	if got := diagnosticFacts(model.Check{Kind: "tailscale"}, map[string]string{"last_seen": "not reported"}); got["last_seen"] != "not reported" {
+		t.Fatal(got)
+	}
+}
+
+// What the adapters write today passes their shapes whole, except the
+// upstream DERP region name: the adapters' own synthetic fixtures, read
+// through fake commands, cross-check the allowlist.
+func TestDiagnosticRuntimeFactsMatchTheAdapters(t *testing.T) {
+	fixture := func(path string) []byte {
+		b, err := os.ReadFile(filepath.Join("..", "adapters", path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
+	ts := model.Check{Kind: "tailscale", Adapter: model.AdapterOptions{Peer: "100.64.0.1", TailscaleDiagnostic: "disco"}}
+	o := model.Observation{Facts: map[string]string{}}
+	err := tailscale.Collect(context.Background(), func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if args[0] == "status" {
+			return fixture("tailscale/testdata/v1.90.0/status.json"), nil
+		}
+		return fixture("tailscale/testdata/v1.90.0/derp.txt"), nil
+	}, ts.Adapter.Tailscale(), &o)
+	if err != nil || o.Facts["relay"] == "" || o.Facts["diagnostic_route"] != "derp" {
+		t.Fatal(err, o.Facts)
+	}
+	want := maps.Clone(o.Facts)
+	delete(want, "relay")
+	if got := diagnosticFacts(ts, o.Facts); !maps.Equal(got, want) {
+		t.Fatalf("tailscale: %v, adapter wrote %v", got, o.Facts)
+	}
+
+	wg := model.Check{Kind: "wireguard", Adapter: model.AdapterOptions{Interface: "wg0", Peer: "PUBLIC-PEER", ExpectedAllowedIPs: []string{"10.0.0.0/24", "::/0"}, ExpectedKeepaliveSeconds: ptr(25)}}
+	o = model.Observation{Facts: map[string]string{}}
+	err = wireguard.Collect(context.Background(), func(_ context.Context, name string, args ...string) ([]byte, error) {
+		return fixture("wireguard/testdata/v1.0.20210914/" + args[len(args)-1] + ".tsv"), nil
+	}, wg.Adapter.WireGuard(), &o)
+	if err != nil || len(o.Facts) != 7 {
+		t.Fatal(err, o.Facts)
+	}
+	if got := diagnosticFacts(wg, o.Facts); !maps.Equal(got, o.Facts) {
+		t.Fatalf("wireguard: %v, adapter wrote %v", got, o.Facts)
 	}
 }

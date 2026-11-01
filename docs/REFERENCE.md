@@ -582,19 +582,29 @@ check's own deadline, including inside a still-current service card.
 
 Facts are an explicit display allowlist: edge response metadata; for HTTP and
 TLS checks with `tls_min_days`, the peer certificate's `tls_not_after` and
-`tls_days_remaining`; Mihomo mode,
-TUN, reported chain/selection, provider comparison/publication/loading state and
-declared-provider readings; cloudflared readiness/connections/colos/counters;
-Cloudflare tunnel, DNS comparison and pool/origin health. Existing probe
-redaction remains in force. No raw responses, controller test URLs, connector
-UUIDs, undeclared fact keys or full adapter configuration are added. Expectations
-include only the `max_duration_ms` and `tls_min_days` budgets, mode, TUN,
-connection count, colos and DNS proxied policy, as decimal or closed strings;
-never `http.json_equals` values, DNS record contents or credentials. Missing
-facts mean unavailable, not zero. Facts
-remain bounded to 32 keys of at most 128 bytes and values of at most 2048 bytes;
-the normal row/frame budgets still apply. Diagnostic state transitions bypass
-display cadence, whereas changes to telemetry facts follow normal cadence.
+`tls_days_remaining`; Mihomo mode, TUN, reported chain/selection, provider
+comparison/publication/loading state and declared-provider readings; Tailscale
+`backend_state`, `online_reported`, `active_reported`, `health_warning_count`,
+`last_seen`, `transport_hint` and the optional diagnostic's
+`diagnostic_protocol`, `diagnostic_response`, `diagnostic_route` and
+`diagnostic_latency_ms`; WireGuard `last_handshake`, `rx_bytes`, `tx_bytes`,
+`allowed_ips_match`, `keepalive_match`, `keepalive_seconds` and
+`sampling_atomicity`; cloudflared readiness/connections/colos/counters;
+Cloudflare tunnel, DNS comparison and pool/origin health. Tailscale and
+WireGuard facts are exported only in their closed shapes (a listed word,
+boolean, decimal count or RFC 3339 time, or `not reported` for `last_seen`); any
+other value under those keys is withheld. The Tailscale DERP region name
+(`relay`), peer names, addresses, endpoints and keys are never exported.
+Existing probe redaction remains in force. No raw responses, controller test
+URLs, connector UUIDs, undeclared fact keys or full adapter configuration are
+added. Expectations include only the `max_duration_ms` and `tls_min_days`
+budgets, mode, TUN, WireGuard `keepalive_seconds`, connection count, colos and
+DNS proxied policy, as decimal or closed strings; never `http.json_equals`
+values, expected WireGuard AllowedIPs, DNS record contents or credentials.
+Missing facts mean unavailable, not zero. Facts remain bounded to 32 keys of at
+most 128 bytes and values of at most 2048 bytes; the normal row/frame budgets
+still apply. Diagnostic state transitions bypass display cadence, whereas
+changes to telemetry facts follow normal cadence.
 
 `link.card` (`card`, required `select: {"link":"ID"}`) and `links.list`
 (`list`, up to 256 links in topology order) expose link ID, from/to node refs,
