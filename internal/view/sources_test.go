@@ -23,7 +23,11 @@ func TestD1SourceStatesCountsAndClocks(t *testing.T) {
 			s.External = nil
 		}},
 		{"empty samples", "no_data", func(s *model.Snapshot) { s.External = nil }}, {"auth", "unavailable", func(s *model.Snapshot) { s.Direct.Sources[0].State = "auth_required"; s.External = nil }},
-		{"expired", "unavailable", func(s *model.Snapshot) { s.External[0].Freshness = "stale" }}, {"empty profile", "no_data", func(s *model.Snapshot) { s.Direct.Sources = nil; s.Topology.Checks = nil }},
+		{"expired", "unavailable", func(s *model.Snapshot) { s.External[0].Freshness = "stale" }}, {"expired contact", "unavailable", func(s *model.Snapshot) {
+			past := now.Add(-time.Second)
+			s.Direct.Sources[0].ContactValidUntil = &past
+			s.External[0].Freshness = "stale"
+		}}, {"empty profile", "no_data", func(s *model.Snapshot) { s.Direct.Sources = nil; s.Topology.Checks = nil }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := base
@@ -31,6 +35,15 @@ func TestD1SourceStatesCountsAndClocks(t *testing.T) {
 			s.External = append([]model.ExternalBindingView(nil), base.External...)
 			tc.change(&s)
 			status, deadline := (View{Snapshot: s, Now: now}).SourcesStatus()
+			if (status.Reason == "samples_stale") != (tc.name == "expired") {
+				t.Fatalf("unexpected acquisition reason: %+v", status)
+			}
+			if tc.name == "expired" {
+				verdict := (View{Snapshot: s, Now: now}).directVerdict()
+				if verdict.Text != "RESOURCE SAMPLES EXPIRED" || status.Sources[0].State != "connected" {
+					t.Fatal(verdict, status)
+				}
+			}
 			if status.State != tc.state {
 				t.Fatal(status)
 			}

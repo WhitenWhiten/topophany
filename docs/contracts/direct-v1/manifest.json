@@ -68,7 +68,7 @@
     },
     {
       "path": "fixtures/stream-expired.json",
-      "sha256": "fde4ab020b87ba8560bee6cf1554dd409dedc955d9567b283537f114f8c272ef"
+      "sha256": "0aa1669da1f4f06fcc6a5244d0b2606f46867a385687e02cbf958796167f9ef9"
     },
     {
       "path": "fixtures/stream-forbidden.json",

@@ -229,7 +229,11 @@ permission failures wait for explicit retry or new authentication. A refreshable
 
 A record's sample time is its Hub `created`, not receipt, contact or publication.
 Repeated reads can renew successful Hub contact but cannot renew that sample.
-Counts partition selected objects into current/stale/missing. `attention` counts
+Counts partition selected objects into current/stale/missing. When all sources
+are connected but no samples are current and at least one is expired,
+`sources_status.reason` (and the `sources.status` value) is `samples_stale`.
+This distinguishes expired readings from failed source contact without changing
+the existing state vocabulary. `attention` counts
 stale+missing servers, not incidents. Origin identifies the selected resource's
 actual adapter/source/object; Beszel is not the machine's provider. Unknown
 provider/location remains unknown. Empty profiles are no_data, never ready.

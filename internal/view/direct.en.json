@@ -6,6 +6,7 @@
   "ready": "RESOURCE DATA CURRENT",
   "partial": "RESOURCE DATA PARTIAL",
   "no_data": "NO RESOURCE DATA",
+  "samples_stale": "RESOURCE SAMPLES EXPIRED",
   "unavailable": "RESOURCE DATA UNAVAILABLE",
   "scope": "Resource telemetry does not establish application or network reachability.",
   "history": "History is not supported in direct mode.",

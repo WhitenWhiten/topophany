@@ -661,3 +661,17 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   `TestCombinedAttemptDurationStaysWithinWireBudget`,
   `TestRecoveredFailoverIsInformationalAndPreservesCause` and
   `TestTransportAddressAttemptsAreBoundedAndBackwardCompatible`.
+
+- Direct local CA isolation: a missing or malformed CA file reports `tls_error`
+  on its own source during startup and reconfiguration. Other sources retain
+  their polling loops and current samples; fixing the affected configuration
+  restores its reads. Structurally invalid candidates still preserve the old
+  profile. Covered by `TestSessionLocalTLSFailureIsIsolated` and
+  `TestLocalCandidateFailureRetainsOldConfig`.
+
+- Direct expired samples with healthy contact: when every source is connected
+  but no selected resource is current and at least one sample has expired,
+  `sources.status` adds `reason: samples_stale`. Source contact, counts and
+  deadlines retain their own meaning; the TUI says `RESOURCE SAMPLES EXPIRED`.
+  Expired contact does not receive that reason. Covered by
+  `TestD1SourceStatesCountsAndClocks` and the `stream-expired` contract fixture.

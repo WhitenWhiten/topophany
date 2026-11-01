@@ -104,6 +104,11 @@ func (v View) SourcesStatus() (SourcesStatus, time.Time) {
 	default:
 		out.State = "unavailable"
 	}
+	// The source can be reachable even when none of its samples is current.
+	// Keep the public state vocabulary stable; consumers may explain the reason.
+	if allConnected && out.Counts.Current == 0 && out.Counts.Stale > 0 {
+		out.Reason = "samples_stale"
+	}
 	return out, until
 }
 func cloneDirectSource(s model.DirectSource) model.DirectSource {

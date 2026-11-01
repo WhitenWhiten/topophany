@@ -47,5 +47,9 @@ func (v View) directVerdict() Verdict {
 	} else if status.State == "partial" {
 		glyph = "▲"
 	}
-	return Verdict{State: status.State, Glyph: glyph, Text: DirectText(status.State)}
+	text := DirectText(status.State)
+	if status.Reason == "samples_stale" {
+		text = DirectText(status.Reason)
+	}
+	return Verdict{State: status.State, Glyph: glyph, Text: text}
 }

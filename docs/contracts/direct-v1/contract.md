@@ -108,6 +108,7 @@ and one bounded candidate maximum; invalid candidates leave the old one alive.
 | Field | Type / semantics |
 |---|---|
 | state | loading, ready, partial, no_data, unavailable |
+| reason | optional refinement; `samples_stale` means all sources connected, no current samples, and at least one expired sample; omitted otherwise |
 | counts | sources, selected, current, stale, missing, attention integers |
 | sources | array of id,name,adapter,state,code,last_attempt_at,last_contact_at,contact_valid_until,next_retry_at,counts |
 | source.state | loading,connected,retrying,auth_required,forbidden,error |
@@ -122,6 +123,8 @@ current/stale/missing partition selected; attention=stale+missing. Stale means a
 previous usable sample has expired. Missing means none has been usable. Source
 errors never imply a machine is down. Ready health=up, partial=degraded, others
 unknown. These describe data acquisition, not network availability.
+`reason` is additive: older readers retain the same state and counts. A
+`samples_stale` reason does not change sample deadlines or imply failed contact.
 
 ## Four clocks and expiry
 

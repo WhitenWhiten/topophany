@@ -71,6 +71,8 @@ type SourceStatus struct {
 	Counts SourceCounts `json:"counts"`
 }
 type SourcesStatus struct {
+	// Reason refines acquisition state without changing the schema-1 state vocabulary.
+	Reason  string         `json:"reason,omitempty"`
 	State   string         `json:"state"`
 	Counts  SourcesCounts  `json:"counts"`
 	Sources []SourceStatus `json:"sources"`
