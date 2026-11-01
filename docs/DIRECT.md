@@ -284,7 +284,7 @@ an appropriate runtime credential lifecycle; the collector adapter does not
 inherit the direct profile's login renewal session.
 
 After `topo doctor` confirms current samples, select the collector profile in
-Data sources settings. Pinned-server references retain their meaning because
-node IDs are unchanged; the app already preserves its section settings when
-switching sources. Keep the direct profile until the new deployment is verified.
+Data sources settings. Node IDs are unchanged. In Data sources settings, choose **Use pins from direct
+profile** to copy the original selection into the collector profile; pin sets
+are scoped per profile, so switching alone does not overwrite collector pins. Keep the direct profile until the new deployment is verified.
 There is no direct history to import and the exporter never claims to migrate it.

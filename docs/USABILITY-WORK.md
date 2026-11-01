@@ -30,7 +30,8 @@ code and appropriate verification, not merely a proposal.
 - [x] Saved TUI views with perspective/filter/map choices; existing selection-focused map highlighting retained.
 - [x] Investigation/history shortcuts in TUI/browser incident sheets and the menu bar.
 - [x] Browser connection recovery and actionable configuration help.
-- [ ] Menu bar: in-app demo, collector enrollment and signed distribution.
+- [x] Menu bar: in-app demo, collector enrollment and explicit migration of direct pins.
+- [ ] Signed and notarized distribution artifact.
 - [ ] Consistent structured CLI errors, field paths and change-impact output.
 - [ ] Operational status, backup/restore validation and upgrade compatibility checks.
 - [ ] Chinese status, error and troubleshooting copy; task-oriented documentation.
