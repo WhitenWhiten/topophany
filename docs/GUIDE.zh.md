@@ -140,3 +140,29 @@ topo recovery --data BACKUP_DATA --config topology.json --auth auth.json
 
 完整字段、预算和兼容边界见 [配置参考](REFERENCE.md)、[运维](OPERATIONS.md)
 和 [直连说明](DIRECT.md)。
+
+## 导入已有清单，再审阅启用
+
+`topo import --format ssh --input ~/.ssh/config --output candidate.json` 生成
+暂停状态的候选检查，不能直接当作已经发现的健康网络。代理、Include、Match 或
+通配符造成的路由歧义会保留为清单或警告，不会执行 SSH 配置中的命令。
+
+Compose 输入必须是已渲染的 JSON，并通过 `--host` 指定确认过的部署地址；只为
+可明确解释的已发布 TCP 端口生成暂停检查。Tailscale 输入是保存的状态 JSON，
+只导入对端身份和地址，不把 Online 当作应用可用，也不猜测服务端口。
+
+先查看输出中的来源 SHA-256、警告和拓扑，再用 `topo edit --apply` 的预览与
+修订校验流程合并。已有文件不会被导入命令覆盖。
+
+## 证书、延迟和响应字段
+
+- TLS 或 HTTPS 检查可设置 `tls_min_days`，例如 14，提前提示已验证证书即将到期。
+  信任链验证失败仍然是连接失败，不会被到期提示掩盖。
+- 网络检查设置 `max_duration_ms` 后，成功但耗时超限的请求记录策略异常。
+  `policy_threshold` 决定连续多少次策略异常才确认；不同策略需要独立连续计数时，
+  请拆为不同检查。
+- HTTP 的 `json_equals` 可配置 `{"/status":"ok","/ready":true}`。
+  使用 JSON Pointer，缺失字段与 null 不同，数字按原始表示精确比较。
+  预期值不进入公开拓扑，响应值不进入错误信息。
+
+这些新字段需要相关组件全部升级后启用。详细限制见英文参考文档。
