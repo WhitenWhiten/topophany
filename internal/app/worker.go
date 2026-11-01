@@ -140,6 +140,8 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 	failed := make(chan error, 1)
 	running := background(ctx, &wg, s, failed)
 	contractsDigest := config.ObserverContracts(c, *observer)
+	runtimeState := newRuntimePublisher(*dir, "worker", *observer, c, func(message string) { fmt.Fprintln(a.Err, message) })
+	defer runtimeState.Close()
 	hup, stopHup := a.hangups()
 	defer stopHup()
 	// reload reads the topology again; samples already queued keep the
@@ -163,6 +165,7 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 		contractsDigest = config.ObserverContracts(next, *observer)
 		fmt.Fprintf(a.Err, "reloaded topology revision %s → %s; %s\n", config.Revision(c)[:12], config.Revision(next)[:12], changes(c, next))
 		c = next
+		runtimeState.Set(c)
 		return nil
 	}
 	fmt.Fprintf(a.Err, "Topophany worker observer=%s project=%s revision=%s; %d collectors\n", *observer, c.Project, config.Revision(c)[:12], len(resolved.Servers))
@@ -172,6 +175,7 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 	// this loop last made, of the topology it runs now.
 	var beat atomic.Pointer[model.Heartbeat]
 	heartbeat := func() {
+		runtimeState.Tick(time.Now())
 		beat.Store(&model.Heartbeat{Observer: *observer, Boot: running.Boot, SampledAt: time.Now().UTC(), Contracts: contractsDigest})
 	}
 	heartbeat()

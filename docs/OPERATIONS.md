@@ -259,3 +259,49 @@ revisions. A worker matching an old collector is labelled
 Inspect private revisions locally with `topo validate`. Multiple address rows
 may refer to the same instance. This command only reads; it neither distributes
 configuration nor reloads a service.
+
+## Inspect the exact local running configuration
+
+`topo runtime --data DATA_DIR --config topology.json --json` compares a local
+collector/worker's loaded private revision against a reviewed file. It detects
+edits that have not been reloaded, even when they leave measurement contracts
+unchanged. It exits 0 for a current matching lease, 2 for a mismatch and 3 for an
+expired lease. Without `--config`, it reports the current local record only.
+
+Each process writes private `local-runtime.json` using its existing tick, at most
+once per five seconds and immediately after reload. Records expire after 15
+seconds and are removed on orderly shutdown. A crash or write failure cannot
+leave a permanent live claim. These are time-stamped observations, not an
+instantaneous process query. No extra scheduler or network endpoint is added.
+The private digest stays local and must not be included in public diagnostic
+exports; viewers continue to receive only public configuration identities.
+
+## Rehearse recovery and upgrade compatibility
+
+```sh
+topo recovery --data stopped-backup --config topology.json --auth auth.json
+topo recovery --role worker --data worker-backup --config topology.json
+```
+
+Run the candidate new binary against a stopped backup before upgrading. The
+command acquires the existing writer lock non-blockingly, refuses an active
+writer, symlinks and special files, then copies regular data into a private
+temporary directory. It runs the actual collector checkpoint/journal/ledger/alert
+queue recovery or worker outbox recovery there. No probe, worker delivery or
+notification starts. Original data is never rewritten; scratch data is removed
+when verification finishes. Keep the original `writer.lock` marker in backups.
+
+The JSON receipt includes byte/file counts, a content digest, binary version,
+configuration revision, recovered state or pending count, and whether explicit
+project identity survived in the retained evidence. Compacted hashes alone
+cannot establish project identity. `auth_config_validated` is true only when
+`--auth` was supplied and validated; remote token authorization is not tested.
+Newly quarantined pending records produce `recoverable:false` and exit 2.
+Unsupported schemas, malformed durable files and exhausted budgets fail.
+
+The default copy cap is 1 GiB, configurable with `--max-bytes` up to 8 GiB; the
+traversal is capped at 100,000 entries. Supply proposed `--state-bytes`,
+`--max-history`, `--max-receipts`, `--retention` or worker `--max-records` when
+they differ from defaults. A successful rehearsal proves readability with those
+budgets, not live deployment correctness or future capacity. Retain matching
+private topology/authentication and signing material alongside the stopped data.

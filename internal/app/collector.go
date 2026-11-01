@@ -121,6 +121,8 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 	var wg sync.WaitGroup
 	defer func() { cancel(); wg.Wait() }()
 	failures := make(chan error, 2)
+	runtimeState := newRuntimePublisher(*dir, "collector", *observer, c, func(message string) { fmt.Fprintln(a.Err, message) })
+	defer runtimeState.Close()
 	backend := api.New(c, *instance, st, auth)
 	backend.WebOrigin = *webOrigin
 	backend.ExposeIngressSources = *exposeIngress
@@ -162,7 +164,7 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 	wg.Add(1)
 	go func(settle time.Duration) {
 		defer wg.Done()
-		a.watch(ctx, backend, settle, notifier)
+		a.watch(ctx, backend, settle, notifier, runtimeState)
 	}(ledger.Settle(c))
 	wg.Go(func() { a.watchStorage(ctx, st, time.Minute) })
 	// A handshake error is diagnostic. Do not make the connection goroutine
@@ -273,6 +275,7 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 		}
 		fmt.Fprintf(a.Err, "reloaded topology revision %s → %s%s; %s\n", config.Revision(c)[:12], config.Revision(next)[:12], also, changes(c, next))
 		c = next
+		runtimeState.Set(c)
 		return nil
 	}
 	var result error
@@ -367,7 +370,7 @@ func (a *App) watchStorage(ctx context.Context, st *store.Store, every time.Dura
 // evidence every two seconds, logging what opens and closes and, with a
 // notifier, alerting on it. For settle after it starts, a record whose
 // evidence lapsed stays open and no observer is called silent.
-func (a *App) watch(ctx context.Context, backend *api.Server, settle time.Duration, notifier *alert.Notifier) {
+func (a *App) watch(ctx context.Context, backend *api.Server, settle time.Duration, notifier *alert.Notifier, runtimeStates ...*runtimePublisher) {
 	started := time.Now()
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
@@ -377,6 +380,9 @@ func (a *App) watch(ctx context.Context, backend *api.Server, settle time.Durati
 		case <-ctx.Done():
 			return
 		case now := <-tick.C:
+			for _, state := range runtimeStates {
+				state.Tick(now)
+			}
 			settled := now.Sub(started) >= settle
 			_, _, e := backend.ObserveWith(now.UTC(), settled, func(snap model.Snapshot, changes []ledger.Change) {
 				for _, ch := range changes {

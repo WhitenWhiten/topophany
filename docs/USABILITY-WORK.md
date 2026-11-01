@@ -20,7 +20,7 @@ code and appropriate verification, not merely a proposal.
 
 - [x] Topology editing: external-modification conflict protection, batch edits, change preview.
 - [x] Configuration rollout: independently inspect collector public revisions, worker contract agreement, and affected public measurements (`topo rollout`).
-- [ ] Exact private worker revision verification through local deployment tooling (not viewer APIs).
+- [x] Exact private worker revision verification through leased local runtime records (not viewer APIs).
 - [x] Bundled adapter templates, pinned compatibility notes and missing-evidence guidance.
 - [x] Direct-to-collector migration preserving selected server identity and display preferences.
 - [x] CLI history: incident before/after and observer comparison with pinned source and time range.
@@ -33,7 +33,7 @@ code and appropriate verification, not merely a proposal.
 - [x] Menu bar: in-app demo, collector enrollment and explicit migration of direct pins.
 - [x] Signed and notarized universal 0.2.0 local distribution artifact; provenance in the companion repository.
 - [x] Consistent structured CLI errors, field paths and change-impact output.
-- [ ] Operational status, backup/restore validation and upgrade compatibility checks.
+- [x] Operational status, isolated backup recovery validation and candidate-binary compatibility checks.
 - [ ] Chinese status, error and troubleshooting copy; task-oriented documentation.
 
 ## P2 and ongoing verification

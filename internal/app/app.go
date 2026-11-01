@@ -79,6 +79,8 @@ Deploy
   topo install                      install a reviewed bundle (--dry-run, --rollback DIR)
   topo alerts status --data DIR     inspect notification delivery without exposing URLs
   topo alerts test --webhook ID      explicitly test one configured notification destination
+  topo recovery --data BACKUP       verify recovery in an isolated copy with this binary
+  topo runtime --data DIR          inspect private local process revision and lease
   topo rollout --config FILE        inspect configuration agreement at every collector address
   topo capacity                     preflight collector storage before a migration
   topo token                        make a random bearer token and its hash
@@ -155,6 +157,10 @@ func (a *App) run(ctx context.Context, args []string) error {
 		return a.monitor(ctx, args[1:])
 	case "preferences":
 		return a.preferences(args[1:])
+	case "recovery":
+		return a.recovery(ctx, args[1:])
+	case "runtime":
+		return a.runtimeStatus(args[1:])
 	case "views":
 		return a.views(ctx, args[1:])
 	case "alerts":
