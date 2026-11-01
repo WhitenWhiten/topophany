@@ -38,7 +38,7 @@ func TestDoctorEnrollmentAndRedaction(t *testing.T) {
 	}
 	now := time.Now().UTC().Add(2 * time.Second)
 	backend.Now = func() time.Time { return now }
-	if err := st.Put(model.Batch{Schema: model.BatchSchema, Project: c.Project, Revision: config.Revision(c), Observations: []model.Observation{testkit.Observation(c, "api-health", 1, now.Add(-time.Second), "fail")}}); err != nil {
+	if err := st.Put(model.Batch{Schema: model.BatchSchema, Project: c.Project, Revision: config.Revision(c), Heartbeat: &model.Heartbeat{Observer: "demo", Boot: "test", SampledAt: now}, Observations: []model.Observation{testkit.Observation(c, "api-health", 1, now.Add(-time.Second), "fail")}}); err != nil {
 		t.Fatal(err)
 	}
 	out, _, err = invoke("", args...)
@@ -61,5 +61,20 @@ func TestDoctorMissingConfigurationIsActionable(t *testing.T) {
 	}
 	if _, _, err := invoke("", "doctor", "--wait", "10m"); err == nil {
 		t.Fatal("unbounded wait")
+	}
+}
+
+func TestDoctorOperationalFreshnessBoundaries(t *testing.T) {
+	now := time.Now()
+	s := model.Snapshot{GeneratedAt: now, Observers: []model.ObserverState{{ID: "worker", Health: "up", Contracts: "outdated", Delivery: []model.DeliveryStatus{{ReportedAt: now, Code: "tcp_failure", QuarantineBytes: 1}}}}, Storage: &model.StorageUsage{Observers: []model.StorageObserverUsage{{Fills: true}}}}
+	if len(operationalFindings(s, now)) != 4 {
+		t.Fatal("missing operational diagnostics")
+	}
+	s.Observers[0].Delivery[0].ReportedAt = now.Add(-time.Hour)
+	if len(operationalFindings(s, now)) != 2 {
+		t.Fatal("stale delivery treated as current")
+	}
+	if len(operationalFindings(s, now.Add(time.Hour))) != 0 {
+		t.Fatal("expired snapshot treated as current")
 	}
 }

@@ -51,7 +51,14 @@ topo doctor --credentials ./website/credentials.json --json
 The doctor uses authenticated viewer reads, reports progress on stderr and
 waits for the first current sample. A failed target sample still proves that
 the monitoring pipeline delivered evidence; inspect `topo status` for health.
+The report also counts silent observers, outdated worker contracts, current
+delivery failures/quarantine and projected storage pressure, with next actions.
+Old delivery reports are not promoted to current failures.
+`topo doctor --session ID --json` exports bounded transport diagnostics from a
+running local viewer without copying its URL, search text or notices.
+
 Exit codes are 0 for received samples, 1 for configuration/authentication errors,
+2 for monitoring-pipeline issues with samples available,
 3 for no samples before the deadline, and 4 for an unreachable collector.
 The JSON report contains bounded transport metadata and suggested next actions;
 it omits tokens, URLs, topology text and raw errors. It is suitable for attaching

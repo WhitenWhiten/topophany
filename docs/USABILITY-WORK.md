@@ -13,7 +13,8 @@ code and appropriate verification, not merely a proposal.
 - [x] CLI related-incident grouping with independent evidence and counter-evidence preserved (`topo problems`).
 - [x] Related-incident navigation in native/browser TUI.
 - [ ] Related-incident shortcut from the menu bar.
-- [ ] Unified diagnostics, next actions and redacted diagnostic export.
+- [x] Unified collector/viewer diagnostics, next actions and redacted diagnostic export.
+- [ ] Direct-source diagnostics in the same doctor report.
 
 ## P1: daily use and maintenance
 
