@@ -136,7 +136,8 @@ func (s *Store) Load() (Profile, error) {
 	return p, nil
 }
 
-// Secret reads an entry's stored secret; an entry without one has "".
+// Secret reads an entry's stored secret; an entry without one has "". Use
+// SavedSecret or Snapshot when the profile may be changed concurrently.
 func (s *Store) Secret(e Entry) (string, error) {
 	if e.AuthMode != "token" {
 		return "", nil
@@ -152,7 +153,8 @@ func (s *Store) Secret(e Entry) (string, error) {
 	return c.Token, nil
 }
 
-// Secrets reads every stored secret by check ID.
+// Secrets reads every stored secret by check ID. Use Snapshot when the
+// profile may be changed concurrently.
 func (s *Store) Secrets(p Profile) (map[string]string, error) {
 	out := map[string]string{}
 	for _, e := range p.Checks {
@@ -166,6 +168,69 @@ func (s *Store) Secrets(p Profile) (map[string]string, error) {
 		out[e.Check.ID] = token
 	}
 	return out, nil
+}
+
+// readSnapshot retries a credential read if a concurrent write replaced the
+// profile before deleting its old credential. Credential files are immutable:
+// every new token gets a new reference, so a successful read belongs to p even
+// if a writer commits a newer profile concurrently.
+func (s *Store) readSnapshot(ctx context.Context, read func(Profile) error) (Profile, error) {
+	p, err := s.Load()
+	if err != nil {
+		return p, err
+	}
+	for {
+		err = read(p)
+		var localErr *Error
+		if err == nil || !errors.As(err, &localErr) || localErr.Code != "credential_storage_error" {
+			return p, err
+		}
+		next, loadErr := s.Load()
+		if loadErr != nil {
+			return next, loadErr
+		}
+		if next.Revision == p.Revision {
+			return p, err
+		}
+		if ctx.Err() != nil {
+			return next, fail("storage_error")
+		}
+		p = next
+	}
+}
+
+// Snapshot reads one profile and its corresponding secrets. A nonempty
+// revision must match before its credentials are read.
+func (s *Store) Snapshot(ctx context.Context, revision string) (Profile, map[string]string, error) {
+	var secrets map[string]string
+	p, err := s.readSnapshot(ctx, func(p Profile) error {
+		if revision != "" && revision != p.Revision {
+			return fail("profile_conflict")
+		}
+		var e error
+		secrets, e = s.Secrets(p)
+		return e
+	})
+	if err != nil {
+		return p, nil, err
+	}
+	return p, secrets, nil
+}
+
+// SavedSecret reads the secret for the same check ID and address from a
+// consistent profile. Checks saved without a secret return an empty string.
+func (s *Store) SavedSecret(ctx context.Context, c Check) (string, error) {
+	var token string
+	_, err := s.readSnapshot(ctx, func(p Profile) error {
+		saved, ok := p.Find(c.ID)
+		if !ok || c.ID == "" || saved.Check.URL != c.Normalized().URL {
+			return fail("saved_auth_mismatch")
+		}
+		var e error
+		token, e = s.Secret(saved)
+		return e
+	})
+	return token, err
 }
 
 func (s *Store) commit(p Profile) error {

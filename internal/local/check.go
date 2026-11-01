@@ -179,22 +179,27 @@ func NormalizeURL(raw string) (string, error) {
 	return scheme + "://" + host, nil
 }
 
-// target is the address the probe dials: localhost is read as 127.0.0.1, so
-// no resolver or hosts file can route a local check off this machine.
-func (c Check) target() string {
+// target is the address the probe dials and, when needed, the original TLS
+// name. Pin localhost to 127.0.0.1 without changing the name its certificate
+// must match, so no resolver or hosts file can route the check elsewhere.
+func (c Check) target() (string, string) {
 	u, err := NormalizeURL(c.URL)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	parsed, _ := url.Parse(u)
+	serverName := ""
 	if parsed.Hostname() == "localhost" {
+		if parsed.Scheme == "https" {
+			serverName = "localhost"
+		}
 		port := parsed.Port()
 		parsed.Host = "127.0.0.1"
 		if port != "" {
 			parsed.Host = net.JoinHostPort("127.0.0.1", port)
 		}
 	}
-	return parsed.String()
+	return parsed.String(), serverName
 }
 
 // tokenEnv names a check's stored secret for the probe. It is resolved only
@@ -202,7 +207,8 @@ func (c Check) target() string {
 func tokenEnv(id string) string { return "TOPO_LOCAL_TOKEN_" + id }
 
 func (c Check) model(token bool) model.Check {
-	x := model.Check{ID: c.ID, Name: c.Name, Kind: "mihomo", Observer: Observer, Target: c.target(), IntervalSeconds: c.Interval, TimeoutSeconds: c.Timeout, StaleSeconds: c.Stale, FailureThreshold: FailureThreshold, RecoveryThreshold: RecoveryThreshold}
+	target, serverName := c.target()
+	x := model.Check{ID: c.ID, Name: c.Name, Kind: "mihomo", Observer: Observer, Target: target, ServerName: serverName, IntervalSeconds: c.Interval, TimeoutSeconds: c.Timeout, StaleSeconds: c.Stale, FailureThreshold: FailureThreshold, RecoveryThreshold: RecoveryThreshold}
 	x.Adapter.RootProxy = c.RootProxy
 	x.Adapter.ExpectedMode = c.ExpectedMode
 	if c.ExpectedTUN != nil {

@@ -129,15 +129,7 @@ func (a *App) local(ctx context.Context, args []string) error {
 	}
 	token := r.Auth.Token
 	if r.Auth.Mode == "saved" {
-		p, e := s.Load()
-		if e != nil {
-			return finish(e)
-		}
-		saved, ok := p.Find(check.ID)
-		if !ok || check.ID == "" || saved.Check.URL != check.URL {
-			return finish(&local.Error{Code: "saved_auth_mismatch", Message: "No saved secret exists for this check at this address."})
-		}
-		if token, e = s.Secret(saved); e != nil {
+		if token, e = s.SavedSecret(commandCtx, check); e != nil {
 			return finish(e)
 		}
 	}

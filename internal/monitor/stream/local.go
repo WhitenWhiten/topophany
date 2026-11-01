@@ -46,25 +46,23 @@ func (m *LocalManager) Open(ctx context.Context, r Request) (Source, *Error) {
 	if r.Source != "local" {
 		return openSource(ctx, r, m.now)
 	}
-	st, e := local.NewStore(m.root)
-	if e != nil {
-		return Source{}, localFailure(e)
-	}
-	p, e := st.Load()
-	if e != nil {
-		return Source{}, localFailure(e)
-	}
-	if r.ProfileRevision != "" && r.ProfileRevision != p.Revision {
-		return Source{}, failure("profile_conflict", "Local checks changed; list them before retrying.")
-	}
-	secrets, e := st.Secrets(p)
-	if e != nil {
-		return Source{}, localFailure(e)
-	}
+	// Read and apply in the same order, so concurrent opens cannot replace a
+	// newer session configuration with an older snapshot.
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closed {
 		return Source{}, failure("profile_unavailable", "Local reader is closed.")
+	}
+	st, e := local.NewStore(m.root)
+	if e != nil {
+		return Source{}, localFailure(e)
+	}
+	p, secrets, e := st.Snapshot(ctx, r.ProfileRevision)
+	if e != nil {
+		if local.AsError(e).Code == "profile_conflict" {
+			return Source{}, failure("profile_conflict", "Local checks changed; list them before retrying.")
+		}
+		return Source{}, localFailure(e)
 	}
 	if m.session == nil {
 		s, e := local.NewSession(ctx, p, secrets)

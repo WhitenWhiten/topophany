@@ -100,8 +100,23 @@ func TestNormalizeURLAcceptsOnlyLoopbackControllers(t *testing.T) {
 			t.Errorf("%q accepted: %v", raw, err)
 		}
 	}
-	if got := syntheticCheck("http://localhost:9090").target(); got != "http://127.0.0.1:9090" {
-		t.Fatal("localhost dialed through the resolver", got)
+	if got, name := syntheticCheck("http://localhost:9090").target(); got != "http://127.0.0.1:9090" || name != "" {
+		t.Fatal("localhost dial target or TLS name", got, name)
+	}
+}
+
+func TestLocalTargetPinsLoopbackAndPreservesTLSName(t *testing.T) {
+	for _, tc := range []struct{ address, target, name string }{
+		{"https://LOCALHOST:9090/", "https://127.0.0.1:9090", "localhost"},
+		{"https://localhost", "https://127.0.0.1", "localhost"},
+		{"http://localhost:9090", "http://127.0.0.1:9090", ""},
+		{"https://127.0.0.1:9090", "https://127.0.0.1:9090", ""},
+		{"https://[::1]:9090", "https://[::1]:9090", ""},
+	} {
+		x := syntheticCheck(tc.address).model(false)
+		if x.Target != tc.target || x.ServerName != tc.name {
+			t.Errorf("%s: target=%q name=%q", tc.address, x.Target, x.ServerName)
+		}
 	}
 }
 

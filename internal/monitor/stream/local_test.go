@@ -241,3 +241,93 @@ func TestLocalStreamFirstFrameAndEOF(t *testing.T) {
 		t.Fatal("EOF left the session running")
 	}
 }
+
+func TestLocalStreamReconfiguresDuringConcurrentCredentialChanges(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	var reads atomic.Int32
+	engine := localEngine(t, &reads)
+	root := filepath.Join(t.TempDir(), "local")
+	store, err := local.NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check := local.Check{ID: "lc-engine", Name: "Engine", Adapter: "mihomo", URL: engine.URL, Interval: 30, Timeout: 5, Stale: 90, ExpectedMode: "rule"}
+	initial, err := store.Save(ctx, "", check, local.Auth{Mode: "token", Token: localStreamSecret})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := NewLocalManager(root, time.Now)
+	defer manager.Close()
+	request := Request{Source: "local", Template: localTemplate(check.ID)}
+	original, failure := manager.Open(ctx, request)
+	if failure != nil {
+		t.Fatal(failure)
+	}
+	defer original.Close()
+
+	type writeResult struct {
+		profile local.Profile
+		err     error
+	}
+	done := make(chan writeResult, 1)
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		p := initial
+		var err error
+		for i := 1; i <= 60 && ctx.Err() == nil; i++ {
+			if i%3 == 2 {
+				p, err = store.Remove(ctx, p.Revision, check.ID)
+			} else {
+				next := check
+				if i == 60 {
+					next.ExpectedMode = "global"
+				}
+				p, err = store.Save(ctx, p.Revision, next, local.Auth{Mode: "token", Token: localStreamSecret})
+			}
+			if err != nil {
+				break
+			}
+		}
+		if err == nil {
+			err = ctx.Err()
+		}
+		done <- writeResult{p, err}
+	}()
+	defer func() {
+		cancel()
+		<-finished
+	}()
+	var result writeResult
+writing:
+	for {
+		select {
+		case result = <-done:
+			break writing
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		default:
+		}
+		source, failure := manager.Open(ctx, request)
+		if failure != nil {
+			t.Fatal("stream open during write:", failure)
+		}
+		source.Close()
+	}
+	if result.err != nil {
+		t.Fatal(result.err)
+	}
+	last, failure := manager.Open(ctx, request)
+	if failure != nil {
+		t.Fatal(failure)
+	}
+	defer last.Close()
+	if manager.session.Revision() != result.profile.Revision {
+		t.Fatal("running session did not apply the final profile")
+	}
+	input, err := last.Fetch(ctx)
+	if err != nil || len(input.Snapshot.Checks) != 1 || input.Snapshot.Checks[0].Last == nil || input.Snapshot.Checks[0].Last.Code != "mode_mismatch" {
+		t.Fatalf("updated stream result: %+v, %v", input.Snapshot.Checks, err)
+	}
+}
