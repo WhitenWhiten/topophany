@@ -78,3 +78,14 @@ func TestDoctorOperationalFreshnessBoundaries(t *testing.T) {
 		t.Fatal("expired snapshot treated as current")
 	}
 }
+
+func TestDoctorDirectMissingProfileDoesNotExposePaths(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "private-root")
+	out, _, err := invoke("", "doctor", "--source", "direct", "--profile", "desktop", "--direct-root", root, "--json")
+	if exitCode(err) != 1 || !strings.Contains(out, "profile_not_found") || strings.Contains(out, root) {
+		t.Fatal(out, err)
+	}
+	if _, _, err := invoke("", "doctor", "--source", "direct", "--profile", "desktop", "--direct-root", root, "--server", "https://example.invalid"); err == nil {
+		t.Fatal("mixed collector and direct credentials accepted")
+	}
+}

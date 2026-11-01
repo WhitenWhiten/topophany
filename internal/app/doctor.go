@@ -3,17 +3,22 @@ package app
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/client"
+	"github.com/WhitenWhiten/topophany/internal/direct"
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/session"
+	"github.com/WhitenWhiten/topophany/internal/view"
 )
 
 // DoctorReport deliberately excludes URLs, tokens, topology text and raw errors.
 // It can be shared without exporting the monitored infrastructure.
 type DoctorReport struct {
+	Source    string                 `json:"source"`
+	Resources *model.SourcesCounts   `json:"resources,omitempty"`
 	Findings  []DiagnosticFinding    `json:"findings,omitempty"`
 	Schema    int                    `json:"schema"`
 	Version   string                 `json:"version"`
@@ -55,6 +60,7 @@ func (a *App) doctor(ctx context.Context, args []string) error {
 	sessionID := f.String("session", "", "inspect a local running viewer instead of making a new connection")
 	sessionRoot := f.String("sessions-dir", "", "private local session directory")
 	wait := f.Duration("wait", 0, "wait up to 5m for the first current sample (0 takes one snapshot)")
+	mode := directFlags{source: f.String("source", "client", "client or direct"), root: f.String("direct-root", "", "private direct profile root"), wait: wait}
 	jsonOut := f.Bool("json", false, "write a shareable diagnostic report without URLs or credentials")
 	if err := parsed(f, args); err != nil {
 		return err
@@ -62,16 +68,23 @@ func (a *App) doctor(ctx context.Context, args []string) error {
 	if *wait < 0 || *wait > 5*time.Minute {
 		return errors.New("--wait must be between 0 and 5m")
 	}
-	report := DoctorReport{Schema: 1, Version: model.Version, State: "unavailable", Next: []string{}}
+	if err := mode.validate(f); err != nil {
+		return err
+	}
+	report := DoctorReport{Source: *mode.source, Schema: 1, Version: model.Version, State: "unavailable", Next: []string{}}
 	finish := func(code int) error {
-		if report.Code != "" {
+		if report.Code != "" && len(report.Next) == 0 {
 			report.Next = diagnosticActions(report.Code)
 		}
 		var err error
 		if *jsonOut {
 			err = printJSON(a.Out, report)
 		} else {
-			_, err = fmt.Fprintf(a.Out, "%s: %d/%d checks with current samples (%d pending)\n", report.State, report.Current, report.Checks, report.Pending)
+			if report.Resources != nil {
+				_, err = fmt.Fprintf(a.Out, "%s: %d/%d resources current; %d stale, %d missing\n", report.State, report.Resources.Current, report.Resources.Selected, report.Resources.Stale, report.Resources.Missing)
+			} else {
+				_, err = fmt.Fprintf(a.Out, "%s: %d/%d checks with current samples (%d pending)\n", report.State, report.Current, report.Checks, report.Pending)
+			}
 			for _, finding := range report.Findings {
 				fmt.Fprintf(a.Out, "%s: %d — %s\n", finding.Code, finding.Count, finding.Action)
 			}
@@ -86,6 +99,56 @@ func (a *App) doctor(ctx context.Context, args []string) error {
 			return &ExitError{Code: code}
 		}
 		return nil
+	}
+	if *sessionID != "" && *mode.source == "direct" {
+		return errors.New("choose a live session or direct profile, not both")
+	}
+	if *mode.source == "direct" {
+		if f.Lookup("wait").Value.String() == "0s" {
+			explicit := false
+			f.Visit(func(flag *flag.Flag) {
+				if flag.Name == "wait" {
+					explicit = true
+				}
+			})
+			if !explicit {
+				*wait = 15 * time.Second
+			}
+		}
+		s, _, err := a.openDirect(ctx, f, mode)
+		if err != nil {
+			report.Code = direct.AsError(err).Code
+			report.Next = []string{"Review the named direct profile with topo sources list --json and reconnect the affected source in Data sources settings."}
+			return finish(1)
+		}
+		defer s.Close()
+		fmt.Fprintln(a.Err, "Waiting for first direct-source read…")
+		a.waitDirect(ctx, s, mode)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		snap, err := s.Snapshot("", a.now())
+		if err != nil {
+			return err
+		}
+		status, _ := (view.View{Snapshot: snap, Now: a.now()}).SourcesStatus()
+		report.State = status.State
+		report.Resources = &status.Counts
+		for _, src := range status.Sources {
+			if src.State != "connected" && src.State != "loading" {
+				code := "source_unavailable"
+				if src.Code != nil {
+					code = *src.Code
+				}
+				report.Findings = append(report.Findings, DiagnosticFinding{Code: code, Count: 1, Action: "Inspect this source in Data sources settings; check credentials, certificate trust and the next retry time."})
+			}
+		}
+		report.Next = []string{"Direct mode reports acquisition and resource freshness, not server availability. Use topo status --source direct --profile NAME locally for per-source details."}
+		if status.Counts.Stale > 0 {
+			report.Findings = append(report.Findings, DiagnosticFinding{Code: "samples_stale", Count: status.Counts.Stale, Action: "Check the upstream agent report timestamps; successful source contact does not refresh old measurements."})
+		}
+		_, code := standing(view.View{Snapshot: snap, Now: a.now()}, nil)
+		return finish(code)
 	}
 	if *sessionID != "" {
 		if *wait != 0 {

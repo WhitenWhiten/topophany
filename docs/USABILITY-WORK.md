@@ -14,7 +14,7 @@ code and appropriate verification, not merely a proposal.
 - [x] Related-incident navigation in native/browser TUI.
 - [ ] Related-incident shortcut from the menu bar.
 - [x] Unified collector/viewer diagnostics, next actions and redacted diagnostic export.
-- [ ] Direct-source diagnostics in the same doctor report.
+- [x] Direct-source diagnostics in the same doctor report.
 
 ## P1: daily use and maintenance
 

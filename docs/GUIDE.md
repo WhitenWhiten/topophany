@@ -63,7 +63,10 @@ Exit codes are 0 for received samples, 1 for configuration/authentication errors
 The JSON report contains bounded transport metadata and suggested next actions;
 it omits tokens, URLs, topology text and raw errors. It is suitable for attaching
 to a bug report. `--wait` is bounded to five minutes; no service is started.
-For direct resources, `topo status --source direct --profile NAME --wait 30s`
+For direct resources, `topo doctor --source direct --profile NAME --wait 30s --json`
+produces the same shareable report format, with resource counts and source error
+codes instead of check health. It omits source names and addresses.
+`topo status --source direct --profile NAME --wait 30s`
 uses the existing first-read deadline and reports each source's acquisition state.
 
 ## The Local Demo
