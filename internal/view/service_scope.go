@@ -18,6 +18,36 @@ type ServiceAssessment struct {
 	Evidence     []ScopedServiceEvidence `json:"evidence"`
 	Hints        []string                `json:"configuration_hints"`
 }
+
+// Assessment hints are closed codes, each with the sentence the TUI and
+// `topo show --json` print for it. A hint is added by its code, so none
+// can exist without one, and HintCodes reads the codes back from here.
+const hintSingleRemoteCheck = "single_remote_check"
+
+var assessmentHints = map[string]string{
+	hintSingleRemoteCheck: "only one remote check; add a local application health check or an explicit user_entry check (availability_scope)",
+}
+
+func (a *ServiceAssessment) hint(code string) {
+	if text, ok := assessmentHints[code]; ok {
+		a.Hints = append(a.Hints, text)
+	}
+}
+
+// HintCodes are the closed codes of Hints, in their order; never free text.
+func (a ServiceAssessment) HintCodes() []string {
+	out := []string{}
+	for _, text := range a.Hints {
+		for code, known := range assessmentHints {
+			if known == text {
+				out = append(out, code)
+				break
+			}
+		}
+	}
+	return out
+}
+
 type ScopedServiceEvidence struct {
 	Check        string `json:"check"`
 	Observer     string `json:"observer"`
@@ -28,20 +58,35 @@ type ScopedServiceEvidence struct {
 	Worker       string `json:"worker"`
 }
 
+// State is the assessment's closed word: access_fail, path_warn,
+// local_fail, health_warn, up or unknown. Label is the same word as the
+// TUI shows it.
+func (a ServiceAssessment) State() string {
+	switch {
+	case a.Reachability == "down" && a.Availability != "down":
+		return "access_fail"
+	case a.Reachability == "degraded" && a.Availability != "down":
+		return "path_warn"
+	case a.Availability == "down":
+		return "local_fail"
+	case a.Availability == "degraded":
+		return "health_warn"
+	case a.Availability == "up":
+		return "up"
+	}
+	return "unknown"
+}
 func (a ServiceAssessment) Label() string {
-	if a.Reachability == "down" && a.Availability != "down" {
+	switch a.State() {
+	case "access_fail":
 		return "ACCESS FAIL"
-	}
-	if a.Reachability == "degraded" && a.Availability != "down" {
+	case "path_warn":
 		return "PATH WARN"
-	}
-	if a.Availability == "down" {
+	case "local_fail":
 		return "LOCAL FAIL"
-	}
-	if a.Availability == "degraded" {
+	case "health_warn":
 		return "HEALTH WARN"
-	}
-	if a.Availability == "up" {
+	case "up":
 		return "UP"
 	}
 	return "UNKNOWN"
@@ -188,7 +233,7 @@ func serviceAssessments(s model.Snapshot, cached bool) map[string]ServiceAssessm
 			}
 		}
 		if remote == 1 && local == 0 && entry == 0 {
-			a.Hints = append(a.Hints, "only one remote check; add a local application health check or an explicit user_entry check (availability_scope)")
+			a.hint(hintSingleRemoteCheck)
 		}
 		out[id] = a
 	}

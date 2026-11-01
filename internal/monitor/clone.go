@@ -127,6 +127,11 @@ func cloneServiceCard(v ServiceCard) ServiceCard {
 	}
 	v.DependsOn = slices.Clone(v.DependsOn)
 	v.UsedBy = slices.Clone(v.UsedBy)
+	if a := v.Assessment; a != nil {
+		c := *a
+		c.Evidence, c.Hints, c.ValidUntil = slices.Clone(a.Evidence), slices.Clone(a.Hints), copyPointer(a.ValidUntil)
+		v.Assessment = &c
+	}
 	return v
 }
 

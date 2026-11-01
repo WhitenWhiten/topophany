@@ -799,6 +799,23 @@ The metric catalog includes:
   the card. The row's deadline is the earliest of the source envelope, the
   service's, its host's and its dependencies' judgments. An unknown service
   yields `entity_missing`.
+  Its optional `assessment` is the Services tab's assessment, separate from
+  `health`: `state` is the closed word of the TUI's label (`up`,
+  `health_warn`, `local_fail`, `path_warn`, `access_fail` or `unknown`);
+  `availability` and `path_reachability` are `up`, `degraded`, `down` or
+  `unknown`, and `worker_online` is `up`, `partial` or `unknown`. `evidence`
+  lists at most 16 checks in topology order, each with `check`, `observer`
+  (ID/name), `scope` (`local`, `remote`, `user_entry` or `reported`), `health`,
+  `freshness` and the observer's `worker` health. `hints` are closed codes,
+  currently only `single_remote_check`; consumers ignore unknown codes.
+  `valid_until` is the earliest deadline of every check behind the assessment,
+  or null when there is no evidence. At that deadline the whole assessment is
+  withheld: `state`, `availability`, `path_reachability` and `worker_online`
+  become `unknown`, and each piece of evidence gets `health` and `worker`
+  `unknown` with `freshness` `stale` (`unavailable` for an implausibly future
+  deadline). Identities and hints remain. Assessment changes publish
+  immediately. Reported runtime and path evidence never establish
+  availability. Older binaries omit the field.
 - `services.list` (`list`): up to 256 services in the Services tab's order,
   each with `id`, `name`, `application` (its name), `health`, `note`,
   `monitored`, `elsewhere` and `host` (`id`, `name`, `kind`, `provider`), matching its

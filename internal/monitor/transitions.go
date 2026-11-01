@@ -65,6 +65,7 @@ func safetyState(p Panel) string {
 					state = append(state, c.ID, c.Health, c.Freshness, diagnosticState(c.Diagnostic))
 				}
 			}
+			state = append(state, assessmentState(v.Assessment))
 		case []CheckListEntry:
 			state = append(state, v)
 		case ServerCard:
@@ -77,4 +78,17 @@ func safetyState(p Panel) string {
 	}
 	b, _ := json.Marshal(states)
 	return string(b)
+}
+
+// An assessment's words and its evidence's judgments are safety state: a
+// local failure turning into an access failure is written at once.
+func assessmentState(a *AssessmentValue) any {
+	if a == nil {
+		return nil
+	}
+	evidence := []any{}
+	for _, e := range a.Evidence {
+		evidence = append(evidence, []any{e.Check, e.Health, e.Freshness, e.Worker})
+	}
+	return []any{a.State, a.Availability, a.Reachability, a.WorkerOnline, evidence}
 }

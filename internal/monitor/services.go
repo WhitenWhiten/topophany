@@ -84,6 +84,33 @@ type DependencyValue struct {
 	Monitored bool   `json:"monitored"`
 	Host      string `json:"host"`
 }
+
+// AssessmentValue is the Services tab's assessment of a service: what its
+// evidence establishes about the application, the paths to it and the
+// workers that measured it, kept apart from the card's aggregate health.
+// It rests on all of its evidence at once, so it is valid until the
+// earliest deadline of the checks behind it; none without evidence.
+type AssessmentValue struct {
+	State        string               `json:"state"`
+	Availability string               `json:"availability"`
+	Reachability string               `json:"path_reachability"`
+	WorkerOnline string               `json:"worker_online"`
+	Evidence     []AssessmentEvidence `json:"evidence"`
+	Hints        []string             `json:"hints"`
+	ValidUntil   *time.Time           `json:"valid_until"`
+}
+type AssessmentEvidence struct {
+	Check     string   `json:"check"`
+	Observer  RefValue `json:"observer"`
+	Scope     string   `json:"scope"`
+	Health    string   `json:"health"`
+	Freshness string   `json:"freshness"`
+	Worker    string   `json:"worker"`
+}
+
+// AssessmentEvidenceLimit bounds the evidence an assessment lists.
+const AssessmentEvidenceLimit = 16
+
 type ServiceCard struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
@@ -94,6 +121,7 @@ type ServiceCard struct {
 	Note        string            `json:"note"`
 	Evidence    string            `json:"evidence"`
 	Reason      string            `json:"reason"`
+	Assessment  *AssessmentValue  `json:"assessment,omitempty"`
 	Monitored   bool              `json:"monitored"`
 	Elsewhere   bool              `json:"elsewhere"`
 	Host        ServiceHostValue  `json:"host"`
@@ -167,8 +195,27 @@ func (p *projection) service(id string) (ServiceCard, time.Time, time.Time, bool
 	if a := c.Answered; a != nil {
 		out.Answered = &AnsweredValue{Pops: a.Pops, Cache: a.Cache}
 	}
+	out.Assessment = p.assessment(c.Assessment)
 	ageServiceCard(&out, p.v.Now)
 	return out, sampled, until, true
+}
+
+// assessment is the view's assessment as a card's value says it, with the
+// earliest deadline of every check behind it, listed or not.
+func (p *projection) assessment(a view.ServiceAssessment) *AssessmentValue {
+	out := &AssessmentValue{State: a.State(), Availability: a.Availability, Reachability: a.Reachability, WorkerOnline: a.WorkerOnline,
+		Evidence: []AssessmentEvidence{}, Hints: a.HintCodes()}
+	var until time.Time
+	for i, e := range a.Evidence {
+		if clock, ok := p.evidence().checks[e.Check]; ok && (until.IsZero() || clock.until.Before(until)) {
+			until = clock.until
+		}
+		if i < AssessmentEvidenceLimit {
+			out.Evidence = append(out.Evidence, AssessmentEvidence{Check: e.Check, Observer: RefValue{ID: e.Observer, Name: e.ObserverName}, Scope: e.Scope, Health: e.Health, Freshness: e.Freshness, Worker: e.Worker})
+		}
+	}
+	out.ValidUntil = stamp(until)
+	return out
 }
 
 // seenCheck is a check as a service card's value says it, with its own

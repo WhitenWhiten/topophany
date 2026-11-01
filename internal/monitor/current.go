@@ -78,13 +78,37 @@ func Current(p Panel, now time.Time) Panel {
 }
 
 // A service card's checks expire one by one, each at its own deadline,
-// which a renewed lease never moves; the card stays.
+// which a renewed lease never moves; the card stays. Its assessment rests
+// on all of its evidence, so it is withheld whole at its earliest deadline.
 func ageServiceCard(card *ServiceCard, now time.Time) {
 	for i := range card.SeenFrom {
 		for k := range card.SeenFrom[i].Checks {
 			x := &card.SeenFrom[i].Checks[k]
 			ageSeenCheck(x, now)
 		}
+	}
+	ageAssessment(card.Assessment, now)
+}
+
+// An expired assessment keeps its identities and hints, which the topology
+// decides, and loses every judgment: its state, its availability, path and
+// worker words, and each piece of evidence's health and worker.
+func ageAssessment(a *AssessmentValue, now time.Time) {
+	if a == nil || a.ValidUntil == nil {
+		return
+	}
+	skew := a.ValidUntil.After(now.Add(5 * time.Minute))
+	if now.Before(*a.ValidUntil) && !skew {
+		return
+	}
+	a.State, a.Availability, a.Reachability, a.WorkerOnline = "unknown", "unknown", "unknown", "unknown"
+	freshness := "stale"
+	if skew {
+		freshness = "unavailable"
+	}
+	for i := range a.Evidence {
+		e := &a.Evidence[i]
+		e.Health, e.Freshness, e.Worker = "unknown", freshness, "unknown"
 	}
 }
 

@@ -321,3 +321,157 @@ func TestScopedServiceIsElsewhere(t *testing.T) {
 		t.Fatalf("%+v", card)
 	}
 }
+
+// assessedSnapshot is a service with a passing remote path check and a
+// failing local application check, each with its own deadline.
+func assessedSnapshot(now time.Time) model.Snapshot {
+	last := func(outcome string) *model.Observation {
+		return &model.Observation{SampledAt: now.Add(-time.Second), Outcome: outcome, DurationMS: 12}
+	}
+	return model.Snapshot{GeneratedAt: now, Topology: model.Config{
+		Nodes:     []model.Node{{ID: "s2", Kind: "host"}, {ID: "workstation", Kind: "host"}},
+		Services:  []model.Service{{ID: "api", Name: "API", Node: "s2"}},
+		Observers: []model.Observer{{ID: "wsl", Name: "WSL", Node: "workstation", StaleSeconds: 60}, {ID: "s2", Name: "S2", Node: "s2", StaleSeconds: 60}},
+		Checks: []model.Check{
+			{ID: "remote", Service: "api", Observer: "wsl", Kind: "tcp", Target: "s2.test:443", StaleSeconds: 30},
+			{ID: "local", Service: "api", Observer: "s2", Kind: "http", Target: "http://127.0.0.1/health", StaleSeconds: 10},
+		},
+	}, Nodes: []model.EntityState{{ID: "s2", Health: "down"}, {ID: "workstation", Health: "up"}},
+		Services:  []model.EntityState{{ID: "api", Health: "down", Evidence: "measured", Reason: "local health failed", Checks: []string{"remote", "local"}}},
+		Checks:    []model.CheckState{{ID: "remote", Observer: "wsl", Health: "up", Freshness: "fresh", Last: last("ok")}, {ID: "local", Observer: "s2", Health: "down", Freshness: "fresh", Last: last("fail")}},
+		Observers: []model.ObserverState{{ID: "wsl", Health: "up", LastSeen: now}, {ID: "s2", Health: "up", LastSeen: now}}}
+}
+
+// A card carries the Services tab's assessment in closed words, valid
+// until the earliest deadline of the checks behind it, and leaves every
+// existing field as it was.
+func TestServiceCardAssessment(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	snap := assessedSnapshot(now)
+	cfg := Config{Source: "client", Template: serviceTemplate("api")}
+	p := Build(cfg, Input{Snapshot: snap}, now)
+	card := p.Rows[1].Value.(ServiceCard)
+	a := card.Assessment
+	if a == nil || a.State != "local_fail" || a.Availability != "down" || a.Reachability != "up" || a.WorkerOnline != "up" || len(a.Hints) != 0 || a.Hints == nil {
+		t.Fatalf("%+v", a)
+	}
+	want := []AssessmentEvidence{
+		{Check: "remote", Observer: RefValue{"wsl", "WSL"}, Scope: "remote", Health: "up", Freshness: "fresh", Worker: "up"},
+		{Check: "local", Observer: RefValue{"s2", "S2"}, Scope: "local", Health: "down", Freshness: "fresh", Worker: "up"},
+	}
+	if !slices.Equal(a.Evidence, want) {
+		t.Fatalf("%+v", a.Evidence)
+	}
+	deadline := now.Add(9 * time.Second) // the local check's: sampled 1s ago, stale after 10s
+	if a.ValidUntil == nil || !a.ValidUntil.Equal(deadline) {
+		t.Fatal(a.ValidUntil)
+	}
+	tab, _ := (view.View{Snapshot: snap, Now: now}).Fleet().ServiceCard("api")
+	if card.Health != tab.Health || card.Note != tab.Note || card.Evidence != tab.Evidence || card.Reason != tab.Reason || tab.Assessment.Label() != "LOCAL FAIL" {
+		t.Fatalf("existing fields changed: %+v", card)
+	}
+	raw, err := json.Marshal(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		t.Fatal(err)
+	}
+	keys := []string{}
+	for k := range wire["assessment"].(map[string]any) {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	if !slices.Equal(keys, []string{"availability", "evidence", "hints", "path_reachability", "state", "valid_until", "worker_online"}) {
+		t.Fatal(keys)
+	}
+	if e := wire["assessment"].(map[string]any)["evidence"].([]any)[0].(map[string]any); e["observer"].(map[string]any)["name"] != "WSL" || e["scope"] != "remote" {
+		t.Fatal(e)
+	}
+
+	// Clones own their assessment.
+	other := p.Clone()
+	edited := other.Rows[1].Value.(ServiceCard).Assessment
+	edited.Evidence[0].Health, *edited.ValidUntil = "edited", time.Time{}
+	if a.Evidence[0].Health != "up" || !a.ValidUntil.Equal(deadline) {
+		t.Fatal("clone shares the assessment")
+	}
+
+	// A judgment change is safety state, written without waiting for cadence.
+	changed := p.Clone()
+	changed.Rows[1].Value.(ServiceCard).Assessment.State = "access_fail"
+	if safetyState(changed) == safetyState(p) {
+		t.Fatal("assessment change waited for cadence")
+	}
+
+	// At its deadline the whole assessment is withheld, in memory and as a
+	// file reader decodes it, even while the row itself is still current.
+	p.Rows[1].ValidUntil = now.Add(time.Minute)
+	p.PublisherExpiresAt = now.Add(time.Minute)
+	raw, err = MarshalPanel(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file Panel
+	if err := json.Unmarshal(raw, &file); err != nil {
+		t.Fatal(err)
+	}
+	for _, from := range []Panel{p, file} {
+		if got := Current(from, deadline.Add(-time.Second)).Rows[1].Value.(ServiceCard).Assessment; got.State != "local_fail" || got.Evidence[1].Health != "down" {
+			t.Fatalf("withheld early: %+v", got)
+		}
+		got := Current(from, deadline).Rows[1].Value.(ServiceCard).Assessment
+		if got.State != "unknown" || got.Availability != "unknown" || got.Reachability != "unknown" || got.WorkerOnline != "unknown" || got.ValidUntil == nil || !got.ValidUntil.Equal(deadline) {
+			t.Fatalf("expired assessment kept a judgment: %+v", got)
+		}
+		for i, e := range got.Evidence {
+			if e.Check != want[i].Check || e.Observer != want[i].Observer || e.Scope != want[i].Scope || e.Health != "unknown" || e.Freshness != "stale" || e.Worker != "unknown" {
+				t.Fatalf("expired evidence kept a judgment: %+v", e)
+			}
+		}
+	}
+	if a.State != "local_fail" {
+		t.Fatal("aging edited the producer's card")
+	}
+
+	// One remote check and nothing else is a configuration hint. Its
+	// deadline is the snapshot's own lifetime, shorter than the check's.
+	snap.Topology.Checks, snap.Checks = snap.Topology.Checks[:1], snap.Checks[:1]
+	snap.Services[0].Checks = []string{"remote"}
+	a = Build(cfg, Input{Snapshot: snap}, now).Rows[1].Value.(ServiceCard).Assessment
+	if a.State != "unknown" || a.Reachability != "up" || !slices.Equal(a.Hints, []string{"single_remote_check"}) || !a.ValidUntil.Equal(now.Add(model.SnapshotLifetime)) {
+		t.Fatalf("%+v", a)
+	}
+	// Without evidence there is no deadline, and nothing to withhold.
+	snap.Checks = nil
+	a = Build(cfg, Input{Snapshot: snap}, now).Rows[1].Value.(ServiceCard).Assessment
+	if a.ValidUntil != nil || len(a.Evidence) != 0 || a.Evidence == nil || a.State != "unknown" {
+		t.Fatalf("%+v", a)
+	}
+	ageAssessment(a, now.Add(time.Hour))
+	if !slices.Equal(a.Hints, []string{"single_remote_check"}) {
+		t.Fatal(a)
+	}
+}
+
+// An assessment lists at most its limit of evidence, but every check
+// behind it bounds its deadline.
+func TestServiceAssessmentEvidenceBound(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	snap := assessedSnapshot(now)
+	snap.Topology.Checks, snap.Checks = nil, nil
+	for i := range AssessmentEvidenceLimit + 4 {
+		id := fmt.Sprintf("c%02d", i)
+		stale := 60
+		if i == AssessmentEvidenceLimit+3 {
+			stale = 5
+		}
+		snap.Topology.Checks = append(snap.Topology.Checks, model.Check{ID: id, Service: "api", Observer: "wsl", Kind: "http", Target: "https://s2.test", StaleSeconds: stale})
+		snap.Checks = append(snap.Checks, model.CheckState{ID: id, Observer: "wsl", Health: "up", Freshness: "fresh", Last: &model.Observation{SampledAt: now.Add(-time.Second), Outcome: "ok"}})
+	}
+	a := Build(Config{Source: "client", Template: serviceTemplate("api")}, Input{Snapshot: snap}, now).Rows[1].Value.(ServiceCard).Assessment
+	if len(a.Evidence) != AssessmentEvidenceLimit || a.Evidence[0].Check != "c00" || a.ValidUntil == nil || !a.ValidUntil.Equal(now.Add(4*time.Second)) {
+		t.Fatalf("%d %v", len(a.Evidence), a.ValidUntil)
+	}
+}

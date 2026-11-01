@@ -1,6 +1,7 @@
 package view
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -155,6 +156,22 @@ func TestSingleRemoteCheckWarnsAndDoesNotConfirmOutage(t *testing.T) {
 	if r.Assessment.Availability != "unknown" || len(r.Assessment.Hints) != 1 || State(r) == "DOWN" {
 		t.Fatal(r)
 	}
+	// The sentence is unchanged; its closed code travels beside it.
+	if codes := r.Assessment.HintCodes(); r.Assessment.Hints[0] != "only one remote check; add a local application health check or an explicit user_entry check (availability_scope)" || len(codes) != 1 || codes[0] != "single_remote_check" {
+		t.Fatal(r.Assessment)
+	}
+	if a := (View{Snapshot: scopeSnapshot(), Now: time.Now()}).Rows(Services)[0].Assessment; len(a.Hints) != 0 || a.HintCodes() == nil || len(a.HintCodes()) != 0 {
+		t.Fatal("a hint without its condition", a)
+	}
+	// Free text is never a code.
+	if codes := (ServiceAssessment{Hints: []string{"arbitrary text"}}).HintCodes(); len(codes) != 0 {
+		t.Fatal(codes)
+	}
+	for code, text := range assessmentHints {
+		if a := (ServiceAssessment{Hints: []string{text}}); !slices.Equal(a.HintCodes(), []string{code}) {
+			t.Fatal("hint sentences must be distinct", code)
+		}
+	}
 	// Merely viewing WSL cannot borrow a local check's passing evidence.
 	s = scopeSnapshot()
 	s.ViewObserver = "wsl"
@@ -162,5 +179,38 @@ func TestSingleRemoteCheckWarnsAndDoesNotConfirmOutage(t *testing.T) {
 	r = (View{Snapshot: s, Now: time.Now()}).Rows(Services)[0]
 	if r.Assessment.Availability != "unknown" {
 		t.Fatal(r)
+	}
+}
+
+// State is Label's closed word: the same precedence, every combination.
+func TestAssessmentStateIsItsLabel(t *testing.T) {
+	legacy := func(a ServiceAssessment) string {
+		switch {
+		case a.Reachability == "down" && a.Availability != "down":
+			return "ACCESS FAIL"
+		case a.Reachability == "degraded" && a.Availability != "down":
+			return "PATH WARN"
+		case a.Availability == "down":
+			return "LOCAL FAIL"
+		case a.Availability == "degraded":
+			return "HEALTH WARN"
+		case a.Availability == "up":
+			return "UP"
+		}
+		return "UNKNOWN"
+	}
+	words := map[string]string{"access_fail": "ACCESS FAIL", "path_warn": "PATH WARN", "local_fail": "LOCAL FAIL", "health_warn": "HEALTH WARN", "up": "UP", "unknown": "UNKNOWN"}
+	seen := map[string]bool{}
+	for _, availability := range []string{"up", "degraded", "down", "unknown", ""} {
+		for _, reachability := range []string{"up", "degraded", "down", "unknown", ""} {
+			a := ServiceAssessment{Availability: availability, Reachability: reachability}
+			if label, ok := words[a.State()]; !ok || a.Label() != label || label != legacy(a) {
+				t.Fatal(availability, reachability, a.State(), a.Label(), legacy(a))
+			}
+			seen[a.State()] = true
+		}
+	}
+	if len(seen) != len(words) {
+		t.Fatal("a state is unreachable", seen)
 	}
 }

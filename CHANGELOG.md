@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `service.card` stream values carry the Services tab's `assessment`: a closed
+  state word (`local_fail`, `access_fail`, `path_warn` and so on), availability,
+  path reachability, worker words, scoped evidence and hint codes. The whole
+  assessment is withheld at its evidence's earliest deadline.
+
 ## [1.5.2] - 2026-11-01
 
 This release improves setup, investigation and maintenance, adds optional probe
