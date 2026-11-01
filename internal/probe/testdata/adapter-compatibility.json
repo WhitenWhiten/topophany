@@ -74,7 +74,6 @@
       "connectivity": false,
       "path_evidence": "cloudflare_api_reported",
       "facts": {
-        "connector_versions": "2026.10.0,2026.9.1",
         "oldest_connection_at": "2026-10-19T07:59:00Z",
         "peer_text": "withheld_secret_request",
         "tunnel_colos": "HKG,LAX,SIN",

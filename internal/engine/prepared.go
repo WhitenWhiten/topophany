@@ -108,6 +108,7 @@ func (p *Plan) foldEvidence(rows []model.Observation, carries []Carry, seen func
 		if st.Last != nil {
 			last := model.CloneObservation(*st.Last)
 			last.Contract, last.Revision = st.Contract, ""
+			config.RedactObservation(x, &last)
 			st.Last = &last
 		}
 		states[x.ID] = st

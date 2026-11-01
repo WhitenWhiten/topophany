@@ -141,7 +141,7 @@ func diagnosticFacts(c model.Check, facts map[string]string) map[string]string {
 	case "cloudflared":
 		keys = append(keys, strings.Fields("ready_connections ha_connections connection_colos requests_total request_errors active_streams connector_version")...)
 	case "cloudflare":
-		keys = append(keys, strings.Fields("tunnel_status tunnel_connections tunnel_pending_reconnect tunnel_colos connector_versions oldest_connection_at record_count record_proxied record_ttl record_content_matches pool_healthy origins_healthy origins_total regions_reporting")...)
+		keys = append(keys, strings.Fields("tunnel_status tunnel_connections tunnel_pending_reconnect tunnel_colos oldest_connection_at record_count record_proxied record_ttl record_content_matches pool_healthy origins_healthy origins_total regions_reporting")...)
 		for _, name := range c.Adapter.CloudflareOptions().ExpectedOrigins {
 			keys = append(keys, "origin."+name)
 		}

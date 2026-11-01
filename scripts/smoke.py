@@ -167,7 +167,7 @@ def main():
             os.write(master, b'3e'); drain_until(b'topo edit --config', 3)
             os.write(master, b'\x1b'); time.sleep(.2)
             os.write(master, b'\x1b[<0;2;2M'); drain_until(b'[1 Overview]', 3)
-            os.write(master, b'v'); drain_until(b'view: demo', 4)
+            os.write(master, b'v'); drain_until(b'View: demo', 4)
             os.write(master, b'\x1b[200~qrv\x1b[201~'); time.sleep(.2)
             assert tty.poll() is None
             passed('real PTY: alternate screen, all nine tabs, About, read-only edit hint, mouse, observer switching, safe paste')

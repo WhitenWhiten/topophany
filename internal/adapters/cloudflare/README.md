@@ -126,7 +126,7 @@ Monitors and Pools › Read; a read that needs another permission is out of scop
 
 | Read | Request (exact path) | Facts | Policy codes |
 |---|---|---|---|
-| `tunnel` | `GET /accounts/{account_id}/cfd_tunnel/{tunnel_id}` | `tunnel_status` (closed `healthy`/`degraded`/`down`/`inactive`), `tunnel_connections`, `tunnel_pending_reconnect`, `tunnel_colos` (≤ 8 sorted tokens), `connector_versions` (≤ 4 sorted tokens), `oldest_connection_at` (RFC 3339); the five connection facts are absent when the API's connection list is empty beside a `healthy` or `degraded` tunnel | `connections_below_expected`, `colo_outside_expected` (compares every distinct colo, not only the eight the fact shows) |
+| `tunnel` | `GET /accounts/{account_id}/cfd_tunnel/{tunnel_id}` | `tunnel_status` (closed `healthy`/`degraded`/`down`/`inactive`), `tunnel_connections`, `tunnel_pending_reconnect`, `tunnel_colos` (≤ 8 sorted tokens), `oldest_connection_at` (RFC 3339); the four connection facts are absent when the API's connection list is empty beside a `healthy` or `degraded` tunnel | `connections_below_expected`, `colo_outside_expected` (compares every distinct colo, not only the eight the fact shows) |
 | `dns_record` | `GET /zones/{zone_id}/dns_records?name={record_name}&type={record_type}` | `record_count`, `record_proxied` (`true`/`false` when every record agrees), `record_ttl` (when every record agrees), `record_content_matches` (`true`/`false`/`not_declared`) | `record_missing`, `record_not_proxied`, `record_proxied_unexpectedly`, `record_content_mismatch` |
 | `pool` | `GET /accounts/{account_id}/load_balancers/pools/{pool_id}/health` | `pool_healthy` (when a region reports it), `origins_healthy`, `origins_total`, `regions_reporting`, `origin.<declared>` (`healthy`/`unhealthy`, declared origins only) | `origins_below_expected` |
 
@@ -232,21 +232,25 @@ that array as deprecated and says it will start returning an empty array in
 favour of the dedicated connections endpoint. A `healthy` or `degraded`
 `tunnel_status` means at least one live connection by definition, so an empty
 array beside either is the field having moved, not a tunnel without a
-connector: the connection list is then **not reported**. The five connection
+connector: the connection list is then **not reported**. The four connection
 facts (`tunnel_connections`, `tunnel_pending_reconnect`, `tunnel_colos`,
-`connector_versions`, `oldest_connection_at`) are absent, neither
-`connections_below_expected` nor `colo_outside_expected` can fire, the outcome
-stays `ok`, and the detail reads "Cloudflare API state reported; the
-connections list was not reported". An empty array beside `down` or `inactive`
-is a count of zero: `tunnel_connections` is `0` and the declared policies apply
-as for any count. A populated array is counted as returned whatever the status
+`oldest_connection_at`) are absent and neither `connections_below_expected`
+nor `colo_outside_expected` can fire. With a connection policy configured,
+the outcome is `unknown` (`connections_unreported`) and the policy is
+`unverified`; without one, the outcome stays `ok`. The detail reads
+"Cloudflare API state reported; the connections list was not reported". An empty array beside `down` or `inactive`
+is a count of zero: `tunnel_connections` is `0`, so a declared minimum
+connection count is violated. With only a colo policy configured, no live
+connection has a colo to verify and the policy remains unverified. A populated array is counted as returned whatever the status
 says. `tunnel_status` carries the API's own word in every case. The read does
 not call the dedicated endpoint: one GET per check is the rule, and that
 endpoint is outside the three allowlisted paths. The connection's `origin_ip`, its `id`, `client_id`
 and `uuid`, and the tunnel's name and account tag are never read into a fact.
-`connector_versions` keeps only tokens of at most 24 characters; `tunnel_colos`
-keeps only three uppercase letters, sorts them and keeps the first eight. The
-colo policy compares every distinct reported colo, not only the eight the fact
+Connector versions are not exported because they are free-form strings that
+can carry fragments of a bearer token. `tunnel_colos` keeps only three uppercase
+letters, sorts them and keeps the first eight. If any listed connection lacks a
+valid colo, a configured colo policy is `unverified` unless a known violation
+has already been found. The colo policy compares every distinct reported colo, not only the eight the fact
 shows: a ninth colo is still a connection outside a declared list.
 
 The DNS `result` must be present: an absent or null result is a monitor error,
@@ -283,22 +287,17 @@ missing or unhealthy is `origins_below_expected` policy; a missing one gets no
 
 ### Boundary and provenance
 
-The bearer token is echoed into every string field of every read by the
-reflection tests (`TestBearerTokenCannotEchoIntoObservation`,
-`TestShapedTokenCannotEchoAsVersion`, `TestTokenFragmentsCannotEchoAsVersions`):
-nothing of the token reaches the observation, its fact keys or values, its detail or its error. In
-`tunnel_colos`, `connector_versions` and `oldest_connection_at`, a value (or a
-comma-separated member of a list) that is the token, or any run of at least
-eight bytes of it, is dropped even when it has a reportable shape (a
-24-character version token, a three-letter colo), so a token split across two
-version strings does not survive either; numbers are never examined, and
-shape-validated tokens from the platform are otherwise indistinguishable from
-evidence. A run shorter than eight bytes is not treated as an echo, because it
-cannot be told from a colo.
-Only closed words, numbers, shape-validated tokens (three uppercase letters for
-a colo, at most 24 token characters for a connector version) and comparisons
-with the topology leave the adapter. Numeric counts are an explicit exception,
-as for every credential-bearing exchange.
+The reflection tests exercise token echoes in the string fields of each read.
+The tunnel adapter does not decode or export free-form `client_version` values:
+otherwise a peer could split the bearer token across several responses. Viewer
+snapshots and history also withhold `connector_versions` from older stored
+observations and older workers. Existing stored records are not rewritten.
+For `tunnel_colos` and `oldest_connection_at`, a value or list member that
+contains the token or at least eight consecutive bytes of it is dropped.
+Shorter fragments remain indistinguishable from three-letter colos. Only closed
+words, numbers, shaped colos, timestamps and comparisons with the topology
+leave the adapter. Numeric counts are an explicit exception, as for every
+credential-bearing exchange.
 
 No live account or token was used. The fixtures under
 [`testdata/api-v4/2026-10-19/`](testdata/api-v4/2026-10-19/README.md) are

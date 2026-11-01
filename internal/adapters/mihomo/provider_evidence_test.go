@@ -82,6 +82,35 @@ func TestMihomoLoadTimesPreserveMembershipAndAdmission(t *testing.T) {
 	}
 }
 
+func TestMihomoProviderOnlyChainFitsFactBudget(t *testing.T) {
+	loaded, expected := map[string]any{}, map[string][]string{}
+	for i := 0; i < 16; i++ {
+		name, member := fmt.Sprintf("pool-%02d", i), fmt.Sprintf("leaf-%02d", i)
+		expected[name] = []string{member}
+		loaded[name] = map[string]any{"proxies": []map[string]string{{"name": member, "type": "VLESS"}}, "updatedAt": testControllerUpdated}
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/configs":
+			fmt.Fprint(w, `{"mode":"rule"}`)
+		case "/proxies":
+			fmt.Fprint(w, `{"proxies":{"root":{"type":"Selector","now":"leaf-00"}}}`)
+		case "/providers/proxies":
+			json.NewEncoder(w).Encode(map[string]any{"providers": loaded})
+		default:
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	x := httpCheck(server.URL)
+	x.Kind = "mihomo"
+	x.Adapter = model.AdapterOptions{RootProxy: "root", ExpectedProviders: expected}
+	o := (probe.Runner{}).Run(context.Background(), testkit.Config(), x)
+	if o.Outcome != "ok" || o.Facts["reported_chain"] != "leaf-00" || config.ObservationBounds(o, config.MaxTook) != "" {
+		t.Fatalf("provider chain exceeded fact budget or lost evidence: %+v", o)
+	}
+}
+
 func TestMihomoFullReferenceEvidenceFitsFactBudget(t *testing.T) {
 	t.Setenv("TOPH_BUDGET_TOKEN", "synthetic-controller-token")
 	published := time.Now().UTC().Add(-20 * time.Second)

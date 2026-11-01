@@ -23,7 +23,7 @@ type coreProviders struct {
 	} `json:"providers"`
 }
 
-func collectProviders(ctx context.Context, deps Dependencies, client *http.Client, x model.Check, target, token string, name func(string) string, o *model.Observation, out *coreProviders, needChain bool) error {
+func collectProviders(ctx context.Context, deps Dependencies, client *http.Client, x model.Check, target, token string, name func(string) string, o *model.Observation, out *coreProviders, needChain, policyBefore bool, result *judgment) error {
 	options := x.Adapter.Mihomo()
 	// Comparison counts stay withheld for every secret-bearing read,
 	// including one whose names a local viewer keeps.
@@ -98,7 +98,6 @@ func collectProviders(ctx context.Context, deps Dependencies, client *http.Clien
 	// A policy that was already known before the provider comparison (mode
 	// or TUN) is not a settling publication; do not let a provider's settle
 	// window delay its confirmation.
-	policyBefore := o.Outcome == "policy"
 	keys := make([]string, 0, len(expected))
 	for k := range expected {
 		keys = append(keys, k)
@@ -152,8 +151,7 @@ func collectProviders(ctx context.Context, deps Dependencies, client *http.Clien
 			if loadPending {
 				pending++
 			}
-			o.Outcome, o.Code = "policy", "provider_membership_mismatch"
-			o.Detail = "desired provider membership/order differs from the loaded runtime"
+			*result = judgment{"policy", "provider_membership_mismatch", "desired provider membership/order differs from the loaded runtime"}
 		}
 	}
 	allPending := mismatched > 0 && pending == mismatched && !policyBefore
@@ -162,7 +160,7 @@ func collectProviders(ctx context.Context, deps Dependencies, client *http.Clien
 		// loading. It is a policy sample for confirmation purposes, not an
 		// unknown: a publisher that keeps republishing cannot reset it.
 		o.Facts["provider_reference_settling"] = "true"
-		o.Detail = "provider membership differs while the controller may still be loading the publication; not yet confirmed"
+		result.detail = "provider membership differs while the controller may still be loading the publication; not yet confirmed"
 	}
 	o.Facts["provider_comparison"] = adapters.SafeFact(strings.Join(summaries, "; "))
 	if options.ProviderReference != nil && len(o.Facts) < model.MaxObservationFacts {
@@ -172,9 +170,8 @@ func collectProviders(ctx context.Context, deps Dependencies, client *http.Clien
 		// load; without that marker there is always room for this fact.
 		o.Facts["provider_reference_load_pending"] = strconv.FormatBool(allPending)
 	}
-	if !stable && o.Outcome != "policy" {
-		o.Outcome, o.Code = "unknown", "provider_reference_changed"
-		o.Detail = "provider publication changed during sampling; loaded membership cannot be compared consistently"
+	if !stable && result.outcome != "policy" {
+		*result = judgment{"unknown", "provider_reference_changed", "provider publication changed during sampling; loaded membership cannot be compared consistently"}
 	}
 	addLoadTimes(o, loads)
 	return nil

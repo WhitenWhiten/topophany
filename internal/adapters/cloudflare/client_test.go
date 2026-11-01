@@ -425,81 +425,67 @@ func TestCollectResponseTooLarge(t *testing.T) {
 	}
 }
 
-// A credential that happens to have a reportable shape (a 24-character
-// version token, a three-letter colo) is still dropped when the peer echoes it: shape
-// validation alone must not let the token itself through.
-func TestShapedTokenCannotEchoAsVersion(t *testing.T) {
-	const token = "A1b2C3d4E5f6G7h8I9j0K1l2"
-	if len(token) != 24 || !versionToken.MatchString(token) {
-		t.Fatalf("test token is not a shaped version token: len=%d", len(token))
-	}
+// A malicious peer can split a credential into shaped values, including short
+// pieces and decorated fragments. No client_version is exported, regardless
+// of its spelling or whether another response carries the remaining pieces.
+func TestTunnelNeverExportsClientVersions(t *testing.T) {
+	const token = "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S9t0"
 	t.Setenv("TOPH_CLOUDFLARE_TEST_TOKEN", token)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, `{"success":true,"result":{"status":"healthy","connections":[{"client_version":"`+token+`","colo_name":"HKG","opened_at":"2026-10-19T08:00:00Z"}]}}`)
-	}))
-	defer srv.Close()
-	o := observation()
-	if err := Collect(context.Background(), testDependencies(t), adapterCheck(tunnelOptions()), srv.URL, o); err != nil {
-		t.Fatal(err)
-	}
-	raw, _ := json.Marshal(o)
-	if strings.Contains(string(raw), token) {
-		t.Fatalf("shaped token echoed: %s", raw)
-	}
-	if _, ok := o.Facts["connector_versions"]; ok {
-		t.Fatalf("token was kept as a version: %+v", o.Facts)
+	for _, versions := range [][]string{
+		{"v-" + token[:20], "v-" + token[20:]},
+		{token[:7], token[7:14], token[14:21], token[21:28]},
+		{"2026.10.0", "v-" + token[10:18] + "-tail"},
+	} {
+		var connections []string
+		for _, version := range versions {
+			connections = append(connections, `{"client_version":"`+version+`","colo_name":"HKG"}`)
+		}
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			io.WriteString(w, `{"success":true,"result":{"status":"healthy","connections":[`+strings.Join(connections, ",")+`]}}`)
+		}))
+		o := observation()
+		if err := Collect(context.Background(), testDependencies(t), adapterCheck(tunnelOptions()), srv.URL, o); err != nil {
+			srv.Close()
+			t.Fatal(err)
+		}
+		srv.Close()
+		if _, ok := o.Facts["connector_versions"]; ok {
+			t.Fatalf("client versions exported: %+v", o.Facts)
+		}
+		if o.Facts["tunnel_connections"] != strconv.Itoa(len(versions)) {
+			t.Fatalf("connection count lost: %+v", o.Facts)
+		}
+		raw, _ := json.Marshal(o)
+		for _, value := range versions {
+			if strings.Contains(string(raw), value) {
+				t.Fatalf("client version %q leaked: %s", value, raw)
+			}
+		}
 	}
 }
 
-// A peer that splits the token over several shaped versions defeats an
-// exact-match rule: each half passes the version shape. Every member that is a
-// long run of the token is dropped, and with it the whole fact.
-func TestTokenFragmentsCannotEchoAsVersions(t *testing.T) {
-	const token = "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S9t0"
-	first, second := token[:24], token[16:]
-	for _, fragment := range []string{first, second} {
-		if !versionToken.MatchString(fragment) {
-			t.Fatalf("test fragment is not a shaped version token: %q", fragment)
-		}
+func TestTokenInsideShapedFactsIsRemoved(t *testing.T) {
+	const token = "prefix2026-10-19T08:00:00Zsuffix"
+	o := &model.Observation{Facts: map[string]string{
+		"oldest_connection_at": "2026-10-19T08:00:00Z",
+		"tunnel_colos":         "HKG,LAX",
+		"tunnel_connections":   "2026",
+	}}
+	scrubToken(o, token)
+	if _, ok := o.Facts["oldest_connection_at"]; ok || o.Facts["tunnel_colos"] != "HKG,LAX" || o.Facts["tunnel_connections"] != "2026" {
+		t.Fatalf("facts=%+v", o.Facts)
 	}
-	t.Setenv("TOPH_CLOUDFLARE_TEST_TOKEN", token)
 	for _, tc := range []struct {
-		name     string
-		versions []string
-		want     string
+		value, token string
+		want         bool
 	}{
-		{"fragments only", []string{first, second}, ""},
-		{"fragment beside a version", []string{first, "2026.10.0"}, "2026.10.0"},
-		{"eight bytes is a fragment", []string{token[3:11], "2026.10.0"}, "2026.10.0"},
-		{"seven bytes is not", []string{token[3:10]}, token[3:10]},
+		{"v-" + token[6:16] + "-tail", token, true},
+		{"prefix-short-suffix", "short", true},
+		{"unrelated", token, false},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			var connections []string
-			for _, version := range tc.versions {
-				connections = append(connections, `{"client_version":"`+version+`","colo_name":"HKG"}`)
-			}
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				io.WriteString(w, `{"success":true,"result":{"status":"healthy","connections":[`+strings.Join(connections, ",")+`]}}`)
-			}))
-			defer srv.Close()
-			o := observation()
-			if err := Collect(context.Background(), testDependencies(t), adapterCheck(tunnelOptions()), srv.URL, o); err != nil {
-				t.Fatal(err)
-			}
-			got, present := o.Facts["connector_versions"]
-			if tc.want == "" && present || tc.want != "" && got != tc.want {
-				t.Fatalf("connector_versions=%q present=%v want %q", got, present, tc.want)
-			}
-			raw, _ := json.Marshal(o)
-			for _, fragment := range []string{first, second} {
-				if strings.Contains(string(raw), fragment) {
-					t.Fatalf("token fragment echoed: %s", raw)
-				}
-			}
-			if o.Facts["tunnel_connections"] != strconv.Itoa(len(tc.versions)) {
-				t.Fatalf("a count was erased: %+v", o.Facts)
-			}
-		})
+		if got := echoesToken(tc.value, tc.token); got != tc.want {
+			t.Fatalf("echoesToken(%q, %q)=%v", tc.value, tc.token, got)
+		}
 	}
 }
 
@@ -511,14 +497,12 @@ func TestScrubTokenFragmentsAndNumbers(t *testing.T) {
 	o := &model.Observation{Facts: map[string]string{
 		"oldest_connection_at": "2026-10-19T08:00:00Z",
 		"tunnel_colos":         "HKG,LAX",
-		"connector_versions":   "10-19T08:00:00Z,2026.10.0",
 		"tunnel_connections":   "2026",
 		"origins_total":        "08",
 	}}
 	scrubToken(o, token)
 	want := map[string]string{
 		"tunnel_colos":       "HKG,LAX",
-		"connector_versions": "2026.10.0",
 		"tunnel_connections": "2026",
 		"origins_total":      "08",
 	}

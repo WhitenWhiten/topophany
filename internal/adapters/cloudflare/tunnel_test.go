@@ -18,7 +18,6 @@ func TestCollectTunnelFixture(t *testing.T) {
 		"tunnel_connections":       "3",
 		"tunnel_pending_reconnect": "1",
 		"tunnel_colos":             "HKG,LAX,SIN",
-		"connector_versions":       "2026.10.0,2026.9.1",
 		"oldest_connection_at":     "2026-10-19T07:59:00Z",
 	}
 	for key, value := range want {
@@ -111,9 +110,12 @@ func TestCollectTunnelEmptyConnectionList(t *testing.T) {
 						t.Fatalf("%s=%q reported without a connection list", key, value)
 					}
 				}
-				if o.Outcome != "ok" || o.Code != "" || o.Detail != connectionsNotReported {
-					t.Fatalf("an unreported connection list changed the read: %+v", o)
-				}
+			}
+			if plain.Outcome != "ok" || plain.Code != "" || plain.Detail != connectionsNotReported {
+				t.Fatalf("an unconfigured read should still succeed: %+v", plain)
+			}
+			if policed.Outcome != "unknown" || policed.Code != "connections_unreported" || policed.Detail != connectionsNotReported {
+				t.Fatalf("unreported connections cannot establish a policy match: %+v", policed)
 			}
 		})
 	}
@@ -134,7 +136,6 @@ func TestCollectTunnelPopulatedListIsCounted(t *testing.T) {
 				"tunnel_connections":       "1",
 				"tunnel_pending_reconnect": "1",
 				"tunnel_colos":             "HKG",
-				"connector_versions":       "2026.10.0",
 				"oldest_connection_at":     "2026-10-19T08:00:00Z",
 			} {
 				if o.Facts[key] != value {
@@ -206,16 +207,39 @@ func TestCollectTunnelBoundsAndShapes(t *testing.T) {
 	if got := strings.Split(o.Facts["tunnel_colos"], ","); len(got) != MaxTunnelColos {
 		t.Fatalf("colos=%v", got)
 	}
-	if got := strings.Split(o.Facts["connector_versions"], ","); len(got) != MaxConnectionVersions {
-		t.Fatalf("versions=%v", got)
+	if _, ok := o.Facts["connector_versions"]; ok {
+		t.Fatal("untrusted connector versions must not be exported")
 	}
 	if o.Facts["tunnel_connections"] != "12" {
 		t.Fatalf("connections=%s", o.Facts["tunnel_connections"])
 	}
-	for _, fact := range []string{"tunnel_colos", "connector_versions"} {
+	for _, fact := range []string{"tunnel_colos"} {
 		if strings.Contains(o.Facts[fact], "lower") || strings.Contains(o.Facts[fact], "123") || strings.Contains(o.Facts[fact], "not a version") {
 			t.Fatalf("malformed token kept: %s=%s", fact, o.Facts[fact])
 		}
+	}
+}
+
+func TestCollectTunnelMissingColoEvidence(t *testing.T) {
+	for _, tc := range []struct {
+		name, connections, outcome, code string
+	}{
+		{"missing", `[{"colo_name":"HKG"},{}]`, "unknown", "connection_colo_unreported"},
+		{"invalid", `[{"colo_name":"invalid"}]`, "unknown", "connection_colo_unreported"},
+		{"known violation wins", `[{"colo_name":"LAX"},{}]`, "policy", "colo_outside_expected"},
+		{"all allowed", `[{"colo_name":"HKG"}]`, "ok", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			options := tunnelOptions()
+			options.ExpectedColos = []string{"HKG"}
+			o := observation()
+			if err := collectTunnel([]byte(`{"success":true,"result":{"status":"healthy","connections":`+tc.connections+`}}`), options, o); err != nil {
+				t.Fatal(err)
+			}
+			if o.Outcome != tc.outcome || o.Code != tc.code {
+				t.Fatalf("outcome=%s code=%s", o.Outcome, o.Code)
+			}
+		})
 	}
 }
 

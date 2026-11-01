@@ -50,13 +50,13 @@ the declared topology, sets `peer_text: withheld_secret_request`, and never
 stores a tunnel's `origin_ip`, its connection or client identifiers, a DNS
 record's content, an undeclared origin name or any `errors[].message` text.
 Numeric counts are the same documented numeric exception as elsewhere: a purely
-numeric credential could appear verbatim in a count. The reflection tests echo
-the bearer token into every string field of all three reads, including a
-24-character token that is itself a valid version token, and require that
-nothing of it reaches the observation, its fact keys or values, its detail or
-its error. In `tunnel_colos`, `connector_versions` and `oldest_connection_at`,
-a value or list member that is the token, or any run of at least eight bytes of
-it, is dropped even when its shape is one the adapter reports.
+numeric credential could appear verbatim in a count. The tunnel adapter withholds
+free-form connector versions, since a peer can split a bearer token across
+multiple version strings. The collector also removes `connector_versions` from
+viewer snapshots and history of older observations. It does not rewrite stored
+records. In `tunnel_colos` and `oldest_connection_at`, a value containing the
+token or a run of at least eight bytes of it is dropped; shorter fragments may
+be indistinguishable from three-letter colos.
 
 POSIX credential files, the collector's TLS private key among them, require `0600` or stricter file permissions and reject static symlinks and non-regular files; a collector whose key is otherwise refuses to start. Copy a key out of a certificate tool's directory, such as Let's Encrypt's `live/` whose files are links, rather than pointing `--tls-key` at it. The parent directory must be owned and controlled by a trusted user; no defense is claimed against race-condition replacement attacks within a world-writable parent directory. Windows runtime reads rely on filesystem ACLs. Native bundle generation and installation replace and verify directory and existing child DACLs, allowing only the current user SID and necessary Administrators/SYSTEM before writing credentials. They reject unrelated owners and reparse points; they do not audit arbitrary parent-directory ACLs or defend against replacement races in untrusted writable parents. Manual deployers must confirm those same read-access limits.
 

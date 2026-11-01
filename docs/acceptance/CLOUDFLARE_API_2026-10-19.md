@@ -52,7 +52,7 @@ before composing one allowlisted path.
 
 | Read | Request | Facts | Policy |
 |---|---|---|---|
-| `tunnel` | `GET /accounts/{account_id}/cfd_tunnel/{tunnel_id}` | `tunnel_status`, `tunnel_connections`, `tunnel_pending_reconnect` (deprecated flag), `tunnel_colos` (fact capped at 8 sorted), `connector_versions` (≤ 4 sorted), `oldest_connection_at`; the five connection facts are absent when the connection list is empty beside a `healthy` or `degraded` tunnel | `connections_below_expected`, `colo_outside_expected` (compares every distinct reported colo, not only the capped fact) |
+| `tunnel` | `GET /accounts/{account_id}/cfd_tunnel/{tunnel_id}` | `tunnel_status`, `tunnel_connections`, `tunnel_pending_reconnect` (deprecated flag), `tunnel_colos` (fact capped at 8 sorted), `oldest_connection_at`; the four connection facts are absent when the connection list is empty beside a `healthy` or `degraded` tunnel | `connections_below_expected`, `colo_outside_expected` (compares every distinct reported colo, not only the capped fact) |
 | `dns_record` | `GET /zones/{zone_id}/dns_records?name={record_name}&type={record_type}` | `record_count` (present `result` only), `record_proxied`, `record_ttl`, `record_content_matches` | `record_missing` only for an explicit `[]`; absent/null result and a partial `total_count` page are monitor errors |
 | `pool` | `GET /accounts/{account_id}/load_balancers/pools/{pool_id}/health` | `pool_healthy`, `origins_healthy`, `origins_total`, `regions_reporting`, `origin.<declared>` (a present verdict only) | `origins_below_expected` (an absent declared origin is policy but gets no per-origin fact) |
 

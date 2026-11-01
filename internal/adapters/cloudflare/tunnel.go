@@ -19,7 +19,6 @@ type tunnelResponse struct {
 	Result  *struct {
 		Status      string `json:"status"`
 		Connections []struct {
-			ClientVersion      string `json:"client_version"`
 			ColoName           string `json:"colo_name"`
 			IsPendingReconnect bool   `json:"is_pending_reconnect"`
 			OpenedAt           string `json:"opened_at"`
@@ -45,8 +44,9 @@ const connectionsNotReported = "Cloudflare API state reported; the connections l
 // statuses healthy and degraded mean at least one live connection by
 // definition, so an empty list beside either is the field having moved, not a
 // tunnel without a connector: the list is then treated as not reported, with
-// no connection fact and neither connection policy, and the read stays ok. An
-// empty list beside down or inactive is a count of zero, and the policies
+// no connection fact and neither connection policy. If a connection policy
+// is configured, its result is unknown even though the API read succeeded.
+// An empty list beside down or inactive is a count of zero, and the policies
 // apply. tunnel_status carries the API's own word either way.
 func collectTunnel(body []byte, options model.CloudflareOptions, o *model.Observation) error {
 	var doc tunnelResponse
@@ -70,11 +70,15 @@ func collectTunnel(body []byte, options model.CloudflareOptions, o *model.Observ
 	listed := len(doc.Result.Connections) > 0 || doc.Result.Status == tunnelDown || doc.Result.Status == tunnelInactive
 	if !listed {
 		o.Detail = connectionsNotReported
+		if options.ExpectedConnections != nil || len(options.ExpectedColos) > 0 {
+			o.Outcome, o.Code = "unknown", "connections_unreported"
+		}
 		return nil
 	}
 	connections := len(doc.Result.Connections)
 	pending := 0
-	colos, versions := map[string]bool{}, map[string]bool{}
+	colos := map[string]bool{}
+	missingColo := false
 	var oldest time.Time
 	for _, c := range doc.Result.Connections {
 		if c.IsPendingReconnect {
@@ -82,9 +86,8 @@ func collectTunnel(body []byte, options model.CloudflareOptions, o *model.Observ
 		}
 		if model.IsColo(c.ColoName) {
 			colos[c.ColoName] = true
-		}
-		if versionToken.MatchString(c.ClientVersion) {
-			versions[c.ClientVersion] = true
+		} else {
+			missingColo = true
 		}
 		if opened, err := time.Parse(time.RFC3339Nano, c.OpenedAt); err == nil && (oldest.IsZero() || opened.Before(oldest)) {
 			oldest = opened
@@ -100,9 +103,6 @@ func collectTunnel(body []byte, options model.CloudflareOptions, o *model.Observ
 		}
 		o.Facts["tunnel_colos"] = strings.Join(fact, ",")
 	}
-	if list := sortedCapped(versions, MaxConnectionVersions); len(list) > 0 {
-		o.Facts["connector_versions"] = strings.Join(list, ",")
-	}
 	if !oldest.IsZero() {
 		o.Facts["oldest_connection_at"] = oldest.UTC().Format(time.RFC3339)
 	}
@@ -117,6 +117,9 @@ func collectTunnel(body []byte, options model.CloudflareOptions, o *model.Observ
 	if outsideColos(allColos, options.ExpectedColos) {
 		o.Outcome, o.Code = "policy", "colo_outside_expected"
 		o.Detail = "a tunnel connection is established at a colo outside the declared list"
+	} else if len(options.ExpectedColos) > 0 && (missingColo || connections == 0) {
+		o.Outcome, o.Code = "unknown", "connection_colo_unreported"
+		o.Detail = "Cloudflare API did not provide complete tunnel connection colo evidence"
 	}
 	return nil
 }
@@ -129,16 +132,6 @@ func sortedTokens(set map[string]bool) []string {
 		out = append(out, token)
 	}
 	sort.Strings(out)
-	return out
-}
-
-// sortedCapped returns the distinct tokens in sorted order, keeping the first
-// limit when the report carries more.
-func sortedCapped(set map[string]bool, limit int) []string {
-	out := sortedTokens(set)
-	if len(out) > limit {
-		out = out[:limit]
-	}
 	return out
 }
 

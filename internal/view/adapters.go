@@ -43,11 +43,35 @@ func AdapterPolicy(check model.Check, state model.CheckState) string {
 	if last := state.Last; last != nil && state.Freshness == "fresh" {
 		if policyViolation(check, last) {
 			policy = "violated"
-		} else if configured && last.Outcome == "ok" {
+		} else if configured && last.Outcome == "ok" && policyEvidenceComplete(check, last) {
 			policy = "matched"
 		}
 	}
 	return policy
+}
+
+// Older workers could mark samples ok despite missing TUN or tunnel evidence.
+// Never treat those stored samples as verified policy.
+func policyEvidenceComplete(check model.Check, last *model.Observation) bool {
+	if check.Kind == "mihomo" && check.Adapter.ExpectedTUN != nil {
+		actual := last.Facts["tun_enabled"]
+		if actual != "true" && actual != "false" {
+			return false
+		}
+	}
+	if check.Kind == "cloudflare" && check.Adapter.Cloudflare != nil {
+		options := check.Adapter.Cloudflare
+		if options.ExpectedConnections != nil || len(options.ExpectedColos) > 0 {
+			count := last.Facts["tunnel_connections"]
+			if count == "" {
+				return false
+			}
+			if len(options.ExpectedColos) > 0 && (count == "0" || last.Facts["tunnel_colos"] == "") {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // cloudflarePolicyConfigured reports whether the API read declares any state

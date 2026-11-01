@@ -37,6 +37,23 @@ func (d Dependencies) secret(name string) (string, error) {
 	return secure.SecretEnv(name)
 }
 
+// A check can have several independent policy and evidence results. Keep them
+// separate until collection finishes: a resolved chain cannot erase an
+// unrelated unknown, and a known violation takes precedence over an unknown.
+type judgment struct {
+	outcome, code, detail string
+}
+
+func summarizeJudgments(results ...judgment) judgment {
+	result := judgment{outcome: "ok", detail: "read-only runtime telemetry collected; not an end-to-end service check"}
+	for _, candidate := range results {
+		if candidate.outcome == "policy" || candidate.outcome == "unknown" && result.outcome != "policy" {
+			result = candidate
+		}
+	}
+	return result
+}
+
 func Collect(ctx context.Context, deps Dependencies, x model.Check, target string, o *model.Observation) (err error) {
 	options := x.Adapter.Mihomo()
 	token, e := deps.secret(options.TokenEnv)
@@ -119,41 +136,35 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 		o.Facts["tun_enabled"] = strconv.FormatBool(*cfg.TUN.Enable)
 	}
 	o.Facts["provider_parameters"] = "not_verifiable_by_names_alone"
-	o.Outcome = "ok"
 	o.Stage = "adapter"
-	o.Detail = "read-only runtime telemetry collected; not an end-to-end service check"
+	var modeResult, tunResult, chainResult, providerResult judgment
 	if options.ExpectedMode != "" && cfg.Mode != options.ExpectedMode {
-		o.Outcome = "policy"
-		o.Code = "mode_mismatch"
-		o.Detail = "runtime mode differs from declared policy"
+		modeResult = judgment{"policy", "mode_mismatch", "runtime mode differs from declared policy"}
 	}
 	if options.ExpectedTUN != nil {
-		if cfg.TUN.Enable == nil && o.Outcome != "policy" {
-			o.Outcome, o.Code = "unknown", "tun_state_unavailable"
-			o.Detail = "controller does not report TUN state"
-		}
-		if cfg.TUN.Enable != nil && *cfg.TUN.Enable != *options.ExpectedTUN {
-			o.Outcome, o.Code = "policy", "tun_mismatch"
-			o.Detail = "runtime TUN state differs from declared policy"
+		if cfg.TUN.Enable == nil {
+			tunResult = judgment{"unknown", "tun_state_unavailable", "controller does not report TUN state"}
+		} else if *cfg.TUN.Enable != *options.ExpectedTUN {
+			tunResult = judgment{"policy", "tun_mismatch", "runtime TUN state differs from declared policy"}
 		}
 	}
 
+	var chain []string
 	var chainErr error
+	recordChain := func(chain []string) {
+		for i := range chain {
+			chain[i] = name(chain[i])
+		}
+		o.Facts["reported_chain"] = adapters.SafeFact(strings.Join(chain, " -> "))
+	}
 	if options.RootProxy != "" {
-		chain, e := expandProxy(proxies.Proxies, options.RootProxy)
-		chainErr = e
-		if e != nil {
+		chain, chainErr = expandProxy(proxies.Proxies, options.RootProxy)
+		if chainErr != nil {
+			// Reserve a fact before optional provider load times consume the
+			// observation budget. A resolved provider chain replaces it.
 			o.Facts["chain_resolution"] = "unresolved"
-			if o.Outcome != "policy" {
-				o.Outcome = "unknown"
-				o.Code = "runtime_chain_unresolved"
-				o.Detail = "runtime chain unresolved (missing selection, unsupported shape or cycle)"
-			}
 		} else {
-			for i := range chain {
-				chain[i] = name(chain[i])
-			}
-			o.Facts["reported_chain"] = adapters.SafeFact(strings.Join(chain, " -> "))
+			recordChain(chain)
 		}
 		if p, ok := proxies.Proxies[options.RootProxy]; ok {
 			o.Facts["reported_selection"] = adapters.SafeFact(name(p.Now))
@@ -169,7 +180,8 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 	}
 	var providers coreProviders
 	missing := errors.Is(chainErr, errMissingProxy)
-	if err := collectProviders(ctx, deps, client, x, target, token, name, o, &providers, missing); err != nil {
+	policyBefore := modeResult.outcome == "policy" || tunResult.outcome == "policy"
+	if err := collectProviders(ctx, deps, client, x, target, token, name, o, &providers, missing, policyBefore, &providerResult); err != nil {
 		return err
 	}
 	// Newer cores keep subscription nodes only in the provider inventory.
@@ -179,17 +191,16 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 		if err := mergeProviderProxies(proxies.Proxies, providers); err != nil {
 			return err
 		}
-		if chain, err := expandProxy(proxies.Proxies, options.RootProxy); err == nil {
-			for i := range chain {
-				chain[i] = name(chain[i])
-			}
+		chain, chainErr = expandProxy(proxies.Proxies, options.RootProxy)
+		if chainErr == nil {
 			delete(o.Facts, "chain_resolution")
-			o.Facts["reported_chain"] = adapters.SafeFact(strings.Join(chain, " -> "))
-			if o.Outcome == "unknown" && o.Code == "runtime_chain_unresolved" {
-				o.Outcome, o.Code = "ok", ""
-				o.Detail = "read-only runtime telemetry collected; not an end-to-end service check"
-			}
+			recordChain(chain)
 		}
 	}
+	if options.RootProxy != "" && chainErr != nil {
+		chainResult = judgment{"unknown", "runtime_chain_unresolved", "runtime chain unresolved (missing selection, unsupported shape or cycle)"}
+	}
+	result := summarizeJudgments(modeResult, tunResult, chainResult, providerResult)
+	o.Outcome, o.Code, o.Detail = result.outcome, result.code, result.detail
 	return nil
 }

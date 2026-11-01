@@ -336,12 +336,14 @@ func (s *Server) MonitorHistory(check string, limit int) ([]model.Observation, e
 	s.reloadMu.RLock()
 	defer s.reloadMu.RUnlock()
 	g := s.generation()
-	if _, ok := g.checks[check]; !ok {
+	x, ok := g.checks[check]
+	if !ok {
 		return nil, errors.New("unknown check")
 	}
 	entries := s.Store.History(check, map[string]string{check: g.contracts[check]}, g.revision, limit)
 	for i := range entries {
 		entries[i].Contract, entries[i].Revision = g.publicContracts[check], ""
+		config.RedactObservation(x, &entries[i])
 	}
 	return entries, nil
 }
@@ -492,7 +494,8 @@ func (s *Server) topology(w http.ResponseWriter, r *http.Request, a authority) {
 func (s *Server) history(w http.ResponseWriter, r *http.Request, a authority) {
 	g := a.gen
 	id := r.URL.Query().Get("check")
-	if _, ok := g.checks[id]; !ok {
+	x, ok := g.checks[id]
+	if !ok {
 		writeError(w, 404, "unknown_check")
 		return
 	}
@@ -509,6 +512,7 @@ func (s *Server) history(w http.ResponseWriter, r *http.Request, a authority) {
 	entries := s.Store.History(id, map[string]string{id: g.contracts[id]}, g.revision, n)
 	for i := range entries {
 		entries[i].Contract, entries[i].Revision = contract, ""
+		config.RedactObservation(x, &entries[i])
 	}
 	writeJSON(w, 200, struct {
 		Project  string              `json:"project"`

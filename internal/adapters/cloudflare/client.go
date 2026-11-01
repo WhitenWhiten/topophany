@@ -142,10 +142,9 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 	if err != nil {
 		return err
 	}
-	// A shaped value that is the token, or a long run of it, is never evidence:
-	// drop it from the facts and from any comma-joined list, so even a token
-	// with a reportable shape (a version or colo token) cannot echo itself,
-	// whole or split across several values.
+	// A shaped value containing the token or a long run of it is not evidence.
+	// Free-form client versions are not exported at all; short fragments can
+	// otherwise be distributed over several responses.
 	scrubToken(o, token)
 	o.Stage = "adapter_api"
 	if o.Outcome == "ok" && o.Detail == "" {
@@ -156,14 +155,24 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 
 // minTokenFragment is the shortest run of the bearer token that counts as an
 // echo of it. A shorter run is indistinguishable from the platform's own
-// three-letter colo, and a peer that splits a token into several version
-// strings needs each piece long enough to matter.
+// three-letter colo. Free-form connector versions are withheld entirely.
 const minTokenFragment = 8
 
-// echoesToken reports whether a peer string is the bearer token or a run of at
-// least minTokenFragment bytes of it.
+// echoesToken reports whether a peer string contains the bearer token or a
+// run of at least minTokenFragment bytes of it.
 func echoesToken(value, token string) bool {
-	return value == token || len(value) >= minTokenFragment && strings.Contains(token, value)
+	if value == "" || token == "" {
+		return false
+	}
+	if strings.Contains(value, token) {
+		return true
+	}
+	for i := 0; i+minTokenFragment <= len(value); i++ {
+		if strings.Contains(token, value[i:i+minTokenFragment]) {
+			return true
+		}
+	}
+	return false
 }
 
 // scrubToken removes any fact value that echoes the bearer token, and any
@@ -173,16 +182,9 @@ func echoesToken(value, token string) bool {
 // happens to be "3" must not erase a connection count. The topology already
 // knows the token; a peer echoing it is not evidence about the platform.
 func scrubToken(o *model.Observation, token string) {
-	for _, key := range []string{"tunnel_colos", "connector_versions", "oldest_connection_at"} {
+	for _, key := range []string{"tunnel_colos", "oldest_connection_at"} {
 		value, ok := o.Facts[key]
 		if !ok {
-			continue
-		}
-		if echoesToken(value, token) {
-			delete(o.Facts, key)
-			continue
-		}
-		if !strings.Contains(value, ",") {
 			continue
 		}
 		parts := strings.Split(value, ",")

@@ -30,7 +30,6 @@ const (
 	MaxExpectedOrigins     = 16
 	MaxRecordNameBytes     = 253
 	MaxRecordContentBytes  = 255
-	MaxConnectionVersions  = 4
 	MaxTunnelColos         = 8
 )
 
@@ -42,10 +41,6 @@ const tunnelIDPattern = `(?:[0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-
 
 var hexID = regexp.MustCompile(`^[0-9a-fA-F]{32}$`)
 var tunnelID = regexp.MustCompile(`^` + tunnelIDPattern + `$`)
-
-// A connector version is a short token such as 2026.10.0. Anything that could
-// echo an arbitrary response string is not a version.
-var versionToken = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z._+-]{0,23}$`)
 
 // Validate checks the nested options. The selected read decides which fields
 // are required and which must stay empty: a field belonging to another read is
