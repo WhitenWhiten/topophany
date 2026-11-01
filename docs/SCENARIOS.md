@@ -675,3 +675,14 @@ fixtures do not establish that PocketBase issues or accepts such tokens.
   deadlines retain their own meaning; the TUI says `RESOURCE SAMPLES EXPIRED`.
   Expired contact does not receive that reason. Covered by
   `TestD1SourceStatesCountsAndClocks` and the `stream-expired` contract fixture.
+
+### Concurrent topology editors retain external changes
+
+Open the same valid topology in two editors. Save a name change in the first,
+then attempt to save the second draft. The second save is refused, its draft
+remains intact, and the first file is unchanged. A formatting-only external
+edit and creation at an initially missing path are also conflicts. Batch edits
+require both the target and candidate revisions from review. Named regressions:
+`TestEditorRefusesExternalChangesAndKeepsDraft`,
+`TestEditorRefusesFileCreatedAfterOpening`, and
+`TestBatchEditRequiresBothReviewedRevisions`.

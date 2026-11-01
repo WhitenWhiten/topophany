@@ -96,6 +96,10 @@ func (a *App) edit(ctx context.Context, args []string) error {
 	f := a.flags("edit")
 	path := f.String("config", "topology.json", "local topology JSON to edit (created on first save if missing)")
 	project := f.String("project", "my-network", "project ID for a new topology file")
+	apply := f.String("apply", "", "reviewed replacement topology; batch local edits")
+	expected := f.String("expect-revision", "", "required previous revision when applying")
+	expectedCandidate := f.String("expect-candidate-revision", "", "reviewed replacement revision from --dry-run")
+	dry := f.Bool("dry-run", false, "validate replacement and report measurement changes without writing")
 	startupFlags := addPreferenceFlags(f)
 	noColor := f.Bool("no-color", os.Getenv("NO_COLOR") != "", "disable ANSI colors")
 	if e := parsed(f, args); e != nil {
@@ -110,6 +114,12 @@ func (a *App) edit(ctx context.Context, args []string) error {
 	}
 	if e != nil {
 		return fmt.Errorf("%s: %w (fix the JSON, or run topo validate for details)", *path, e)
+	}
+	if *apply != "" {
+		return a.applyEdit(*path, c, *apply, *expected, *expectedCandidate, *dry)
+	}
+	if *dry || *expected != "" || *expectedCandidate != "" {
+		return errors.New("--dry-run and --expect-revision require --apply")
 	}
 	if a.TerminalIn == nil || a.TerminalOut == nil {
 		return errors.New("interactive terminal unavailable")

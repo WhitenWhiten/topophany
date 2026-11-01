@@ -77,7 +77,11 @@ func RunDirect(parent context.Context, fetch Fetch, observer string, noColor boo
 // RunEditor opens the editor on a local topology. It never contacts a
 // collector; the file changes only on an explicit save.
 func RunEditor(parent context.Context, path string, c model.Config, noColor bool, in, out *os.File, options ...Startup) error {
-	m := &Model{NoColor: noColor, Edit: &Editor{Path: path, Config: c}, Now: time.Now()}
+	editor, err := NewEditor(path, c)
+	if err != nil {
+		return err
+	}
+	m := &Model{NoColor: noColor, Edit: editor, Now: time.Now()}
 	m.initializeStartup(options)
 	m.rebuild()
 	if len(c.Nodes) == 0 {

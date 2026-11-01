@@ -587,3 +587,28 @@ values, and Enter to select an action; mouse clicks work too.
 Only these six presentation preferences are saved. Search text, observer,
 service/application scope, selection, and individual group folds are not saved.
 Routine page switches and display shortcuts never rewrite startup defaults.
+
+### Review and apply a batch topology edit
+
+The TUI remembers the exact file opened. Saving refuses external modifications,
+including formatting-only edits, deletion or a file created at a previously
+missing path. The draft remains in the editor; reopen the changed file and
+reconcile your edits before saving. Cooperative Topophany writers serialize
+commits using a private `topology.json.edit.lock` beside the file. Do not delete
+that lock while an editor is saving. External tools that ignore the advisory
+lock can still race a commit; coordinate simultaneous writers.
+
+For a reviewed replacement containing several related edits:
+
+```sh
+topo edit --config topology.json --apply proposed.json --dry-run
+# Review proposed.json and the added/removed/changed measurement contracts.
+topo edit --config topology.json --apply proposed.json \
+  --expect-revision BEFORE_REVISION --expect-candidate-revision AFTER_REVISION
+```
+
+Use the two full revisions printed by the dry run. Either file changing since
+review makes the operation fail. Both files must have the same project identity.
+A rename or note change may change the configuration without changing any
+measurement contract. Applying is one validated local transaction; distribute
+the reviewed file and reload collectors/workers separately.

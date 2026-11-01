@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,10 +22,31 @@ import (
 // validated as a whole configuration before it is accepted into the draft;
 // nothing is written until an explicit save.
 type Editor struct {
-	Path   string
-	Config model.Config
-	Dirty  bool
-	undo   []model.Config
+	Path    string
+	Config  model.Config
+	Dirty   bool
+	undo    []model.Config
+	base    config.FileVersion
+	tracked bool
+}
+
+// NewEditor captures the exact file that supplied the draft. A concurrent
+// change between loading and opening is rejected instead of becoming baseline.
+func NewEditor(path string, c model.Config) (*Editor, error) {
+	data, base, err := config.ReadFileVersion(path)
+	if err != nil {
+		return nil, err
+	}
+	if base.Exists {
+		disk, err := config.Decode(bytes.NewReader(data))
+		if err != nil {
+			return nil, err
+		}
+		if config.Revision(disk) != config.Revision(c) {
+			return nil, config.ErrFileChanged
+		}
+	}
+	return &Editor{Path: path, Config: c, base: base, tracked: true}, nil
 }
 
 func clone(c model.Config) model.Config {
@@ -64,6 +86,13 @@ func (e *Editor) Undo() bool {
 
 // Save atomically replaces the file, keeping its permission bits.
 func (e *Editor) Save() (string, error) {
+	if !e.tracked {
+		_, base, err := config.ReadFileVersion(e.Path)
+		if err != nil {
+			return "", err
+		}
+		e.base, e.tracked = base, true
+	}
 	if err := config.Validate(e.Config); err != nil {
 		return "", err
 	}
@@ -76,7 +105,7 @@ func (e *Editor) Save() (string, error) {
 		mode = st.Mode().Perm()
 	}
 	mode = config.WriteMode(e.Config, mode)
-	if err = secure.AtomicWrite(e.Path, append(b, '\n'), mode); err != nil {
+	if e.base, err = config.CommitFile(e.Path, e.base, append(b, '\n'), mode); err != nil {
 		return "", err
 	}
 	e.Dirty = false

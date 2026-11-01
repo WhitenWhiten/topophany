@@ -18,7 +18,7 @@ code and appropriate verification, not merely a proposal.
 
 ## P1: daily use and maintenance
 
-- [ ] Topology editing: external-modification conflict protection, batch edits, change preview.
+- [x] Topology editing: external-modification conflict protection, batch edits, change preview.
 - [ ] Configuration rollout: per-collector/worker revision and affected measurement contracts.
 - [ ] Adapter templates, compatibility feedback and missing-evidence guidance.
 - [ ] Direct-to-collector migration preserving selected server identity and display preferences.

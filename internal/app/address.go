@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/WhitenWhiten/topophany/internal/config"
-	"github.com/WhitenWhiten/topophany/internal/secure"
 	"os"
 	"sort"
 	"strings"
@@ -23,6 +22,10 @@ func (a *App) address(args []string) error {
 	}
 	if *set != "" && *remove != "" {
 		return errors.New("choose set or delete")
+	}
+	_, base, e := config.ReadFileVersion(*path)
+	if e != nil {
+		return e
 	}
 	c, e := config.Load(*path)
 	if e != nil {
@@ -64,7 +67,7 @@ func (a *App) address(args []string) error {
 		if e != nil {
 			return e
 		}
-		if e = secure.AtomicWrite(*path, append(b, '\n'), config.WriteMode(c, info.Mode())); e != nil {
+		if _, e = config.CommitFile(*path, base, append(b, '\n'), config.WriteMode(c, info.Mode())); e != nil {
 			return e
 		}
 	}
