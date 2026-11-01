@@ -37,6 +37,19 @@ func Current(p Panel, now time.Time) Panel {
 			}
 			ageCard(&card, now)
 			p.Rows[i].Value = card
+		} else if r.Metric == "link.card" && r.Value != nil {
+			card, ok := r.Value.(LinkCard)
+			if !ok {
+				raw, err := json.Marshal(r.Value)
+				if err != nil || json.Unmarshal(raw, &card) != nil {
+					p.Rows[i] = missing(r, "invalid_value")
+					continue
+				}
+			}
+			for i := range card.Checks {
+				ageSeenCheck(&card.Checks[i].SeenCheckValue, now)
+			}
+			p.Rows[i].Value = card
 		} else if r.Metric == "check.card" && r.Value != nil {
 			card, ok := r.Value.(CheckCard)
 			if !ok {

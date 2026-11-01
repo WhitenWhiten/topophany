@@ -584,6 +584,19 @@ remain bounded to 32 keys of at most 128 bytes and values of at most 2048 bytes;
 the normal row/frame budgets still apply. Diagnostic state transitions bypass
 display cadence, whereas changes to telemetry facts follow normal cadence.
 
+`link.card` (`card`, required `select: {"link":"ID"}`) and `links.list`
+(`list`, up to 256 links in topology order) expose link ID, from/to node refs,
+transport, health, evidence, reason, affected flag and original timestamps.
+The card additionally includes its checks as standalone check cards. Health is
+the collector's link judgment, not a vote computed by the panel. Directions
+describe initiation, not proven packet-loss direction. Affected paths bound
+the row's deadline, including candidate/dependency evidence. The engine's voter
+selection also bounds the row: while a fresh local connector report decides a
+tunnel, the remote API report does not shorten the link judgment's lifetime.
+Its nested check still expires independently and loses its health/diagnostics.
+API-only runtime evidence does not prove end-to-end availability. Link, service
+and standalone check cards deduplicate history reads in the same source book.
+
 `topo monitor stream --profiles` lists saved client profiles in one JSON line,
 then exits 0:
 

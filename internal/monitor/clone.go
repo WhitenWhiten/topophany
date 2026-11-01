@@ -41,6 +41,14 @@ func clone(p Panel) Panel {
 			r.Value = v
 		case []ServiceListEntry:
 			r.Value = slices.Clone(v)
+		case LinkCard:
+			r.Value = cloneLinkCard(v)
+		case []LinkSummary:
+			v = slices.Clone(v)
+			for i := range v {
+				v[i] = cloneLinkSummary(v[i])
+			}
+			r.Value = v
 		case CheckCard:
 			v.SeenCheckValue = cloneSeenCheck(v.SeenCheckValue)
 			r.Value = v

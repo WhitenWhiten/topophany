@@ -30,6 +30,7 @@ type SampleBook struct {
 	mu       sync.Mutex
 	services []string
 	selected []string
+	links    []string
 	source   string
 	checks   map[string]*sampleTrail
 }
@@ -48,11 +49,14 @@ func NewSampleBook(t Template) *SampleBook {
 		if r.Metric == "service.card" && !slices.Contains(b.services, r.Select.Service) {
 			b.services = append(b.services, r.Select.Service)
 		}
+		if r.Metric == "link.card" && !slices.Contains(b.links, r.Select.Link) {
+			b.links = append(b.links, r.Select.Link)
+		}
 		if r.Metric == "check.card" && !slices.Contains(b.selected, r.Select.Check) {
 			b.selected = append(b.selected, r.Select.Check)
 		}
 	}
-	if len(b.services) == 0 && len(b.selected) == 0 {
+	if len(b.services) == 0 && len(b.selected) == 0 && len(b.links) == 0 {
 		return nil
 	}
 	return b
@@ -156,6 +160,19 @@ func (b *SampleBook) checksOf(s model.Snapshot) []string {
 			}
 		}
 	}
+	for _, id := range b.links {
+		for _, link := range s.Links {
+			if link.ID == id {
+				for _, check := range link.Checks {
+					if !slices.Contains(out, check) {
+						out = append(out, check)
+					}
+				}
+				break
+			}
+		}
+	}
+
 	for _, id := range b.services {
 		for _, sv := range s.Services {
 			if sv.ID == id {

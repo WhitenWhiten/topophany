@@ -558,6 +558,44 @@ func (p *projection) richValue(value Value) Value {
 		value.Health = card.Health
 		value.SampledAt = sampled
 		value.ValidUntil = until
+	case "link.card":
+		card, ok := p.link(value.Select.Link)
+		if !ok {
+			return missing(value, "entity_missing")
+		}
+		value.Value, value.Text, value.Health = card, card.From.Name+" → "+card.To.Name, card.Health
+		if card.SampledAt != nil {
+			value.SampledAt = *card.SampledAt
+		} else {
+			value.SampledAt = time.Time{}
+		}
+		if card.ValidUntil != nil {
+			value.ValidUntil = *card.ValidUntil
+		}
+	case "links.list":
+		list := []LinkSummary{}
+		clock := evidenceClock{until: p.evidence().base}
+		for _, def := range p.v.Snapshot.Topology.Links {
+			s, ok := p.linkSummary(def.ID)
+			if !ok {
+				continue
+			}
+			list = append(list, s)
+			c := evidenceClock{}
+			if s.SampledAt != nil {
+				c.sampled = *s.SampledAt
+			}
+			if s.ValidUntil != nil {
+				c.until = *s.ValidUntil
+			}
+			clock = combineClock(clock, c)
+			value.Health = worse(value.Health, s.Health)
+			if len(list) == 256 {
+				break
+			}
+		}
+		value.Value, value.Text = list, fmt.Sprintf("%d links", len(list))
+		value.SampledAt, value.ValidUntil = clock.sampled, clock.until
 	case "check.card":
 		card, ok := p.check(value.Select.Check)
 		if !ok {

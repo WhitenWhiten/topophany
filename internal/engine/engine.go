@@ -794,6 +794,17 @@ func linkVoters(states []model.CheckState) []model.CheckState {
 	return voters
 }
 
+// LinkJudgmentChecks names the evidence that bounds an existing link judgment.
+// Display projections use the same voter selection without deriving health a
+// second time. Pass the original snapshot states, before locally aging them.
+func LinkJudgmentChecks(states []model.CheckState) []string {
+	out := []string{}
+	for _, s := range linkVoters(states) {
+		out = append(out, s.ID)
+	}
+	return out
+}
+
 // linkEvidenceStates keeps a fresh local connector's own verdict and leaves
 // every other non-measured sample unknown, as a path does.
 func linkEvidenceStates(states []model.CheckState) []model.CheckState {

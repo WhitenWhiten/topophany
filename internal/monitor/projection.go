@@ -14,6 +14,8 @@ type projection struct {
 	v, all                         view.View
 	checkStates                    map[string]model.CheckState
 	checkDefs                      map[string]model.Check
+	linkStates                     map[string]model.EntityState
+	linkDefs                       map[string]model.Link
 	fleet                          *view.Fleet
 	nodeChecks                     map[string][]string
 	serviceChecks                  map[string][]string
@@ -236,7 +238,11 @@ func (p *projection) indexDependencies() {
 	}
 }
 func (p *projection) serviceEvidence(id string, ids map[string]bool, seen map[string]bool) {
-	pending := []string{"service/" + id}
+	p.dependencyEvidence("service/"+id, ids, seen)
+}
+
+func (p *projection) dependencyEvidence(root string, ids map[string]bool, seen map[string]bool) {
+	pending := []string{root}
 	for len(pending) > 0 {
 		key := pending[len(pending)-1]
 		pending = pending[:len(pending)-1]
