@@ -19,6 +19,13 @@ func Run(ctx context.Context, c Config, fetch Fetch, out *Output, hub *Hub, repo
 
 // RunClock injects the projection clock; scheduling remains independent.
 func RunClock(ctx context.Context, c Config, fetch Fetch, out *Output, hub *Hub, report func(string), now func() time.Time, initial ...Input) {
+	RunClockWithRefresh(ctx, c, fetch, out, hub, report, now, nil, initial...)
+}
+
+// RunClockWithRefresh accepts coalesced refresh hints. A hint never starts a
+// concurrent fetch; hints arriving during a fetch are satisfied by that fetch.
+// The caller owns the channel and must not close it while the runtime is live.
+func RunClockWithRefresh(ctx context.Context, c Config, fetch Fetch, out *Output, hub *Hub, report func(string), now func() time.Time, refresh <-chan struct{}, initial ...Input) {
 	if now == nil {
 		now = time.Now
 	}
@@ -50,6 +57,12 @@ func RunClock(ctx context.Context, c Config, fetch Fetch, out *Output, hub *Hub,
 			request, done := context.WithTimeout(ctx, 5*time.Second)
 			in, e := fetch(request)
 			done()
+			// The channel has capacity one. Do not queue a redundant fetch when
+			// a reader asks for freshness while a request is already in flight.
+			select {
+			case <-refresh:
+			default:
+			}
 			if e != nil {
 				in.Unavailable = true
 			}
@@ -66,6 +79,7 @@ func RunClock(ctx context.Context, c Config, fetch Fetch, out *Output, hub *Hub,
 			case <-ctx.Done():
 				return
 			case <-tick.C:
+			case <-refresh:
 			}
 		}
 	})

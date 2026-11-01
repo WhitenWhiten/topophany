@@ -586,6 +586,20 @@ only for the client source. Preview requests accept `scenario` (0 by default)
 and `lang` (`en`, `ja` or `zh`, default `en`); they read synthetic evidence
 from the same simulator as `topo preview`, without credentials or host probes.
 
+When capabilities advertise `client_retry: true`, a client request may include
+`retry_nonce` (at most 128 bytes). With every other configuration field unchanged,
+a new nonempty nonce asks the existing source to refresh: it preserves the HTTP
+connection pool, history book, diagnostics and configuration revision. It does
+not reread credentials. To reload credentials, send a normal replacement request
+without a nonce. `request_id` may change and is acknowledged immediately using
+the last published frame's original timestamps; acknowledgment is not successful
+refresh and does not extend its lease. Subsequent frames use the new request ID.
+Repeated nonces are acknowledged without another refresh. New retry hints are
+limited to one per five seconds, have at most one pending slot and are satisfied
+by any read already in flight. Ordinary polling continues unchanged. Changes to
+scope, template, interval or profile still replace the source normally. Preview
+does not accept retry nonces; direct retains its existing retry semantics.
+
 For example, [monitor-stream-preview.json](../examples/monitor-stream-preview.json)
 requests all six structured evidence metrics, including the server chooser and
 one selected server card:

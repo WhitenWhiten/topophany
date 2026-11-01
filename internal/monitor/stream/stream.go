@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -58,6 +59,8 @@ func runClock(ctx context.Context, lines <-chan Line, open Open, emit Emit, now 
 	var cancel context.CancelFunc
 	var done <-chan struct{}
 	var unsubscribe func()
+	var refresh chan struct{}
+	var lastRetry time.Time
 	stop := func() {
 		if cancel != nil {
 			cancel()
@@ -65,6 +68,7 @@ func runClock(ctx context.Context, lines <-chan Line, open Open, emit Emit, now 
 			unsubscribe()
 			cancel = nil
 			frames = nil
+			refresh = nil
 			sourceErrors = nil
 		}
 	}
@@ -140,6 +144,25 @@ func runClock(ctx context.Context, lines <-chan Line, open Open, emit Emit, now 
 				}
 				continue
 			}
+			if cancel != nil && request.Source == "client" && request.RetryNonce != "" && sameClientRequest(active, request) {
+				// A retry is a hint for the existing source, not a replacement.
+				// Repeated nonces acknowledge the request without another read.
+				if request.RetryNonce != active.RetryNonce && (lastRetry.IsZero() || now().Sub(lastRetry) >= 5*time.Second) {
+					lastRetry = now()
+					select {
+					case refresh <- struct{}{}:
+					default:
+					}
+				}
+				active = request
+				last.RequestID = request.RequestID
+				// Acknowledge without renewing either publication or evidence
+				// clocks. The current runtime publishes the actual read result.
+				if err := send(last); err != nil {
+					return err
+				}
+				continue
+			}
 			source, e := open(ctx, request)
 			if e != nil {
 				if err := reject(request.RequestID, e); err != nil {
@@ -169,6 +192,9 @@ func runClock(ctx context.Context, lines <-chan Line, open Open, emit Emit, now 
 			stop()
 			revision++
 			active = request
+			lastRetry = time.Time{}
+			refresh = make(chan struct{}, 1)
+			refreshes := refresh
 			sourceErrors = source.Errors
 			project := source.Project
 			if project == "" {
@@ -203,7 +229,7 @@ func runClock(ctx context.Context, lines <-chan Line, open Open, emit Emit, now 
 				if source.Close != nil {
 					defer source.Close()
 				}
-				monitor.RunClock(runCtx, c, source.Fetch, nil, hub, nil, now, source.Initial)
+				monitor.RunClockWithRefresh(runCtx, c, source.Fetch, nil, hub, nil, now, refreshes, source.Initial)
 			}()
 		case e, ok := <-sourceErrors:
 			if !ok {
@@ -219,6 +245,11 @@ func runClock(ctx context.Context, lines <-chan Line, open Open, emit Emit, now 
 			}
 		}
 	}
+}
+
+func sameClientRequest(a, b Request) bool {
+	a.RequestID, b.RequestID, a.RetryNonce, b.RetryNonce = "", "", "", ""
+	return reflect.DeepEqual(a, b)
 }
 
 func boundedText(s string, limit int) string {

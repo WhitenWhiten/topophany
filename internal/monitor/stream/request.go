@@ -135,8 +135,11 @@ func Decode(line Line) (Request, *Error) {
 	if len(r.ProfileRevision) > 128 || len(r.RetryNonce) > 128 {
 		return bad("direct revision/nonce exceeds budget")
 	}
-	if r.Source != "direct" && (r.ProfileRevision != "" || r.RetryNonce != "") {
-		return bad("profile_revision and retry_nonce require direct")
+	if r.Source != "direct" && r.ProfileRevision != "" {
+		return bad("profile_revision requires direct")
+	}
+	if r.Source != "direct" && r.Source != "client" && r.RetryNonce != "" {
+		return bad("retry_nonce requires client or direct")
 	}
 	if r.Source == "direct" && (r.Profile == "" || r.Credentials != "" || r.Scenario != 0 || r.Lang != "") {
 		return bad("direct requires profile and no client/preview credentials/scenario/lang")
