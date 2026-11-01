@@ -116,3 +116,32 @@ func (v View) Problems() []Problem {
 	})
 	return out
 }
+
+// ProblemRows adapts the shared investigation to the existing scrollable detail
+// sheet. No additional polling or mutable health state is introduced.
+func (v View) ProblemRows(search string) []Row {
+	out := []Row{}
+	for _, p := range v.Problems() {
+		if search != "" && !strings.Contains(strings.ToLower(p.ID+" "+p.Target+" "+strings.Join(p.Observers, " ")), strings.ToLower(search)) {
+			continue
+		}
+		health, note := "down", "related incidents"
+		if !p.Current {
+			health, note = "unknown", "cached"
+		}
+		details := []string{p.Relation, "Observers: " + strings.Join(p.Observers, ", "), "Services: " + strings.Join(p.Services, ", ")}
+		for _, r := range p.Incidents {
+			details = append(details, "", r.Title+":")
+			details = append(details, r.Details...)
+		}
+		details = append(details, "", "Independent counter-evidence:")
+		for _, r := range p.CounterEvidence {
+			details = append(details, r.ID+": "+r.Health)
+			details = append(details, r.Details...)
+		}
+		details = append(details, "", "Next actions:")
+		details = append(details, p.Next...)
+		out = append(out, Row{Kind: "problem", ID: p.ID, Title: p.Target, Health: health, Note: note, Cols: []string{Plural(len(p.Incidents), "incident"), Plural(len(p.Observers), "observer")}, Details: details})
+	}
+	return out
+}

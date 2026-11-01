@@ -11,7 +11,8 @@ code and appropriate verification, not merely a proposal.
 - [x] First-sample progress and guided handling of failed enrollment.
 - [x] Status scope, monitoring coverage and explicit unknown reasons across viewers.
 - [x] CLI related-incident grouping with independent evidence and counter-evidence preserved (`topo problems`).
-- [ ] Related-incident navigation in graphical viewers.
+- [x] Related-incident navigation in native/browser TUI.
+- [ ] Related-incident shortcut from the menu bar.
 - [ ] Unified diagnostics, next actions and redacted diagnostic export.
 
 ## P1: daily use and maintenance

@@ -257,6 +257,10 @@ Use `--json` for the same structured evidence, and `--observer ID` to retain a
 specific vantage point. `topo preview --scenario 1 problems` rehearses the flow
 without contacting infrastructure.
 
+In the native or browser TUI, open **Incidents**, press `b` (**Related**)
+to group the list, then `Enter` to open the evidence sheet. Press `b` again
+to restore individual incidents. Search also matches the target and observer IDs.
+
 A group is a navigation aid, not a shared-root-cause verdict. Incident identities
 remain separate, references to unavailable counter-evidence stay explicitly
 unknown, and cached groups are labelled non-current. Warnings and missing data

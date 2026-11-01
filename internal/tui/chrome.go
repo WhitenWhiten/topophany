@@ -479,6 +479,9 @@ func (m *Model) actions() []action {
 		}
 	}
 	add(1, "/", "Filter", "/")
+	if m.Tab == tabIncidents {
+		add(1, "b", "Related", "b")
+	}
 	add(2, "v", "View", "v")
 	if m.Edit == nil {
 		add(3, "r", "Refresh", "r")

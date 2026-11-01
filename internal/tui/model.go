@@ -34,6 +34,7 @@ const (
 // Row is one selectable entry of a list (see view.Row).
 type Row = view.Row
 type Model struct {
+	RelatedIncidents                        bool
 	requestDiagnostics                      func() []model.TransportEvent
 	diagnosticEvents                        []session.Event
 	Direct                                  bool   // process-local resource source, with no collector or history
@@ -146,6 +147,8 @@ func (m *Model) Rows() []Row {
 	}
 	var rows []Row
 	switch {
+	case m.Tab == tabIncidents && m.RelatedIncidents:
+		rows = m.view().ProblemRows(m.Search)
 	case m.serviceCards():
 		// The cards lie under their groups' headings, never folded away.
 		for _, r := range m.groupedRows(true) {
@@ -179,7 +182,12 @@ func (m *Model) tabRows(tab int) []Row { return m.view().Rows(tab) }
 
 // tabColumns heads the list columns of the current tab: the title column
 // first, then one heading per Row.Cols entry.
-func (m *Model) tabColumns() []string { return view.Columns(m.Tab) }
+func (m *Model) tabColumns() []string {
+	if m.Tab == tabIncidents && m.RelatedIncidents {
+		return []string{"DECLARED TARGET", "INCIDENTS", "OBSERVERS"}
+	}
+	return view.Columns(m.Tab)
+}
 
 func age(now, t time.Time) string { return view.Age(now, t) }
 
@@ -479,6 +487,12 @@ func (m *Model) Key(k string) string {
 			m.ServiceCards = !m.ServiceCards
 			m.Detail, m.Offset, m.cardsTop = false, 0, 0
 			m.Selected = max(0, slices.IndexFunc(m.Rows(), func(r Row) bool { return r.Kind == sel.Kind && r.ID == sel.ID }))
+		}
+	case "b":
+		if m.Tab == tabIncidents {
+			m.RelatedIncidents = !m.RelatedIncidents
+			m.Selected, m.Offset = 0, 0
+			m.Detail = false
 		}
 	case "x":
 		if m.Preview != nil {
