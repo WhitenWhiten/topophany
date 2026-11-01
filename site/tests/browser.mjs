@@ -65,8 +65,10 @@ try {
   await connect('/redirect');
   await page.waitForFunction(() => document.querySelector('#demo-transcript').textContent.includes('unreachable'));
   assert.equal((await (await context.request.get(collector + '/stats')).json()).redirected, 0);
-  await page.locator('canvas').press('Control+c');
+  await page.locator('#collector-edit').click();
   await page.waitForSelector('#collector-connect:not([hidden])');
+  assert.equal(await page.locator('#collector-token').inputValue(), '');
+  assert.equal(await page.locator('.connect-help').getAttribute('open'), '');
   console.log('PASS redirect refused; disconnect returns cleared connection form');
 
   await page.goto(base + '/demo/');

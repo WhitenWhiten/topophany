@@ -18,18 +18,18 @@
 <meta property="og:image" content="https://topophany.com/og.png">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/css/site.a76ae1c7e368.css">
-<link rel="stylesheet" href="/css/demo.3173df492631.css">
+<link rel="stylesheet" href="/css/demo.0642940d198a.css">
 <script type="application/json" id="strings">{"replay":"replay","paused":"paused","pause":"Pause the replay","play":"Play the replay","recording":"Recording of the Topophany terminal UI: {title}. {text}","missing":"{tab} is not in this recording. Run {cmd} to see it.","failed":"the recording could not be loaded","copy":"Copy","copied":"Copied","demo.title":"Try the terminal","demo.loading":"Starting the terminal… · click or press Enter to cancel","demo.ended":"Session ended · click or press Enter to restart","demo.failed":"Terminal unavailable · click or press Enter to retry","connect.title":"Your network","connect.failed":"Could not start the connection. Check the URL, project and viewer token, then try again.","connect.reconnect":"Press q to reconnect. Check the address, project and viewer token.","languages":[{"tag":"en","href":"/app/","name":"English","suggest":"Read this page in English","dismiss":"Dismiss"},{"tag":"ja","href":"/ja/app/","name":"日本語","suggest":"このページを日本語で読む","dismiss":"閉じる"},{"tag":"zh-Hans","href":"/zh/app/","name":"简体中文","suggest":"阅读本页的中文版本","dismiss":"关闭"}]}</script>
-<script type="module" src="/js/demo.beb813a3093a.js"></script>
+<script type="module" src="/js/demo.c2b6ebb8e478.js"></script>
 </head>
 <body class="live-page">
 <main class="live-main">
   <section id="live-demo" class="live-demo" aria-label="Interactive Topophany terminal" aria-busy="true"
-    data-mode="live" data-language="en" data-wasm="/data/viewer.wasm?v=dd395d0dd2ce" data-worker="/js/collector-worker.1dfc868a750f.js">
+    data-mode="live" data-language="en" data-wasm="/data/viewer.wasm?v=2998911f611f" data-worker="/js/collector-worker.1dfc868a750f.js">
     <div class="live-bar">
       <a class="live-home" href="/" aria-label="Topophany home"><img src="/favicon.svg" alt="" width="18" height="18">topophany</a>
       <span class="live-title" aria-hidden="true">topo</span>
-      <span class="live-size" aria-hidden="true"></span>
+      <div class="live-controls"><span class="live-size" aria-hidden="true"></span><button id="collector-edit" type="button" hidden>Edit connection</button></div>
     </div>
     <div class="demo-viewport">
       <canvas id="demo-canvas" tabindex="0" role="application" aria-label="Interactive Topophany terminal"></canvas>
@@ -47,6 +47,18 @@
             <p id="collector-error" role="status"></p>
             <button type="submit">Connect</button>
           </div>
+          <details class="connect-help">
+            <summary>Connection troubleshooting</summary>
+            <ol>
+              <li>Check that this machine can reach the collector address and that its service is running.</li>
+              <li>Use the project ID from your topology and a viewer token; worker tokens cannot open this view.</li>
+              <li>Browsers may hide whether a failure is DNS, certificate trust, or cross-origin access. A working terminal connection alone does not verify browser access.</li>
+            </ol>
+            <p>For this hosted viewer, allow this exact origin on the collector:</p>
+            <code id="collector-origin">--web-origin https://topophany.com</code>
+            <p>With the matching saved collector profile, generate a local diagnostic report:</p>
+            <code>topo doctor --json</code>
+          </details>
         </div>
         <p class="connect-keys" aria-hidden="true"><kbd>Tab</kbd> Move <kbd>Enter</kbd> Connect</p>
       </form>

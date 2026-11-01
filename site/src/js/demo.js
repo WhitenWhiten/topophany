@@ -11,6 +11,9 @@ const loading = root.querySelector('.demo-loading');
 const transcript = document.querySelector('#demo-transcript');
 const live = root.dataset.mode === 'live';
 const connection = root.querySelector('#collector-connect');
+const editConnection = root.querySelector('#collector-edit');
+const originHelp = root.querySelector('#collector-origin');
+if (originHelp) originHelp.textContent = `--web-origin ${location.origin}`;
 // The window title bar, shown on wide screens, follows the TUI's own title.
 const windowTitle = root.querySelector('.live-title');
 const windowSize = root.querySelector('.live-size');
@@ -137,6 +140,11 @@ function showConnection(error = '') {
   root.setAttribute('aria-busy', 'false');
   loading.hidden = true;
   connection.hidden = false;
+  canvas.setAttribute('aria-hidden', 'true');
+  canvas.tabIndex = -1;
+  input.disabled = true;
+  if (editConnection) editConnection.hidden = true;
+  if (error) connection.querySelector('.connect-help').open = true;
   connection.querySelector('[type="submit"]').disabled = false;
   connection.querySelector('#collector-error').textContent = error;
   connection.querySelector('#collector-token').value = '';
@@ -153,6 +161,10 @@ function start(profile = {}) {
   root.classList.remove('is-ready');
   root.setAttribute('aria-busy', 'true');
   if (connection) connection.hidden = true;
+  canvas.removeAttribute('aria-hidden');
+  canvas.tabIndex = 0;
+  input.disabled = false;
+  if (editConnection) editConnection.hidden = false;
   showOverlay(t('demo.loading'), true);
   worker = new Worker(root.dataset.worker, { type: 'module' });
   const current = worker;
@@ -206,6 +218,11 @@ function start(profile = {}) {
   layout();
   send('init', { wasm: root.dataset.wasm, keys: fit ? ['device:fit'] : [], ...profile });
 }
+
+editConnection?.addEventListener('click', () => {
+  showConnection();
+  connection.querySelector('.connect-help').open = true;
+});
 
 connection?.addEventListener('submit', (event) => {
   event.preventDefault();

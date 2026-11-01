@@ -290,5 +290,12 @@
   "connect.move": "Move",
   "js.connect.title": "Your network",
   "js.connect.failed": "Could not start the connection. Check the URL, project and viewer token, then try again.",
-  "js.connect.reconnect": "Press q to reconnect. Check the address, project and viewer token."
+  "js.connect.reconnect": "Press q to reconnect. Check the address, project and viewer token.",
+  "connect.edit": "Edit connection",
+  "connect.help": "Connection troubleshooting",
+  "connect.help.address": "Check that this machine can reach the collector address and that its service is running.",
+  "connect.help.identity": "Use the project ID from your topology and a viewer token; worker tokens cannot open this view.",
+  "connect.help.browser": "Browsers may hide whether a failure is DNS, certificate trust, or cross-origin access. A working terminal connection alone does not verify browser access.",
+  "connect.help.origin": "For this hosted viewer, allow this exact origin on the collector:",
+  "connect.help.doctor": "With the matching saved collector profile, generate a local diagnostic report:"
 }

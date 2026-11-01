@@ -130,7 +130,11 @@ Open [topophany.com/app/](https://topophany.com/app/) (also `/zh/app/` and
 `/ja/app/`) to connect the browser TUI to your own collector. Enter its URL,
 the `project` from your topology, and a viewer token. The connection form is
 inside the terminal frame and disappears once the viewer starts. `q` closes
-the connection and returns to that form.
+the connection and returns to that form. The visible **Edit connection** button
+also works during loading or a failed connection; it stops the worker, clears
+the token and opens troubleshooting guidance. The guide uses the current page
+origin and distinguishes browser trust/cross-origin requirements from a native
+client connection. It does not guess which browser restriction caused a failure.
 
 With the current collector binary, add `--web-origin https://topophany.com`
 to your existing `topo serve` command. This permits that exact origin to read

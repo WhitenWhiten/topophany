@@ -290,5 +290,12 @@
   "connect.move": "切换",
   "js.connect.title": "你的网络",
   "js.connect.failed": "连接未能启动。请检查地址、项目和 Viewer 令牌后重试。",
-  "js.connect.reconnect": "按 q 返回连接界面，检查地址、项目和 Viewer 令牌。"
+  "js.connect.reconnect": "按 q 返回连接界面，检查地址、项目和 Viewer 令牌。",
+  "connect.edit": "修改连接",
+  "connect.help": "连接排查",
+  "connect.help.address": "确认当前设备可以访问采集器地址，且采集器服务正在运行。",
+  "connect.help.identity": "填写拓扑中的项目 ID 和 Viewer 令牌；Worker 令牌不能用于查看。",
+  "connect.help.browser": "浏览器可能无法区分 DNS、证书信任和跨域限制。终端能连接，并不代表浏览器也能访问。",
+  "connect.help.origin": "使用本站查看端时，采集器需要允许以下准确来源：",
+  "connect.help.doctor": "使用匹配的已保存采集器配置，在本机生成诊断报告："
 }

@@ -29,7 +29,7 @@ code and appropriate verification, not merely a proposal.
 - [x] Alerts: timed silence, maintenance windows, service routing and explicit dual-collector notification policy.
 - [x] Saved TUI views with perspective/filter/map choices; existing selection-focused map highlighting retained.
 - [x] Investigation/history shortcuts in TUI/browser incident sheets and the menu bar.
-- [ ] Browser connection recovery and actionable configuration help.
+- [x] Browser connection recovery and actionable configuration help.
 - [ ] Menu bar: in-app demo, collector enrollment and signed distribution.
 - [ ] Consistent structured CLI errors, field paths and change-impact output.
 - [ ] Operational status, backup/restore validation and upgrade compatibility checks.

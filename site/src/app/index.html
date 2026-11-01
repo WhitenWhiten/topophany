@@ -26,7 +26,7 @@
     <div class="live-bar">
       <a class="live-home" href="{{page.path}}" aria-label="{{nav.home}}"><img src="/favicon.svg" alt="" width="18" height="18">topophany</a>
       <span class="live-title" aria-hidden="true">topo</span>
-      <span class="live-size" aria-hidden="true"></span>
+      <div class="live-controls"><span class="live-size" aria-hidden="true"></span><button id="collector-edit" type="button" hidden>{{connect.edit}}</button></div>
     </div>
     <div class="demo-viewport">
       <canvas id="demo-canvas" tabindex="0" role="application" aria-label="{{live.terminal}}"></canvas>
@@ -44,6 +44,18 @@
             <p id="collector-error" role="status"></p>
             <button type="submit">{{connect.submit}}</button>
           </div>
+          <details class="connect-help">
+            <summary>{{connect.help}}</summary>
+            <ol>
+              <li>{{connect.help.address}}</li>
+              <li>{{connect.help.identity}}</li>
+              <li>{{connect.help.browser}}</li>
+            </ol>
+            <p>{{connect.help.origin}}</p>
+            <code id="collector-origin">--web-origin https://topophany.com</code>
+            <p>{{connect.help.doctor}}</p>
+            <code>topo doctor --json</code>
+          </details>
         </div>
         <p class="connect-keys" aria-hidden="true"><kbd>Tab</kbd> {{connect.move}} <kbd>Enter</kbd> {{connect.submit}}</p>
       </form>

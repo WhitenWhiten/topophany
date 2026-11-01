@@ -287,3 +287,17 @@
    touch: a swipe turns a tab or scrolls a list, two fingers pinch the map. */
 .live-demo.is-fit .demo-viewport { overflow: hidden; }
 .live-demo.is-fit .demo-viewport canvas { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+
+/* Connection recovery remains reachable while the canvas is offline or loading. */
+.live-controls { display: flex; justify-self: end; align-items: center; gap: 8px; }
+#collector-edit { font: inherit; color: var(--tui-accent); background: var(--tui-key); border: 1px solid var(--tui-line); padding: 6px 8px; cursor: pointer; }
+#collector-edit[hidden] { display: none; }
+#collector-edit:focus-visible { outline: 2px solid var(--tui-accent); outline-offset: 2px; }
+.connect-help { border-top: 1px solid var(--tui-line); padding-top: 10px; color: var(--tui-muted); }
+.connect-help summary { cursor: pointer; color: var(--tui-accent); }
+.connect-help ol { padding-left: 2ch; }
+.connect-help li { margin: 8px 0; }
+.connect-help code { display: block; overflow-wrap: anywhere; color: var(--tui-text); background: var(--tui-key); border: 0; padding: 6px 8px; font: inherit; }
+@media (max-width: 600px) {
+  .live-demo[data-mode="live"] .live-size { display: none; }
+}

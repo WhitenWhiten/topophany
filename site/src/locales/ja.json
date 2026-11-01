@@ -290,5 +290,12 @@
   "connect.move": "移動",
   "js.connect.title": "自分のネットワーク",
   "js.connect.failed": "接続を開始できませんでした。URL、プロジェクト、Viewer トークンを確認して再試行してください。",
-  "js.connect.reconnect": "q で接続画面に戻り、URL、プロジェクト、Viewer トークンを確認してください。"
+  "js.connect.reconnect": "q で接続画面に戻り、URL、プロジェクト、Viewer トークンを確認してください。",
+  "connect.edit": "接続を編集",
+  "connect.help": "接続のトラブルシューティング",
+  "connect.help.address": "この端末からコレクターに到達でき、サービスが動いていることを確認してください。",
+  "connect.help.identity": "トポロジーのプロジェクト ID と閲覧用トークンを使います。ワーカー用トークンでは閲覧できません。",
+  "connect.help.browser": "ブラウザーでは DNS、証明書、クロスオリジン制限を区別できない場合があります。ターミナルでの接続成功だけではブラウザーの接続を確認できません。",
+  "connect.help.origin": "このサイトのビューアーを使用するには、コレクターで次のオリジンを許可してください：",
+  "connect.help.doctor": "対応する保存済みプロファイルでローカル診断レポートを生成します："
 }
