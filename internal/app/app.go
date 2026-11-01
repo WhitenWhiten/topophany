@@ -39,6 +39,7 @@ const help = `Topophany — where your network stands, seen from where, and on w
 Get started
   topo preview                      the whole UI on synthetic evidence; x switches scenarios
   topo init --dir DIR               a local demo: a topology, credentials and a collector to run
+  topo init --url URL --dir DIR     prepare real website monitoring from this machine
   topo login                        save and verify a connection to a collector
   topo                              open the TUI on the saved connection
 
@@ -252,9 +253,18 @@ func (a *App) init(args []string) error {
 		}
 	}
 	f := a.flags("init")
-	dir := f.String("dir", "./topophany-demo", "NEW demo directory (refuses existing files)")
+	dir := f.String("dir", "./topophany-demo", "NEW monitoring directory (refuses existing files)")
+	target := f.String("url", "", "website HTTP(S) URL; generate a real check without making requests")
 	if e := parsed(f, args); e != nil {
 		return e
+	}
+	c := DemoConfig()
+	if *target != "" {
+		var err error
+		c, err = websiteConfig(*target)
+		if err != nil {
+			return err
+		}
 	}
 	if e := os.MkdirAll(filepath.Dir(filepath.Clean(*dir)), 0700); e != nil {
 		return e
@@ -275,7 +285,6 @@ func (a *App) init(args []string) error {
 	if e != nil {
 		return e
 	}
-	c := DemoConfig()
 	b, e := json.MarshalIndent(c, "", "  ")
 	if e != nil {
 		return e
@@ -292,6 +301,10 @@ func (a *App) init(args []string) error {
 		if e = client.Save(filepath.Join(*dir, name), cr); e != nil {
 			return e
 		}
+	}
+	if *target != "" {
+		fmt.Fprintf(a.Out, "Website monitoring prepared at %s. No requests have been sent.\nReview topology.json, then start the collector:\n  topo serve --config %q --auth %q --data %q --observer demo\nIn another terminal:\n  topo --credentials %q\nExpected response: HTTP 200. Edit the assertion for your application. This measures access from this machine, not origin health.\n", *dir, filepath.Join(*dir, "topology.json"), filepath.Join(*dir, "auth.json"), filepath.Join(*dir, "data"), filepath.Join(*dir, "credentials.json"))
+		return nil
 	}
 	fmt.Fprintf(a.Out, "Demo created at %s (only loopback probes; fresh private credentials).\n\nCollector:\n  topo serve --config %s --auth %s --data %s --observer demo\n\nIn another terminal:\n  topo --credentials %s\n\nDo not run a second executor with observer=demo concurrently.\n", *dir, filepath.Join(*dir, "topology.json"), filepath.Join(*dir, "auth.json"), filepath.Join(*dir, "data"), filepath.Join(*dir, "credentials.json"))
 	return nil

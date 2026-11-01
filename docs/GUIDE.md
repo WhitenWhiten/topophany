@@ -6,6 +6,27 @@ several locations, and how the code is laid out and verified. Start with the
 [README](../README.md) for an overview; field-level detail is in the
 [Configuration and API Reference](REFERENCE.md).
 
+## Monitor a website
+
+Prepare a real HTTP check from this machine without writing a topology by hand:
+
+```sh
+topo init --url https://example.com/health --dir ./website
+```
+
+Setup makes no network requests. It creates a private directory with a topology,
+collector authentication and matching viewer/worker credentials, then prints
+commands to run the local collector and open the viewer. Review `topology.json`
+before starting those commands. The check expects HTTP 200 and samples every
+60 seconds; change the response assertion to match your application's health
+endpoint. Run only one executor with observer `demo` for this configuration.
+
+The URL cannot contain credentials, a query or a fragment. For authenticated
+endpoints, configure private request headers using environment variables after
+setup. The collector listens on loopback; use the deployment guide before
+exposing it remotely. The result establishes remote access from this machine,
+not independent origin health or availability from other locations.
+
 ## The Local Demo
 
 `topo init --dir ./demo` writes a demo topology, collector auth and client credentials; `topo serve` then listens on `127.0.0.1:7447` (the default listener). The demo configuration probes only this loopback API without reaching external targets; the registered workstation and notes-only service deliberately remain unmonitored (`unknown`), never feigning completion. The `init` command generates high-entropy random credentials on each invocation and refuses to overwrite existing directories.
