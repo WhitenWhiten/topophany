@@ -89,14 +89,23 @@ func (s *Store) private(create bool) error {
 	return nil
 }
 
-func (s *Store) lock(ctx context.Context) (func(), error) {
-	if e := s.private(true); e != nil {
+func (s *Store) lock(ctx context.Context, create bool) (func(), error) {
+	if ctx.Err() != nil {
+		return nil, fail("storage_error")
+	}
+	if e := s.private(create); e != nil {
 		return nil, e
 	}
 	for {
+		if ctx.Err() != nil {
+			return nil, fail("storage_error")
+		}
 		unlock, e := secure.Lock(filepath.Join(s.Root, "state.lock"))
 		if e == nil {
 			return func() { _ = unlock() }, nil
+		}
+		if !errors.Is(e, secure.ErrLocked) {
+			return nil, fail("storage_error")
 		}
 		select {
 		case <-ctx.Done():
@@ -107,7 +116,12 @@ func (s *Store) lock(ctx context.Context) (func(), error) {
 }
 
 // Load reads the saved checks; a missing root or file is an empty store.
-func (s *Store) Load() (Profile, error) {
+func (s *Store) Load(ctx context.Context) (Profile, error) {
+	return s.readSnapshot(ctx, nil)
+}
+
+// load reads the profile while the caller holds the store lock.
+func (s *Store) load() (Profile, error) {
 	p := Profile{Schema: 1, Checks: []Entry{}}
 	if e := s.private(false); errors.Is(e, os.ErrNotExist) {
 		return p, nil
@@ -170,33 +184,27 @@ func (s *Store) Secrets(p Profile) (map[string]string, error) {
 	return out, nil
 }
 
-// readSnapshot retries a credential read if a concurrent write replaced the
-// profile before deleting its old credential. Credential files are immutable:
-// every new token gets a new reference, so a successful read belongs to p even
-// if a writer commits a newer profile concurrently.
+// readSnapshot holds the same cross-process lock as writers until both the
+// profile and any credentials have been read. In particular, Windows readers
+// must not open a file while a writer replaces or deletes it.
 func (s *Store) readSnapshot(ctx context.Context, read func(Profile) error) (Profile, error) {
-	p, err := s.Load()
+	unlock, err := s.lock(ctx, false)
+	if errors.Is(err, os.ErrNotExist) {
+		p := Profile{Schema: 1, Checks: []Entry{}}
+		if read != nil {
+			return p, read(p)
+		}
+		return p, nil
+	}
 	if err != nil {
+		return Profile{}, err
+	}
+	defer unlock()
+	p, err := s.load()
+	if err != nil || read == nil {
 		return p, err
 	}
-	for {
-		err = read(p)
-		var localErr *Error
-		if err == nil || !errors.As(err, &localErr) || localErr.Code != "credential_storage_error" {
-			return p, err
-		}
-		next, loadErr := s.Load()
-		if loadErr != nil {
-			return next, loadErr
-		}
-		if next.Revision == p.Revision {
-			return p, err
-		}
-		if ctx.Err() != nil {
-			return next, fail("storage_error")
-		}
-		p = next
-	}
+	return p, read(p)
 }
 
 // Snapshot reads one profile and its corresponding secrets. A nonempty
@@ -265,12 +273,12 @@ func NewCheckID() string { return "lc-" + newID()[:16] }
 // file; "none" removes any stored secret; "saved" keeps the stored secret of
 // the check with this ID at the same address.
 func (s *Store) Save(ctx context.Context, base string, c Check, auth Auth) (Profile, error) {
-	unlock, e := s.lock(ctx)
+	unlock, e := s.lock(ctx, true)
 	if e != nil {
 		return Profile{}, e
 	}
 	defer unlock()
-	p, e := s.Load()
+	p, e := s.load()
 	if e != nil {
 		return p, e
 	}
@@ -328,12 +336,12 @@ func (s *Store) Save(ctx context.Context, base string, c Check, auth Auth) (Prof
 
 // Remove deletes the check with id at base, and its stored secret.
 func (s *Store) Remove(ctx context.Context, base, id string) (Profile, error) {
-	unlock, e := s.lock(ctx)
+	unlock, e := s.lock(ctx, true)
 	if e != nil {
 		return Profile{}, e
 	}
 	defer unlock()
-	p, e := s.Load()
+	p, e := s.load()
 	if e != nil {
 		return p, e
 	}

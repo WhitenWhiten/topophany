@@ -3,6 +3,7 @@ package secure
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -140,6 +141,8 @@ func TestDirectoryLock(t *testing.T) {
 	if other, e := Lock(p); e == nil {
 		other()
 		t.Fatal("second writer acquired lock")
+	} else if !errors.Is(e, ErrLocked) {
+		t.Fatalf("lock contention reported as %v", e)
 	}
 	if e = unlock(); e != nil {
 		t.Fatal(e)

@@ -88,7 +88,7 @@ func (a *App) local(ctx context.Context, args []string) error {
 	commandCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	if cmd == "list" {
-		p, e := s.Load()
+		p, e := s.Load(commandCtx)
 		if e != nil {
 			return finish(e)
 		}

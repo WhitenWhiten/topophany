@@ -19,10 +19,13 @@ func Lock(path string) (func() error, error) {
 		return nil, e
 	}
 	ov := new(syscall.Overlapped)
-	r, _, _ := lockFileEx.Call(f.Fd(), 3, 0, 1, 0, uintptr(unsafe.Pointer(ov)))
+	r, _, lockErr := lockFileEx.Call(f.Fd(), 3, 0, 1, 0, uintptr(unsafe.Pointer(ov)))
 	if r == 0 {
 		f.Close()
-		return nil, errors.New("data directory is locked by another process")
+		if errors.Is(lockErr, syscall.Errno(33)) { // ERROR_LOCK_VIOLATION
+			return nil, ErrLocked
+		}
+		return nil, lockErr
 	}
 	return func() error {
 		_, _, _ = unlockFileEx.Call(f.Fd(), 0, 1, 0, uintptr(unsafe.Pointer(ov)))

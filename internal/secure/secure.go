@@ -24,6 +24,9 @@ import (
 	"unicode"
 )
 
+// ErrLocked means another process holds the requested lock.
+var ErrLocked = errors.New("data directory is locked by another process")
+
 func Token() (string, error) {
 	b := make([]byte, 32)
 	_, e := rand.Read(b)

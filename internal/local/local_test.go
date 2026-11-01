@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -180,7 +181,7 @@ func TestStoreKeepsSecretsPrivateAndVersionsEveryWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p, err := s.Load(); err != nil || p.Revision != "" || len(p.Checks) != 0 {
+	if p, err := s.Load(ctx); err != nil || p.Revision != "" || len(p.Checks) != 0 {
 		t.Fatal(p, err)
 	}
 	if _, err := os.Stat(root); !os.IsNotExist(err) {
@@ -201,16 +202,25 @@ func TestStoreKeepsSecretsPrivateAndVersionsEveryWrite(t *testing.T) {
 	entries, _ := os.ReadDir(root)
 	credentials := 0
 	for _, e := range entries {
-		info, _ := e.Info()
 		if strings.HasPrefix(e.Name(), "credential-") {
 			credentials++
-			if info.Mode().Perm() != 0600 {
-				t.Fatal("secret file mode", info.Mode())
+			// Windows uses ACLs, which FileMode does not expose.
+			if runtime.GOOS != "windows" {
+				info, err := e.Info()
+				if err != nil || info.Mode().Perm() != 0600 {
+					t.Fatal("secret file mode", info, err)
+				}
 			}
 		}
 	}
-	if info, _ := os.Stat(root); credentials != 1 || info.Mode().Perm() != 0700 {
-		t.Fatal(credentials, info.Mode())
+	if credentials != 1 {
+		t.Fatal("credential files", credentials)
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(root)
+		if err != nil || info.Mode().Perm() != 0700 {
+			t.Fatal("root mode", info, err)
+		}
 	}
 	if secrets, err := s.Secrets(p); err != nil || secrets[check.ID] != syntheticSecret {
 		t.Fatal(secrets, err)
@@ -256,7 +266,7 @@ func TestStoreKeepsSecretsPrivateAndVersionsEveryWrite(t *testing.T) {
 	if _, err := s.Remove(ctx, "stale", "lc-2"); AsError(err).Code != "profile_conflict" {
 		t.Fatal(err)
 	}
-	last, _ := s.Load()
+	last, _ := s.Load(ctx)
 	removed, err := s.Remove(ctx, rev, "lc-2")
 	if err != nil || len(removed.Checks) != MaxChecks-1 {
 		t.Fatal(removed, err)
@@ -265,11 +275,13 @@ func TestStoreKeepsSecretsPrivateAndVersionsEveryWrite(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "credential-"+gone.Credential+".json")); !os.IsNotExist(err) {
 		t.Fatal("remove kept the secret")
 	}
-	if err := os.Chmod(filepath.Join(root, "checks.json"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.Load(); AsError(err).Code != "storage_error" {
-		t.Fatal("readable configuration accepted", err)
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(filepath.Join(root, "checks.json"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.Load(ctx); err == nil || AsError(err).Code != "storage_error" {
+			t.Fatal("readable configuration accepted", err)
+		}
 	}
 }
 

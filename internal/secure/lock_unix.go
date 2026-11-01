@@ -20,7 +20,10 @@ func Lock(path string) (func() error, error) {
 	}
 	if e = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); e != nil {
 		f.Close()
-		return nil, errors.New("data directory is locked by another process")
+		if errors.Is(e, syscall.EWOULDBLOCK) {
+			return nil, ErrLocked
+		}
+		return nil, e
 	}
 	return func() error { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); return f.Close() }, nil
 }

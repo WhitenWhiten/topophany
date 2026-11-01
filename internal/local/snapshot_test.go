@@ -10,11 +10,16 @@ import (
 	"time"
 )
 
-func TestSnapshotRetriesReplacedAndRemovedCredentials(t *testing.T) {
+func TestSnapshotLocksOutCredentialChanges(t *testing.T) {
 	for _, action := range []string{"replace", "clear", "remove"} {
 		t.Run(action, func(t *testing.T) {
 			ctx := context.Background()
-			store, err := NewStore(filepath.Join(t.TempDir(), "local"))
+			root := filepath.Join(t.TempDir(), "local")
+			store, err := NewStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			writer, err := NewStore(root)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -23,34 +28,44 @@ func TestSnapshotRetriesReplacedAndRemovedCredentials(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var updated Profile
+			write := func(ctx context.Context) (Profile, error) {
+				switch action {
+				case "replace":
+					return writer.Save(ctx, original.Revision, check, Auth{Mode: "token", Token: "new-token"})
+				case "clear":
+					return writer.Save(ctx, original.Revision, check, Auth{Mode: "none"})
+				default:
+					return writer.Remove(ctx, original.Revision, check.ID)
+				}
+			}
 			var secrets map[string]string
-			reads := 0
 			got, err := store.readSnapshot(ctx, func(p Profile) error {
-				reads++
-				if reads == 1 {
-					// Force the writer between loading the old profile and reading
-					// its credential, including deletion of the old file.
-					switch action {
-					case "replace":
-						updated, err = store.Save(ctx, original.Revision, check, Auth{Mode: "token", Token: "new-token"})
-					case "clear":
-						updated, err = store.Save(ctx, original.Revision, check, Auth{Mode: "none"})
-					case "remove":
-						updated, err = store.Remove(ctx, original.Revision, check.ID)
-					}
-					if err != nil {
-						t.Fatal(err)
-					}
+				// Another Store must not replace the profile or delete the old
+				// credential while this snapshot is reading it.
+				writeCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+				defer cancel()
+				if _, err := write(writeCtx); err == nil || AsError(err).Code != "storage_error" {
+					t.Fatalf("%s did not wait for the snapshot: %v", action, err)
 				}
 				secrets, err = store.Secrets(p)
 				return err
 			})
-			if err != nil || reads != 2 || got.Revision != updated.Revision {
-				t.Fatalf("profile=%+v reads=%d err=%v", got, reads, err)
+			if err != nil || got.Revision != original.Revision || secrets[check.ID] != "old-token" {
+				t.Fatalf("original profile=%+v secrets=%v err=%v", got, secrets, err)
+			}
+			updated, err := write(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, secrets, err = store.Snapshot(ctx, "")
+			if err != nil || got.Revision != updated.Revision {
+				t.Fatalf("updated profile=%+v err=%v", got, err)
 			}
 			if action == "replace" && secrets[check.ID] != "new-token" || action != "replace" && len(secrets) != 0 {
 				t.Fatalf("wrong secrets after %s: %v", action, secrets)
+			}
+			if _, err := os.Stat(filepath.Join(root, "credential-"+original.Checks[0].Credential+".json")); !os.IsNotExist(err) {
+				t.Fatalf("old credential remains after %s: %v", action, err)
 			}
 			if _, _, err := store.Snapshot(ctx, original.Revision); AsError(err).Code != "profile_conflict" {
 				t.Fatalf("stale revision after %s: %v", action, err)
@@ -94,6 +109,22 @@ func TestSnapshotReportsRealCredentialErrorsAndDoesNotCreateEmptyStore(t *testin
 	}
 	if _, _, err := store.Snapshot(ctx, "stale"); AsError(err).Code != "profile_conflict" {
 		t.Fatal("stale revision should be checked before credentials", err)
+	}
+}
+
+func TestLoadReportsUnusableLockWithoutWaitingForCancellation(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "state.lock"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := store.Load(ctx); err == nil || AsError(err).Code != "storage_error" || ctx.Err() != nil {
+		t.Fatalf("unusable lock: err=%v context=%v", err, ctx.Err())
 	}
 }
 
