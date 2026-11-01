@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/adapters"
 	"github.com/WhitenWhiten/topophany/internal/adapters/cloudflare"
@@ -13,12 +14,34 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/adapters/mihomo"
 	"github.com/WhitenWhiten/topophany/internal/adapters/tailscale"
 	"github.com/WhitenWhiten/topophany/internal/adapters/wireguard"
+	"github.com/WhitenWhiten/topophany/internal/config"
 	"github.com/WhitenWhiten/topophany/internal/model"
 )
 
 // The supplied transport preserves the check's explicit route and TLS policy.
 func (r Runner) mihomo(ctx context.Context, d Dialer, x model.Check, target string, o *model.Observation) error {
-	return mihomo.Collect(ctx, mihomo.Dependencies{Client: func(x model.Check, target string) (*http.Client, func(), error) {
+	return mihomo.Collect(ctx, r.mihomoDependencies(d), x, target, o)
+}
+
+// InspectMihomo reads a controller once, for configuring a check of it,
+// through the transport and within the timeout that check's probe uses.
+func (r Runner) InspectMihomo(ctx context.Context, c model.Config, x model.Check) (mihomo.Inspection, error) {
+	resolved, err := config.ResolveCheck(c, x)
+	if err != nil {
+		return mihomo.Inspection{}, local("setup", "invalid_address_reference")
+	}
+	x = resolved
+	if config.HTTPCredentials(c, x) != nil {
+		return mihomo.Inspection{}, local("setup", "insecure_http_credentials")
+	}
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(x.TimeoutSeconds)*time.Second)
+	defer cancel()
+	d := Dialer{Proxies: config.Path(c, x.Path).Proxies, BindIP: x.BindIP}
+	return mihomo.Inspect(ctx, r.mihomoDependencies(d), x, config.Target(c, x))
+}
+
+func (r Runner) mihomoDependencies(d Dialer) mihomo.Dependencies {
+	return mihomo.Dependencies{Secret: r.Secret, Client: func(x model.Check, target string) (*http.Client, func(), error) {
 		u, err := url.Parse(target)
 		if err != nil {
 			return nil, nil, local("setup", "invalid_adapter_url")
@@ -36,7 +59,7 @@ func (r Runner) mihomo(ctx context.Context, d Dialer, x model.Check, target stri
 			return d.DialContext(ctx, n, pinned(a, x.ResolveIP))
 		}
 		return &http.Client{Transport: tr, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, tr.CloseIdleConnections, nil
-	}, Proxied: len(d.Proxies) > 0, ProxyCredentials: proxyCredentials(d.Proxies)}, x, target, o)
+	}, Proxied: len(d.Proxies) > 0, ProxyCredentials: proxyCredentials(d.Proxies)}
 }
 
 // cloudflare reads Cloudflare's API through the check's explicit route, like

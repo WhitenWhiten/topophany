@@ -59,6 +59,8 @@ Read what the TUI shows
   topo --source direct --profile ID  Beszel/Komari resource TUI without a collector
   topo sources list --json           list direct profiles (independent of client profiles)
   topo sources inspect|save|remove --json-stdin  bounded direct configuration API
+  topo local list --json             list this machine's own loopback engine checks
+  topo local inspect|save|remove --json-stdin  bounded local check configuration API
   topo --token-stdin                read a temporary bearer token from stdin
   topo --credential-file FILE       read a temporary token from a private file
 
@@ -158,6 +160,8 @@ func (a *App) run(ctx context.Context, args []string) error {
 		return a.diagnostics(args[0], args[1:])
 	case "sources":
 		return a.sources(ctx, args[1:])
+	case "local":
+		return a.local(ctx, args[1:])
 	case "monitor":
 		return a.monitor(ctx, args[1:])
 	case "preferences":

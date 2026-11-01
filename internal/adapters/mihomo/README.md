@@ -5,8 +5,12 @@ the read allowlist, `chain.go` expands selected groups and dialer proxies, and
 `policy.go` implements software-specific interpretation. `config.go` validates
 the typed view of the existing flat JSON adapter options.
 
-Only `/configs`, `/proxies` and `/providers/proxies` may be read. Delay endpoints
-are excluded because some can clear a group's fixed selection. The three reads
+Collection reads only `/configs`, `/proxies` and `/providers/proxies`.
+`inspect.go` (used by `topo local inspect|save`) reads `/configs`, the optional
+`/version` and `/proxies` once, and returns only the version, mode, TUN state
+and the names and types of groups usable as `root_proxy`, never members or
+selections. Nothing else may be read. Delay endpoints are excluded because some
+can clear a group's fixed selection. The three reads
 are not an atomic snapshot. A reported selection, TUN setting or delay does not
 prove that an application request followed that route.
 

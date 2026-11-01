@@ -20,11 +20,21 @@ type Dependencies struct {
 	Client           func(model.Check, string) (*http.Client, func(), error)
 	Proxied          bool
 	ProxyCredentials bool
+	// Secret resolves token_env. Nil reads the process environment; a
+	// local stream supplies its stored secrets without exporting them.
+	Secret func(string) (string, error)
+}
+
+func (d Dependencies) secret(name string) (string, error) {
+	if d.Secret != nil {
+		return d.Secret(name)
+	}
+	return secure.SecretEnv(name)
 }
 
 func Collect(ctx context.Context, deps Dependencies, x model.Check, target string, o *model.Observation) (err error) {
 	options := x.Adapter.Mihomo()
-	token, e := secure.SecretEnv(options.TokenEnv)
+	token, e := deps.secret(options.TokenEnv)
 	if e != nil {
 		return adapters.Local("setup", "adapter_secret_missing")
 	}

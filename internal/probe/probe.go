@@ -34,6 +34,9 @@ type Runner struct {
 	ListenPacket func(string, string) (net.PacketConn, error)
 	// HostSample is injectable for hermetic resource tests. Production reads OS state.
 	HostSample func(context.Context, model.HostOptions) (HostSample, error)
+	// Secret resolves a Mihomo check's token_env name. Nil reads the process
+	// environment; the local stream resolves its stored secrets instead.
+	Secret func(string) (string, error)
 	// since defaults to time.Since; tests model wall-clock steps independently
 	// of the monotonic clock without changing the system clock.
 	since func(time.Time) time.Duration

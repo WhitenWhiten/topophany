@@ -13,9 +13,10 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/adapters"
 )
 
-// Only these three Mihomo API reads are permitted. In particular GET delay
-// endpoints are excluded: some of them clear a policy group's fixed selection.
-var mihomoReads = map[string]bool{"/configs": true, "/proxies": true, "/providers/proxies": true}
+// Only these Mihomo API reads are permitted: collection uses the first three,
+// and only Inspect reads /version. In particular GET delay endpoints are
+// excluded: some of them clear a policy group's fixed selection.
+var mihomoReads = map[string]bool{"/configs": true, "/proxies": true, "/providers/proxies": true, "/version": true}
 
 type coreProxy struct {
 	Name        string   `json:"name"`
