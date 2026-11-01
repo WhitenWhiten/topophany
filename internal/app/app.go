@@ -28,6 +28,7 @@ type App struct {
 	TerminalIn, TerminalOut *os.File
 	Now                     func() time.Time // the clock the read commands judge freshness by
 	Reload                  <-chan os.Signal // stands in for SIGHUP when set
+	flagOutput              io.Writer        // captures parser diagnostics in structured error mode
 }
 
 func New() *App {
@@ -132,6 +133,9 @@ never changes routes, proxy policies, TUN settings or services.
 func (a *App) flags(name string) *flag.FlagSet {
 	f := flag.NewFlagSet(name, flag.ContinueOnError)
 	f.SetOutput(a.Err)
+	if a.flagOutput != nil {
+		f.SetOutput(a.flagOutput)
+	}
 	return f
 }
 

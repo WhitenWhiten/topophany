@@ -473,7 +473,7 @@ func (c *Client) rollups(ctx context.Context, check, step, span string, until ti
 		}
 		query := url.Values{"check": {check}, "step": {step}, "span": {span}}
 		if !until.IsZero() {
-			query.Set("until", until.UTC().Format(time.RFC3339))
+			query.Set("until", until.UTC().Format(time.RFC3339Nano))
 		}
 		req, e := http.NewRequestWithContext(ctx, "GET", endpointURL(ep, "/v1/rollups", query), nil)
 		if e != nil {

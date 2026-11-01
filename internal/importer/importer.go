@@ -113,29 +113,31 @@ func (r *Result) ssh(raw []byte) error {
 		blocked    bool
 	}
 	var current block
-	seen := map[string]bool{}
+	// OpenSSH takes the first value of each option across every matching
+	// block. Collect declarations before emitting a target so later blocks
+	// can supply a missing port or prohibit an otherwise direct route.
+	hosts := map[string]block{}
+	order := []string{}
 	flush := func() error {
 		for _, alias := range current.aliases {
-			if !hostOK(alias) || seen[alias] {
+			if !hostOK(alias) {
 				continue
 			}
-			seen[alias] = true
-			node := r.node("ssh", alias)
-			r.service(node, alias)
-			target := current.host
-			if target == "" {
-				target = alias
+			previous, exists := hosts[alias]
+			if !exists {
+				if len(hosts) >= 1024 {
+					return errors.New("SSH host budget exceeded")
+				}
+				order = append(order, alias)
 			}
-			port := current.port
-			if port == "" {
-				port = "22"
+			if previous.host == "" {
+				previous.host = current.host
 			}
-			n, err := strconv.Atoi(port)
-			if current.blocked || !hostOK(target) || err != nil || n < 1 || n > 65535 {
-				r.Warnings = append(r.Warnings, "ssh_target_requires_manual_route_review")
-				continue
+			if previous.port == "" {
+				previous.port = current.port
 			}
-			r.check(node, "SSH banner "+alias, net.JoinHostPort(target, port), "ssh-banner")
+			previous.blocked = previous.blocked || current.blocked
+			hosts[alias] = previous
 		}
 		return nil
 	}
@@ -155,7 +157,9 @@ func (r *Result) ssh(raw []byte) error {
 		key := strings.ToLower(words[0])
 		switch key {
 		case "host":
-			flush()
+			if err := flush(); err != nil {
+				return err
+			}
 			current = block{aliases: words[1:], blocked: globalBlocked}
 			for _, alias := range current.aliases {
 				if !hostOK(alias) {
@@ -188,11 +192,31 @@ func (r *Result) ssh(raw []byte) error {
 				globalBlocked = true
 			}
 		}
-		if len(seen) > 1024 {
-			return errors.New("SSH host budget exceeded")
-		}
 	}
-	flush()
+	if err := flush(); err != nil {
+		return err
+	}
+	for _, alias := range order {
+		host := hosts[alias]
+		node := r.node("ssh", alias)
+		r.service(node, alias)
+		if globalBlocked {
+			continue
+		}
+		target, port := host.host, host.port
+		if target == "" {
+			target = alias
+		}
+		if port == "" {
+			port = "22"
+		}
+		n, err := strconv.Atoi(port)
+		if host.blocked || !hostOK(target) || err != nil || n < 1 || n > 65535 {
+			r.Warnings = append(r.Warnings, "ssh_target_requires_manual_route_review")
+			continue
+		}
+		r.check(node, "SSH banner "+alias, net.JoinHostPort(target, port), "ssh-banner")
+	}
 	// Unsupported global/conditional sections may affect earlier blocks too.
 	if globalBlocked {
 		r.Config.Checks = nil

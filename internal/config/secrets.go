@@ -25,7 +25,7 @@ func HasLiteralSecret(c model.Config) bool {
 		}
 	}
 	for _, x := range c.Checks {
-		if len(x.HTTP.RequestHeaders) > 0 || urlCarriesSecret(x.Target) {
+		if len(x.HTTP.RequestHeaders) > 0 || len(x.HTTP.JSONEquals) > 0 || urlCarriesSecret(x.Target) {
 			return true
 		}
 		if ref := x.Adapter.ProviderReference; ref != nil && urlCarriesSecret(ref.URL) {

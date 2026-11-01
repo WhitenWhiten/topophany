@@ -33,3 +33,22 @@ func TestStructuredErrorsPreserveHealthStatusOutput(t *testing.T) {
 		t.Fatal(wrapped, stderr)
 	}
 }
+
+func TestStructuredErrorsSuppressFlagParserValues(t *testing.T) {
+	for _, args := range [][]string{
+		{"validate", "--private-flag-canary"},
+		{"doctor", "--wait", "private-duration-canary"},
+		{"doctor", "--wait"},
+	} {
+		_, stderr, err := invoke("", append([]string{"--json-errors"}, args...)...)
+		var result struct{ Error errorDiagnostic }
+		if exitCode(err) != 1 || json.Unmarshal([]byte(stderr), &result) != nil || strings.Contains(stderr, "canary") {
+			t.Fatalf("%v: %s (%v)", args, stderr, err)
+		}
+	}
+	_, plain, _ := invoke("", "doctor", "--help")
+	_, wrapped, _ := invoke("", "--json-errors", "doctor", "--help")
+	if plain == "" || wrapped != plain {
+		t.Fatal("structured mode lost command help")
+	}
+}

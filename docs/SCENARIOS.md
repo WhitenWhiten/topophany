@@ -686,3 +686,22 @@ require both the target and candidate revisions from review. Named regressions:
 `TestEditorRefusesExternalChangesAndKeepsDraft`,
 `TestEditorRefusesFileCreatedAfterOpening`, and
 `TestBatchEditRequiresBothReviewedRevisions`.
+
+### Recent usability regression boundaries
+
+- Structured CLI errors never include the flag parser's rejected values or
+  usage text; explicit command help remains available. Covered by
+  `TestStructuredErrorsSuppressFlagParserValues`.
+- Private JSON assertion values use the same private-file permission rules as
+  literal request credentials, including when replacing an existing shared
+  topology. Covered by `TestJSONAssertionsRequirePrivateTopology`.
+- SSH imports combine repeated exact Host declarations using the first value
+  for each option. A proxy restriction in any matching block prevents a direct
+  probe candidate. Covered by
+  `TestSSHRepeatedHostsMergeDeclarationsAndRouteRestrictions`.
+- Fixed history windows retain fractional RFC3339 timestamps through the HTTP
+  query and response check, without misidentifying a current collector as too
+  old. Covered by `TestComparisonPinsWindowsAndRejectsIgnoredAnchor`.
+- Related incidents share a declared node only when every contributing check
+  names that node. Inline or unresolved targets keep their incident separate.
+  Covered by `TestProblemsDoNotInferTargetsForUnboundChecks`.

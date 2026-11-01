@@ -43,15 +43,18 @@ func (v View) Problems() []Problem {
 	groups := map[string]*Problem{}
 	for _, incident := range v.Snapshot.Incidents {
 		targets := map[string]bool{}
+		allDeclared := len(incident.Checks) > 0
 		for _, id := range incident.Checks {
 			c := checks[id]
 			target := endpoints[c.Endpoint]
 			if target != "" {
 				targets[target] = true
+			} else {
+				allDeclared = false
 			}
 		}
 		key, title := "incident:"+incident.ID, incident.Summary
-		if len(targets) == 1 {
+		if allDeclared && len(targets) == 1 {
 			for target := range targets {
 				key, title = "node:"+target, nodes[target]
 			}

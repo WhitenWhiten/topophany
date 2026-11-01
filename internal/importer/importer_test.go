@@ -55,3 +55,28 @@ func TestImportRejectsUnsafeAndUnboundedInputs(t *testing.T) {
 		}
 	}
 }
+
+func TestSSHRepeatedHostsMergeDeclarationsAndRouteRestrictions(t *testing.T) {
+	for _, tt := range []struct{ name, source, target string }{
+		{"later port", "Host server\n HostName 192.0.2.1\nHost server\n Port 2222\n", "192.0.2.1:2222"},
+		{"first value wins", "Host server\n Port 2222\nHost server\n Port 3333\n HostName 192.0.2.1\n", "192.0.2.1:2222"},
+		{"later proxy", "Host server\n HostName 192.0.2.1\nHost server\n ProxyJump gateway\n", ""},
+		{"overlapping aliases", "Host server other\n HostName 192.0.2.1\nHost server\n ProxyCommand private-command\n", ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := Build("ssh", []byte(tt.source), "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var target string
+			for _, check := range r.Config.Checks {
+				if check.Name == "SSH banner server" {
+					target = check.Target
+				}
+			}
+			if target != tt.target {
+				t.Fatalf("target = %q, want %q", target, tt.target)
+			}
+		})
+	}
+}

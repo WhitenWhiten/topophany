@@ -50,6 +50,17 @@ func TestComparisonPinsWindowsAndRejectsIgnoredAnchor(t *testing.T) {
 	if !result.Series[0].History.WindowEnd.Equal(result.Series[1].History.WindowEnd) || !result.Series[2].History.WindowEnd.Equal(result.Series[3].History.WindowEnd) {
 		t.Fatal("comparison windows differ")
 	}
+	fractional := anchor.Add(123456789 * time.Nanosecond)
+	fixed := append([]string(nil), args...)
+	for i, arg := range fixed {
+		if arg == "--around" {
+			fixed[i], fixed[i+1] = "--until", fractional.Format(time.RFC3339Nano)
+		}
+	}
+	out, _, err = invoke("", fixed...)
+	if err != nil || json.Unmarshal([]byte(out), &result) != nil || !result.Series[0].History.WindowEnd.Equal(fractional) {
+		t.Fatal("fractional fixed end was not preserved", err, out)
+	}
 	ignore.Store(true)
 	if _, _, err := invoke("", args...); err == nil || !strings.Contains(err.Error(), "fixed history window") {
 		t.Fatal("old collector silently accepted", err)

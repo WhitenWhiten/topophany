@@ -1307,6 +1307,8 @@ and bounded JSON parser; duplicate keys are rejected. Ordinary HTTP assertions
 run first. Mismatches are `http_assert/json_assertion_mismatch`; invalid response
 JSON is `http_assert/invalid_json`. Neither response nor expected values enter
 observations, and assertion maps are omitted from public topology projections.
+Topology files containing these private expected values require owner-only
+permissions (0600 on POSIX); editor saves tighten an existing shared file.
 Configure these in the JSON editor or reviewed batch edit. Upgrade all components
 before enabling this field; it participates in the private measurement contract.
 

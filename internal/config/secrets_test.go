@@ -84,3 +84,31 @@ func TestLiteralSecretClassificationAndWriteMode(t *testing.T) {
 		t.Fatal("secret-free mode", config.WriteMode(c, 0644))
 	}
 }
+
+func TestJSONAssertionsRequirePrivateTopology(t *testing.T) {
+	c := testkit.Config()
+	c.Checks[0].HTTP.JSONEquals = map[string]json.RawMessage{"/token": json.RawMessage(`"private-expected-token"`)}
+	if !config.HasLiteralSecret(c) || config.WriteMode(c, 0644) != 0600 {
+		t.Fatal("private expected values must request private save mode")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permission bits are not enforced on Windows")
+	}
+	path := filepath.Join(t.TempDir(), "topology.json")
+	raw, err := json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := config.Load(path); err == nil {
+		t.Fatal("shared file exposed private JSON assertions")
+	}
+	if err := os.Chmod(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := config.Load(path); err != nil {
+		t.Fatal(err)
+	}
+}

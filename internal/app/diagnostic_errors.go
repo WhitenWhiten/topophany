@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -76,7 +77,17 @@ func (a *App) Run(ctx context.Context, args []string) error {
 	if len(args) == 0 || args[0] != "--json-errors" {
 		return a.run(ctx, args)
 	}
-	err := a.run(ctx, args[1:])
+	// Flag parsing prints the rejected argument before returning its error.
+	// Keep that private text out of the JSON stream, while preserving help.
+	command := *a
+	var flags bytes.Buffer
+	command.flagOutput = &flags
+	err := command.run(ctx, args[1:])
+	if errors.Is(err, flag.ErrHelp) {
+		if _, writeErr := flags.WriteTo(a.Err); writeErr != nil {
+			return writeErr
+		}
+	}
 	if err == nil || errors.Is(err, flag.ErrHelp) || errors.Is(err, context.Canceled) {
 		return err
 	}

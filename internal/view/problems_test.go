@@ -19,3 +19,22 @@ func TestProblemsKeepObserverIdentityAndUnavailableCounterEvidence(t *testing.T)
 		t.Fatal("cached grouping claimed current evidence")
 	}
 }
+
+func TestProblemsDoNotInferTargetsForUnboundChecks(t *testing.T) {
+	for _, other := range []model.Check{
+		{ID: "other", Target: "https://other.invalid/health"},
+		{ID: "other", Endpoint: "missing"},
+	} {
+		v := View{Snapshot: model.Snapshot{
+			Topology: model.Config{
+				Nodes: []model.Node{{ID: "target"}}, Endpoints: []model.Endpoint{{ID: "ep", Node: "target"}},
+				Checks: []model.Check{{ID: "a", Endpoint: "ep"}, other},
+			},
+			Incidents: []model.Incident{{ID: "bound", Checks: []string{"a"}}, {ID: "mixed", Checks: []string{"a", "other"}}},
+		}}
+		groups := v.Problems()
+		if len(groups) != 2 {
+			t.Fatalf("unresolved target grouped with the declared node: %+v", groups)
+		}
+	}
+}
