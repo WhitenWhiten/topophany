@@ -147,6 +147,21 @@ topo recovery --data BACKUP_DATA --config topology.json --auth auth.json
 完整字段、预算和兼容边界见 [配置参考](REFERENCE.md)、[运维](OPERATIONS.md)
 和 [直连说明](DIRECT.md)。
 
+## 本机代理内核
+
+本机代理应用的 mihomo 内核可以保存为本地检查，不需要采集器或 worker。本地检查
+与菜单栏原有的数据源（采集器，或 Beszel/Komari 直连配置）同时运行：
+`topo monitor stream` 以 `"source":"local"` 在第二个流进程中读取它们。
+
+`topo local inspect --json-stdin` 读取一次内核，列出版本、模式、TUN 状态和可选作
+`root_proxy` 的策略组；`topo local save --json-stdin` 在请求中加上
+`topo local list --json` 给出的 `base_revision`，先用该密钥读取内核，再把密钥单独
+保存为私密文件。地址只能是环回地址（127.0.0.0/8、`::1` 或 `localhost`），不会跨网
+络读取控制器。Topophany 只读：不改内核配置、不切换策略组、不触发延迟测试，读到
+的内容不离开本机；只有本地流打开时才读取。内核报告的模式、TUN 和选择只是它自己的
+说法，不能证明应用流量的实际路径。字段和错误码见
+[配置参考](REFERENCE.md#local-checks-this-machine)。
+
 ## 导入已有清单，再审阅启用
 
 `topo import --format ssh --input ~/.ssh/config --output candidate.json` 生成

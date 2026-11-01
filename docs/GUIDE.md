@@ -37,6 +37,43 @@ traffic followed that route, so the template keeps a separate HTTP application
 check through the core's local listener. See the
 [Mihomo adapter guide](../internal/adapters/mihomo/README.md).
 
+## Watch this machine's proxy engine
+
+To watch the mihomo engine of a proxy app on this machine without a collector
+or worker, save it as a local check. Local checks run beside whatever the menu
+bar app or a script already reads (a collector, or a Beszel/Komari direct
+profile): `topo monitor stream` with `"source":"local"` runs them in a second
+stream process.
+
+Write the request to a private file (`chmod 600`), with the controller's
+secret, or `"auth":{"mode":"none"}` when it has none:
+
+```json
+{"schema":1,"request_id":"r1","base_revision":"",
+ "check":{"id":"lc-engine","name":"Proxy engine","adapter":"mihomo","url":"http://127.0.0.1:9090",
+          "root_proxy":"Proxy","expected_mode":"rule","expected_tun":false},
+ "auth":{"mode":"token","token":"YOUR-CONTROLLER-SECRET"}}
+```
+
+```sh
+topo local inspect --json-stdin < local-check.json
+topo local save --json-stdin < local-check.json
+topo local list --json
+```
+
+Inspect reads the engine once and lists its version, mode, TUN state and the
+groups you can choose as `root_proxy`. Save reads the engine with the secret
+first, then stores the secret in its own private file, never in the check
+configuration; later saves use `base_revision` from `topo local list --json`
+and `"auth":{"mode":"saved"}` to keep it. Delete the request file once the
+check is saved. The address must be loopback (127.0.0.0/8, `::1` or
+`localhost`): the controller is never read across the network. Topophany only
+reads; it never changes the engine's configuration, switches a group or runs a
+delay test, and nothing it reads leaves the machine. Reads happen only while a
+local stream is open. A reported mode, TUN state or selection is the engine's
+own account, not proof of where application traffic went. See
+[Local checks](REFERENCE.md#local-checks-this-machine) for every field and code.
+
 ## Monitor a website
 
 Prepare a real HTTP check from this machine without writing a topology by hand:

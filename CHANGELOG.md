@@ -32,6 +32,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   core reads its loopback controller with `token_env`, `root_proxy`,
   `expected_mode` and `expected_tun`, and a separate HTTP check through the
   core's listener supplies application evidence.
+- Local checks watch this machine's own mihomo engine without a collector:
+  `topo local list --json` and `inspect|save|remove --json-stdin` keep at most
+  four loopback controller checks (127.0.0.0/8, `::1` or `localhost`) in a
+  private root beside the direct profiles, each secret in its own 0600 file.
+  Inspect reads the engine's version, mode, TUN state and the groups usable as
+  `root_proxy`, never members or selections; save verifies the secret first.
+- `topo monitor stream` accepts `"source":"local"`, which runs those checks as
+  a worker's `mihomo` checks only while the stream is open, beside a running
+  client or direct stream, and serves `check.card` and `checks.list` with
+  observer `local` ("This machine"). A new request line reloads the store;
+  `--local-root` selects a private root. Capabilities advertise `local` and its
+  configuration API. Reads never change the engine and nothing leaves the
+  machine.
 
 ## [1.5.2] - 2026-11-01
 

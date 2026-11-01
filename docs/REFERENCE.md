@@ -556,7 +556,7 @@ diagnostics separately from the monitored services' health, and treat absence of
 the capability/field as unsupported, not as an error.
 
 The metric catalog also advertises `check.card` and `checks.list` for client,
-preview and collector sources. `check.card` requires `select: {"check":"ID"}`;
+preview, collector and local sources. `check.card` requires `select: {"check":"ID"}`;
 it contains the service card's check fields plus `observer` (ID/name), `service`,
 `link`, `path` and the collector's `reason`. `checks.list` lists up to 256 checks
 in topology order, restricted to the current observer's snapshot, with ID/name,
@@ -653,11 +653,12 @@ stderr. The command reads no stdin and writes no files. `--capabilities` and
 for `--profiles`, while a running stream takes credentials in each request.
 
 A request has `schema: 1`, an optional `request_id` (at most 64 bytes), `source`
-(`client` by default), `interval` (5s by default, 1s–1h), and a schema-1
-`template`. Client requests accept an absolute `credentials` path, a saved
-`profile`, a `project` guard and an `observer` view. Empty credentials/profile
-use normal credential discovery and the active profile. Credentials are read
-only for the client source. Preview requests accept `scenario` (0 by default)
+(`client` by default; `preview`, `direct` or `local`), `interval` (5s by
+default, 1s–1h), and a schema-1 `template`; see
+[Local checks](#local-checks-this-machine) for `local`. Client requests accept
+an absolute `credentials` path, a saved `profile`, a `project` guard and an
+`observer` view. Empty credentials/profile use normal credential discovery and
+the active profile. Credentials are read only for the client source. Preview requests accept `scenario` (0 by default)
 and `lang` (`en`, `ja` or `zh`, default `en`); they read synthetic evidence
 from the same simulator as `topo preview`, without credentials or host probes.
 
@@ -734,6 +735,7 @@ the first frame and nested metric values.
 | `client` | `topo --monitor NAME` | The TUI's actual fetch results, including view switches and failures |
 | `collector` | `topo serve … --monitor NAME` | Current collector's complete project view, read without persistence side effects |
 | `worker` | `topo worker … --monitor NAME` | This worker's local observations, threshold state and separate delivery reports |
+| `local` | `topo monitor stream` | This machine's own loopback engine checks from `topo local`; no collector, beside any other stream |
 
 The source must match the process role. Optional configured project/observer
 bindings must match at startup. An attached TUI also checks the saved profile's
@@ -751,6 +753,127 @@ topo serve --config topology.json --auth auth.json --data collector-data --monit
 topo monitor configure worker-panel --source worker --template examples/monitor-worker.json
 topo worker --config topology.json --credentials worker-credentials.json --observer local --data worker-data --monitor worker-panel
 ```
+
+### Local checks (this machine)
+
+`topo local` configures this machine's own runtime checks, and the `local`
+stream source runs them. It is not a direct profile: direct mode replaces the
+collector, whereas a `local` stream runs as a second `topo monitor stream`
+process beside a `client` or `direct` stream. Its first adapter is `mihomo`
+(the engine of Clash Meta-based proxy apps), read through the engine's
+external controller.
+
+The commands use the `topo sources` envelope, bounds and exit codes:
+`{"schema":1,"request_id":"...","ok":true,"data":{...}}` or `ok:false` with
+`error: {code, retryable, message}`; exit 0 on success, 1 on an error, 2 on a
+usage error or a request that is not accepted as given (`invalid_request`,
+`not_local_address`). `topo local list --json` reads no stdin; `inspect`,
+`save` and `remove` take `--json-stdin`, one JSON object through EOF of at
+most 256 KiB. Output is one line of at most 1 MiB. `--local-root ABS_DIR`
+selects the private configuration root; the default is `topophany/local` in
+the OS user configuration directory, beside the direct root `topophany/direct`.
+
+A check is:
+
+```json
+{"id":"lc-3f9a0c1d2e4b5a69","name":"Proxy engine","adapter":"mihomo","url":"http://127.0.0.1:9090",
+ "interval_seconds":30,"timeout_seconds":5,"stale_seconds":90,
+ "root_proxy":"Proxy","expected_mode":"rule","expected_tun":false}
+```
+
+- `id`: a topology ID (letters, digits, `_`, `.`, `-`), at most 64 bytes. A
+  save with an empty `id` assigns `lc-` and 16 hex digits; inspect accepts an
+  empty `id` and echoes it.
+- `name`: 1..128 bytes without control or bidi characters. `adapter`: `mihomo`.
+- `url`: `http` or `https` on a loopback literal (127.0.0.0/8, `::1`) or
+  `localhost`, with an optional port and no userinfo, path (other than `/`),
+  query or fragment; anything else is `not_local_address`. It is stored in a
+  canonical form (lowercase scheme and host, canonical IP, no trailing slash).
+  `localhost` is read as `127.0.0.1`, so no resolver or hosts entry can send a
+  local check off the machine.
+- `interval_seconds` 5..3600 (default 30), `timeout_seconds` 1..30 and below
+  the interval (default 5), `stale_seconds` at least twice the interval and at
+  most 86400 (default three intervals).
+- `root_proxy`: empty (report mode and TUN only) or the 1..128-byte name of
+  the group whose selection is resolved. `expected_mode`: empty, `rule`,
+  `global` or `direct`. `expected_tun`: `null`, `true` or `false`.
+
+At most four checks are saved. The `auth` union is `{"mode":"token","token":"..."}`
+(1..1024 bytes, no control characters or surrounding spaces),
+`{"mode":"none"}`, or `{"mode":"saved"}`, which reuses the stored secret of the
+saved check with the same `id` and the same `url`; otherwise it is
+`saved_auth_mismatch`.
+
+- `list` → `data: {"profile_revision":"...","checks":[{"check":{...},"auth_mode":"token"|"none"}]}`.
+  An empty store has revision `""` and `checks: []`.
+- `inspect`, `{"schema":1,"request_id":"r1","check":{...},"auth":{...}}` →
+  `data: {"check":{...},"engine":{"version":"v1.19.33","mode":"rule","tun":false},"groups":[{"name":"Proxy","type":"Selector"}],"truncated":false,"warnings":[]}`.
+  It reads the engine once and writes nothing. `version` is `""` when the engine
+  has no `/version`; `mode` is a closed word (`rule`, `global`, `direct`,
+  `script`, `other`); `tun` is `null` when not reported. `groups` are the
+  Selector, URLTest, Fallback and LoadBalance groups (not Relay), in the
+  engine's configuration order as its `GLOBAL` group lists them, then any others
+  by name, then `GLOBAL`; at most 64, with `truncated` past that. Group names
+  that could not be a `root_proxy` are left out with the warning
+  `group_names_omitted`; `root_proxy_not_found` warns that the check's
+  `root_proxy` is not among the engine's groups. No member proxy, server or
+  current selection is returned. A LoadBalance root stays
+  `runtime_chain_unresolved`, as for a worker.
+- `save`, the inspect request plus `base_revision` (from `list`; `""` for an
+  empty store) → `data: {"profile_revision":"...","check_id":"..."}`. It first
+  reads the engine with that secret and refuses with the inspect error codes,
+  so a stored secret is known good, then checks `base_revision`
+  (`profile_conflict`) and the limit (`check_limit`) under a lock, and writes
+  atomically. `token` stores a new secret, `saved` keeps it, `none` deletes it.
+  Every write changes the opaque revision.
+- `remove`, `{"schema":1,"request_id","base_revision","check_id"}` →
+  `data: {"profile_revision","check_id"}`; it deletes the stored secret too.
+  An unknown ID is `not_found`.
+
+Engine errors are `connection_failed` (retryable: not running, refused or timed
+out), `authentication_failed` (secret wrong or missing), `tls_error`,
+`unexpected_status` (an HTTP status other than 200, 401 or 403),
+`unsupported_response_shape` and `response_too_large` (the adapter's byte,
+complexity and inventory budgets). Storage errors are `storage_error` and
+`credential_storage_error`. Messages are fixed text; no engine response,
+address or secret is echoed.
+
+Secrets are never printed, logged or written into the configuration: each is
+kept in its own `credential-REF.json` (0600) under the 0700 root, beside
+`checks.json` (0600) and a lock file. Reads use only `GET /configs`, `GET
+/proxies` and `GET /providers/proxies` (plus `GET /version` for inspection)
+over a direct loopback connection without proxies, compression, keep-alive or
+redirects. Topophany never changes the engine's configuration, never switches a
+group and never triggers a delay test. Nothing a local check reads leaves the
+machine: there is no collector, history file or metrics journal.
+
+A `local` stream request has `source: "local"`, `interval` and `template`, and an
+optional `profile_revision`; a revision other than the store's fails with
+`profile_conflict`. `profile`, `project`, `credentials`, `observer`, `scenario`,
+`lang` and `retry_nonce` must be empty. `topo monitor stream --local-root
+ABS_DIR` selects the same private root as `topo local`. Frames are ordinary
+protocol-1 frames with `source: "local"`, `project: "local"` and `observer:
+"local"`. The catalog offers `check.card` (`select: {"check":"ID"}`) and
+`checks.list` for `local`; templates with other metrics are rejected with
+`invalid_request`, and an unknown check ID is `entity_missing`. The card's
+`observer` is `{"id":"local","name":"This machine"}`. `latency` and `up_24h`
+are `null`: no rollups are kept. `samples` come from the reads made since the
+stream opened (at most 80 per check).
+
+The stream reads the store when it opens and on every new request line, so a
+`topo local save` takes effect with the next request without restarting the
+process; checks whose measurement contract is unchanged keep their evidence.
+All configured checks are read on their own intervals only while a `local`
+stream is open, the first read at once (it is published as it lands); closing
+stdin stops every read. Each read is the worker's `mihomo` check: the same
+outcomes, facts, redaction (a secret-bearing read names only `DIRECT`, `REJECT`
+and the `root_proxy` group, other names read `undeclared`), policy
+(`diagnostic.policy`), deadlines and wording. A refused or timed-out read is a
+`fail` outcome at stage `adapter_api`, as for a worker; a rejected secret or an
+unsupported or oversized response is an `error` outcome, a monitor-side error
+with health `unknown`. Local checks use `failure_threshold` 2 (degraded on the
+first failed read, down on the second in a row), `recovery_threshold` 1 and
+immediate policy confirmation.
 
 ### Template and metric contract
 
