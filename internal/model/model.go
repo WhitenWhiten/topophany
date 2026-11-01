@@ -3,6 +3,7 @@
 package model
 
 import (
+	"encoding/json"
 	"regexp"
 	"runtime/debug"
 	"strings"
@@ -260,12 +261,13 @@ type HostOptions struct {
 	MaxProcesses     int     `json:"max_processes,omitempty"`
 }
 type HTTPOptions struct {
-	Method         string            `json:"method,omitempty"`
-	Status         []int             `json:"status,omitempty"`
-	Contains       string            `json:"contains,omitempty"`
-	BodyRegex      string            `json:"body_regex,omitempty"`
-	Headers        map[string]string `json:"headers,omitempty"` // response assertions, not request secrets
-	RequestHeaders map[string]string `json:"request_headers,omitempty"`
+	JSONEquals     map[string]json.RawMessage `json:"json_equals,omitempty"`
+	Method         string                     `json:"method,omitempty"`
+	Status         []int                      `json:"status,omitempty"`
+	Contains       string                     `json:"contains,omitempty"`
+	BodyRegex      string                     `json:"body_regex,omitempty"`
+	Headers        map[string]string          `json:"headers,omitempty"` // response assertions, not request secrets
+	RequestHeaders map[string]string          `json:"request_headers,omitempty"`
 	// RequestHeaderEnvs names a header's environment variable, never its
 	// value, so a credential need not be written into the topology.
 	RequestHeaderEnvs map[string]string `json:"request_header_envs,omitempty"`

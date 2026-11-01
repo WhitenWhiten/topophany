@@ -1291,3 +1291,21 @@ policy samples before confirmation; it counts all policy outcomes on that check.
 Use separate checks if certificate, exit and latency streaks must be independent.
 Upgrade all components before enabling new policy fields; disabled fields leave
 existing measurement contracts unchanged.
+
+### HTTP JSON field assertions
+
+`http.json_equals` maps RFC 6901 JSON Pointers to expected JSON values:
+`{"/status":"ok","/items/0/ready":true,"/optional":null}`. Empty pointer
+selects the entire value; `~1` escapes `/` and `~0` escapes `~`. Missing differs
+from null. Arrays require canonical nonnegative decimal indices. Object order
+and whitespace do not matter; **number spelling is exact** (`1`, `1.0`, `1e0`
+are different), avoiding rounding of large integers or exponent expansion.
+
+At most 32 assertions, 16 pointer levels, 256 pointer bytes and 16 KiB total
+expected JSON are accepted. The response retains the existing body byte budget
+and bounded JSON parser; duplicate keys are rejected. Ordinary HTTP assertions
+run first. Mismatches are `http_assert/json_assertion_mismatch`; invalid response
+JSON is `http_assert/invalid_json`. Neither response nor expected values enter
+observations, and assertion maps are omitted from public topology projections.
+Configure these in the JSON editor or reviewed batch edit. Upgrade all components
+before enabling this field; it participates in the private measurement contract.

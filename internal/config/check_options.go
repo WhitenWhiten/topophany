@@ -24,6 +24,10 @@ func cloneCheckOptions(x model.Check) model.Check {
 		}
 		x.External = &b
 	}
+	x.HTTP.JSONEquals = maps.Clone(x.HTTP.JSONEquals)
+	for key, value := range x.HTTP.JSONEquals {
+		x.HTTP.JSONEquals[key] = slices.Clone(value)
+	}
 	x.HTTP.Status = slices.Clone(x.HTTP.Status)
 	x.HTTP.ExpectedExit = slices.Clone(x.HTTP.ExpectedExit)
 	x.HTTP.ExpectedPops = slices.Clone(x.HTTP.ExpectedPops)
@@ -86,6 +90,7 @@ func cloneCheckOptions(x model.Check) model.Check {
 
 func publicCheckOptions(x model.Check) model.Check {
 	x.Target = PublicURL(x.Target)
+	x.HTTP.JSONEquals = nil
 	x.HTTP.BearerEnv = ""
 	x.Adapter.TokenEnv = ""
 	if ref := x.Adapter.ProviderReference; ref != nil {

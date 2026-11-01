@@ -457,6 +457,11 @@ func (r Runner) http(ctx context.Context, d Dialer, x model.Check, target string
 			return &failure{Stage: "http_assert", Code: "header_mismatch"}
 		}
 	}
+	if len(x.HTTP.JSONEquals) > 0 {
+		if code := jsonAssertions(body, x.HTTP.JSONEquals); code != "" {
+			return &failure{Stage: "http_assert", Code: code}
+		}
+	}
 	if len(x.HTTP.ExpectedExit) > 0 {
 		ip, e := exitAddr, exitErr
 		if !parsedExit {

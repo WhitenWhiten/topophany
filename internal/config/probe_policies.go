@@ -26,5 +26,5 @@ func ValidateProbePolicies(c model.Config, x model.Check) error {
 			return errors.New("max_duration_ms requires a measured network check")
 		}
 	}
-	return nil
+	return ValidateJSONAssertions(x)
 }
