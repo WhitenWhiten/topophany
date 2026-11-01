@@ -623,3 +623,25 @@ review makes the operation fail. Both files must have the same project identity.
 A rename or note change may change the configuration without changing any
 measurement contract. Applying is one validated local transaction; distribute
 the reviewed file and reload collectors/workers separately.
+
+### Compare observers and incident windows
+
+```sh
+topo compare --checks home-http,cloud-http --step 5m --span 1h
+topo compare --service web --until 2026-11-01T00:00:00Z --json
+topo compare --checks home-http,cloud-http --around 2026-10-31T20:00:00Z --span 1h
+topo compare --incident INCIDENT_ID --span 30m --json
+```
+
+Comparisons select at most eight checks, bind all reads to one collector and its
+snapshot contracts, and use fixed window ends. `--around` and `--incident` show
+one window before and another after the event, aligned to the requested step.
+The after window must have elapsed; choose a shorter span for a recent incident.
+If a topology changes during reading, retry against a new snapshot. Collectors
+that ignore the fixed-window parameter are rejected rather than silently
+comparing different periods. Upgrade the collector before using comparisons.
+
+Each series retains measured coverage, inconclusive/unmeasured time, original
+contract and retention resolution. Buckets are aggregate estimates, and missing
+history is never filled with healthy time. Comparisons use current contracts;
+a changed measurement begins a separate series and may have no older evidence.

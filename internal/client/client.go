@@ -436,6 +436,7 @@ const maxHistoryBytes = 2 << 20
 // earliest moment the collector's rollups hold for the check. Revision is
 // the topology's and Contract the check's, both public.
 type Rollups struct {
+	WindowEnd   time.Time      `json:"window_end,omitzero"`
 	Project     string         `json:"project"`
 	Revision    string         `json:"revision"`
 	Check       string         `json:"check"`
@@ -450,13 +451,31 @@ type Rollups struct {
 // Rollups reads a check's rollups in slots of step (5m, 1h or 1d) over the
 // span before now, failing over as History does.
 func (c *Client) Rollups(ctx context.Context, check, step, span string) (Rollups, string, error) {
+	return c.rollups(ctx, check, step, span, time.Time{}, nil)
+}
+
+func (c *Client) RollupsAt(ctx context.Context, v HistoryView, step, span string, until time.Time) (Rollups, string, error) {
+	if v.Server == "" || v.Project != c.profile.Project || len(v.Revision) != 64 || len(v.Contract) != 64 || until.IsZero() {
+		return Rollups{}, "", errors.New("comparison needs a snapshot source, contract and fixed end time")
+	}
+	return c.rollups(ctx, v.Check, step, span, until, &v)
+}
+
+func (c *Client) rollups(ctx context.Context, check, step, span string, until time.Time, binding *HistoryView) (Rollups, string, error) {
 	var empty Rollups
 	if !config.ID(check) || len(step) > 8 || len(span) > 8 {
 		return empty, "", errors.New("rollups need a check ID, a step and a span")
 	}
 	var missed misses
 	for i, ep := range c.profile.Servers {
-		req, e := http.NewRequestWithContext(ctx, "GET", endpointURL(ep, "/v1/rollups", url.Values{"check": {check}, "step": {step}, "span": {span}}), nil)
+		if binding != nil && binding.Server != ep.URL {
+			continue
+		}
+		query := url.Values{"check": {check}, "step": {step}, "span": {span}}
+		if !until.IsZero() {
+			query.Set("until", until.UTC().Format(time.RFC3339))
+		}
+		req, e := http.NewRequestWithContext(ctx, "GET", endpointURL(ep, "/v1/rollups", query), nil)
 		if e != nil {
 			return empty, "", errors.New("invalid request")
 		}
@@ -508,6 +527,14 @@ func (c *Client) Rollups(ctx context.Context, check, step, span string) (Rollups
 		for i, slot := range r.Slots {
 			if !validRollup(slot) || i > 0 && slot.Start.Before(r.Slots[i-1].Start.Add(time.Duration(r.Slots[i-1].Seconds)*time.Second)) {
 				return empty, "", errors.New("invalid collector rollups")
+			}
+		}
+		if binding != nil {
+			if r.Revision != binding.Revision || r.Contract != binding.Contract {
+				return empty, "", errors.New("comparison source contract changed; refresh and retry")
+			}
+			if !r.WindowEnd.Equal(until) {
+				return empty, "", errors.New("collector did not honor the fixed history window; upgrade collector before comparing")
 			}
 		}
 		return r, ep.URL, nil

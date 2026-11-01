@@ -1156,3 +1156,13 @@ are `unmonitored`, `suspended`, `outside_view`, `no_application_check`, `stale`,
 `summary.verdict` carries the same observer and counts without the detailed gap
 list. This additive protocol-1 field is optional for existing readers. A view's
 all-clear verdict concerns its active checks, independently of coverage.
+
+### Fixed rollup windows
+
+Authenticated `GET /v1/rollups` accepts optional `until` (RFC3339, no later than
+collector time and no more than 800 days old). `span` and `step` retain their
+existing limits. The additive `window_end` response field echoes the effective
+end. `generated_at` remains the actual read time. This is a read-only query;
+it does not trim, rewrite or recover stored evidence. Existing readers ignore
+the new field. Fixed-window clients require the echo to detect older collectors
+that ignore the query parameter, and pin source, revision and measurement contract.

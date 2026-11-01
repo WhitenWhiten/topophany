@@ -551,8 +551,18 @@ func (s *Server) rollups(w http.ResponseWriter, r *http.Request, a authority) {
 		return
 	}
 	now := s.Now().UTC()
-	total, slots, since := s.Store.Rollups(id, g.contracts[id], now.Add(-span).Truncate(step), step, now)
+	until := now
+	if raw := q.Get("until"); raw != "" {
+		var err error
+		until, err = time.Parse(time.RFC3339, raw)
+		if err != nil || len(raw) > 35 || until.After(now) || until.Before(now.Add(-800*24*time.Hour)) {
+			writeError(w, 400, "invalid_until")
+			return
+		}
+	}
+	total, slots, since := s.Store.RollupsWindow(id, g.contracts[id], until.Add(-span).Truncate(step), until, step, now)
 	writeJSON(w, 200, struct {
+		WindowEnd   time.Time      `json:"window_end"`
 		Project     string         `json:"project"`
 		Revision    string         `json:"revision"`
 		Check       string         `json:"check"`
@@ -562,7 +572,7 @@ func (s *Server) rollups(w http.ResponseWriter, r *http.Request, a authority) {
 		Since       time.Time      `json:"since,omitzero"`
 		Total       model.Rollup   `json:"total"`
 		Slots       []model.Rollup `json:"slots"`
-	}{g.config.Project, g.publicRevision, id, g.publicContracts[id], now, int64(step / time.Second), since, total, slots})
+	}{until, g.config.Project, g.publicRevision, id, g.publicContracts[id], now, int64(step / time.Second), since, total, slots})
 }
 func (s *Server) ingest(w http.ResponseWriter, r *http.Request, a authority) {
 	if ct, _, e := mime.ParseMediaType(r.Header.Get("Content-Type")); e != nil || ct != "application/json" {

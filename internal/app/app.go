@@ -51,6 +51,7 @@ Read what the TUI shows
   topo problems [ID]                related incidents, evidence and next actions
   topo status                       the Overview as text; its exit status says it too
   topo show TAB [ID]                a tab, or the evidence behind one entry in it
+  topo compare --checks A,B         compare observers or incident before/after windows
   topo history CHECK                a check's recent samples
   topo history CHECK --step 1h      how a check fared, hour by hour, from its rollups
   topo --json                       one authenticated snapshot as JSON
@@ -150,6 +151,8 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		return a.monitor(ctx, args[1:])
 	case "preferences":
 		return a.preferences(args[1:])
+	case "compare":
+		return a.compare(ctx, args[1:])
 	case "templates":
 		return a.templates(args[1:])
 	case "rollout":

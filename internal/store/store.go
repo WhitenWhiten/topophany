@@ -936,9 +936,13 @@ func (s *Store) Availability(check, contract string, now time.Time) []model.Avai
 // slots step wide (see rollup.Store.Buckets), with their total and the
 // earliest moment they hold.
 func (s *Store) Rollups(check, contract string, from time.Time, step time.Duration, now time.Time) (model.Rollup, []model.Rollup, time.Time) {
+	return s.RollupsWindow(check, contract, from, now, step, now)
+}
+
+func (s *Store) RollupsWindow(check, contract string, from, until time.Time, step time.Duration, now time.Time) (model.Rollup, []model.Rollup, time.Time) {
 	key := contract + "/" + check
-	total, _ := s.rollups.Window(key, from, now, now)
-	return total, s.rollups.Buckets(key, from, now, step, now), s.rollups.Since(key)
+	total, _ := s.rollups.Window(key, from, until, now)
+	return total, s.rollups.Buckets(key, from, until, step, now), s.rollups.Since(key)
 }
 
 func (s *Store) Close() error {
