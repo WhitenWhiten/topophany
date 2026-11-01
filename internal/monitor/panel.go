@@ -14,6 +14,7 @@ import (
 )
 
 type Input struct {
+	CollectorRead *CollectorRead
 	// AllSnapshot supplies observer verdicts when Snapshot is an observer-scoped view.
 	AllSnapshot *model.Snapshot
 	IO          ioaccount.Snapshot
@@ -25,26 +26,27 @@ type Input struct {
 	Unavailable bool
 }
 type Panel struct {
-	Profile            string      `json:"profile,omitempty"`
-	ProfileRevision    string      `json:"profile_revision,omitempty"`
-	DatasetID          string      `json:"dataset_id,omitempty"`
-	RequestID          string      `json:"request_id"`
-	Error              *FrameError `json:"error,omitempty"`
-	Schema             int         `json:"schema"`
-	Name               string      `json:"name"`
-	ConfigRevision     string      `json:"config_revision"`
-	Instance           string      `json:"instance"`
-	Sequence           uint64      `json:"sequence"`
-	Source             string      `json:"source"`
-	Project            string      `json:"project"`
-	Observer           string      `json:"observer,omitempty"`
-	Lifecycle          string      `json:"lifecycle"`
-	GeneratedAt        time.Time   `json:"generated_at"`
-	PublisherExpiresAt time.Time   `json:"publisher_expires_at"`
-	Title              string      `json:"title"`
-	Icon               string      `json:"icon,omitempty"`
-	BarRow             string      `json:"bar_row"`
-	Rows               []Value     `json:"rows"`
+	CollectorRead      *CollectorRead `json:"collector_read,omitempty"`
+	Profile            string         `json:"profile,omitempty"`
+	ProfileRevision    string         `json:"profile_revision,omitempty"`
+	DatasetID          string         `json:"dataset_id,omitempty"`
+	RequestID          string         `json:"request_id"`
+	Error              *FrameError    `json:"error,omitempty"`
+	Schema             int            `json:"schema"`
+	Name               string         `json:"name"`
+	ConfigRevision     string         `json:"config_revision"`
+	Instance           string         `json:"instance"`
+	Sequence           uint64         `json:"sequence"`
+	Source             string         `json:"source"`
+	Project            string         `json:"project"`
+	Observer           string         `json:"observer,omitempty"`
+	Lifecycle          string         `json:"lifecycle"`
+	GeneratedAt        time.Time      `json:"generated_at"`
+	PublisherExpiresAt time.Time      `json:"publisher_expires_at"`
+	Title              string         `json:"title"`
+	Icon               string         `json:"icon,omitempty"`
+	BarRow             string         `json:"bar_row"`
+	Rows               []Value        `json:"rows"`
 }
 type Value struct {
 	Basis          string `json:"basis,omitempty"`
@@ -65,6 +67,7 @@ type Value struct {
 
 func Build(c Config, in Input, now time.Time) Panel {
 	p := Panel{Schema: 1, Name: c.Name, ConfigRevision: c.Revision, Source: c.Source, Project: in.Snapshot.Project, Observer: in.Snapshot.ViewObserver, Lifecycle: "running", GeneratedAt: now.UTC(), Title: c.Template.Title, Icon: c.Template.Icon, BarRow: c.Template.Bar.Row, Rows: []Value{}}
+	p.CollectorRead = copyPointer(in.CollectorRead)
 	if c.Source == "direct" && in.Snapshot.Direct != nil {
 		p.Profile = in.Snapshot.Direct.Profile
 		p.ProfileRevision = in.Snapshot.Direct.ProfileRevision

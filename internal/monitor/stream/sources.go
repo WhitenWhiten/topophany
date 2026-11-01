@@ -105,21 +105,31 @@ func openSource(ctx context.Context, r Request, now func() time.Time) (Source, *
 		return Source{}, failure("credentials_unavailable", "credential profile unavailable")
 	}
 	sourceErrors := make(chan *Error, 1)
-	previous := monitor.Input{Unavailable: true}
+	reading := monitor.CollectorRead{State: "waiting"}
+	initialReading := reading
+	previous := monitor.Input{Unavailable: true, CollectorRead: &initialReading}
 	book := monitor.NewSampleBook(r.Template)
 	fetch := func(ctx context.Context) (monitor.Input, error) {
+		started := time.Now()
+		attempted := now().UTC()
 		s, all, server, err := cl.SourcedViews(ctx, r.Observer)
+		reading = collectorRead(reading, attempted, now().UTC(), time.Since(started), err, cl.Diagnostics())
+		// Every result owns its diagnostics; subsequent reads cannot mutate a
+		// previously published input, including the initial waiting frame.
+		status := reading
 		if errors.Is(err, client.ErrProjectMismatch) {
 			select {
 			case sourceErrors <- failure("project_mismatch", "snapshot project does not match request"):
 			default:
 			}
-			return previous, nil
+			in := previous
+			in.CollectorRead = &status
+			return in, nil
 		}
 		if err != nil {
-			return monitor.Input{}, err
+			return monitor.Input{Unavailable: true, CollectorRead: &status}, err
 		}
-		in := monitor.Input{Snapshot: s, AllSnapshot: all}
+		in := monitor.Input{Snapshot: s, AllSnapshot: all, CollectorRead: &status}
 		// History is read from the collector the snapshot came from, under
 		// the measurement it names, or not at all.
 		in.Samples = book.Fill(ctx, s, server+" "+s.Revision, monitor.HistoryReads, func(ctx context.Context, id string) ([]model.Observation, error) {
@@ -139,7 +149,7 @@ func openSource(ctx context.Context, r Request, now func() time.Time) (Source, *
 		if err != nil {
 			// An unreachable collector is a valid, unavailable source; a
 			// positively identified foreign project is a rejected replacement.
-			in = monitor.Input{Unavailable: true}
+			in.Unavailable = true
 		}
 		return in, nil
 	}

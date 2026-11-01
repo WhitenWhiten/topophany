@@ -10,6 +10,9 @@ import (
 // even when another member keeps the row's aggregate health unchanged.
 func safetyState(p Panel) string {
 	states := []any{p.Lifecycle, p.ConfigRevision}
+	if r := p.CollectorRead; r != nil {
+		states = append(states, r.State, r.Stage, r.Code)
+	}
 	observers := func(values []ObserverVerdict) any {
 		out := []any{}
 		for _, v := range values {

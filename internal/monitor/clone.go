@@ -24,6 +24,7 @@ func cloneObservers(in []ObserverVerdict) []ObserverVerdict {
 // Values are published as owned snapshots, including nested evidence payloads.
 // A callback or subscriber may edit its copy without changing the hub or source.
 func clone(p Panel) Panel {
+	p.CollectorRead = copyPointer(p.CollectorRead)
 	p.Error = copyPointer(p.Error)
 	p.Rows = slices.Clone(p.Rows)
 	for i := range p.Rows {

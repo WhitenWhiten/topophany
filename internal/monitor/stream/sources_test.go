@@ -58,6 +58,9 @@ func TestClientSourceProjectGuardAndObserverScope(t *testing.T) {
 	if err != nil || refused.Snapshot.Project != c.Project {
 		t.Fatal(refused, err)
 	}
+	if refused.CollectorRead.State != "error" || refused.CollectorRead.Code != "project_mismatch" || refused.CollectorRead.LastSuccessAt != initial.CollectorRead.LastSuccessAt {
+		t.Fatal("project mismatch changed successful-read history", refused.CollectorRead)
+	}
 	select {
 	case e := <-source.Errors:
 		if e.Code != "project_mismatch" {

@@ -534,6 +534,27 @@ advertises saved-profile discovery. These additions retain protocol 1. Consumers
 of older binaries treat an absent `profiles` field as false and check the catalog
 before requesting `servers.list`, `service.card` or `services.list`.
 
+`collector_read: true` in capabilities advertises the optional `collector_read`
+frame object for client streams. It describes the most recent **snapshot read**,
+independently of business health and snapshot/evidence freshness:
+
+- `state`: `waiting` before the first read, then `ok` or `error`.
+- `attempted_at`, `completed_at`, `last_success_at`: UTC timestamps, absent until
+  known. A successful read may contain expired evidence; it does not renew it.
+- `duration_ms`: snapshot-read duration, excluding optional history loading.
+- `consecutive_failures`: resets on a successful snapshot read.
+- `stage`, `code`: sanitized diagnostic words on failure, omitted on success.
+  No collector URL, credentials, raw errors or response bodies are exported.
+
+Reading failures still withhold row values as `source_unavailable`. A foreign
+project still rejects that result and retains the previous project's evidence
+with its original deadlines; its read diagnostic says `protocol/project_mismatch`.
+State/code/stage transitions bypass display cadence. Heartbeat publication never
+advances read timestamps. Once the publisher lease ends, these diagnostics are
+history, not a claim about the connection now. Consumers should show connection
+diagnostics separately from the monitored services' health, and treat absence of
+the capability/field as unsupported, not as an error.
+
 `topo monitor stream --profiles` lists saved client profiles in one JSON line,
 then exits 0:
 
