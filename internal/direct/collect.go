@@ -7,6 +7,7 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/probe"
 	"github.com/WhitenWhiten/topophany/internal/source"
+	"net/url"
 	"time"
 )
 
@@ -45,6 +46,17 @@ func (a *attemptIO) Get(ctx context.Context, s model.Source, u string, headers m
 	return r, nil
 }
 func (s *Session) collect(ctx context.Context, c model.Config, src model.Source, requests []source.Request) ([]source.Reading, time.Time, error) {
+	// Local transport files can disappear between reads. Report their failure
+	// through this source's loop, without preventing healthy sources starting.
+	if src.CAFile != "" {
+		u, err := url.Parse(src.Target)
+		if err != nil {
+			return nil, time.Time{}, fail("invalid_request")
+		}
+		if _, err := probe.TLSConfig(u.Hostname(), src.CAFile); err != nil {
+			return nil, time.Time{}, fail("tls_error")
+		}
+	}
 	s.mu.Lock()
 	entry, ok := findEntry(s.profile, src.ID)
 	profile := s.profile.Profile

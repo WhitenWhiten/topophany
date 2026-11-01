@@ -210,7 +210,9 @@ credential or Hub I/O. Do not use the binary version as a feature test.
 
 The [D1 specification and fixtures](contracts/direct-v1/contract.md) define exact
 request/frame fields. A new valid request immediately emits running + loading.
-Failures remain source-scoped data. Invalid requests and revision conflicts keep
+Failures remain source-scoped data, including missing or invalid local CA files.
+Other sources continue reading while the affected source reports `tls_error`;
+repairing its CA file allows a later retry to recover. Invalid requests and revision conflicts keep
 the previous request installed. Every explicit request reloads public config;
 there is no mandatory file watcher. Template, display interval and observer
 changes preserve collection. Changed acquisition settings replace only affected

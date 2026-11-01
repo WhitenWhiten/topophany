@@ -3,7 +3,6 @@ package direct
 import (
 	"context"
 	"math/rand/v2"
-	"net/url"
 	"sync"
 	"time"
 
@@ -92,9 +91,6 @@ func NewSession(ctx context.Context, store *Store, p Profile, opts Options) (*Se
 	}
 	if opts.MaxSourceStateBytes == 0 {
 		opts.MaxSourceStateBytes = MaxSourceStateBytes
-	}
-	if e := validateLocalTLS(c); e != nil {
-		return nil, e
 	}
 	rt := probe.NewSourceRuntime(probe.ProductionSourceAdapters())
 	if e = rt.Validate(c); e != nil {
@@ -358,21 +354,6 @@ func (s *Session) CheckRetry(nonce string) error {
 	defer s.mu.Unlock()
 	if nonce != "" && !s.retrySeen[nonce] && len(s.retrySeen) >= MaxRetryNonces {
 		return fail("state_budget")
-	}
-	return nil
-}
-
-func validateLocalTLS(c model.Config) error {
-	for _, src := range c.Sources {
-		if src.CAFile != "" {
-			u, e := url.Parse(src.Target)
-			if e != nil {
-				return fail("profile_unavailable")
-			}
-			if _, e = probe.TLSConfig(u.Hostname(), src.CAFile); e != nil {
-				return fail("tls_error")
-			}
-		}
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -485,8 +486,8 @@ func TestLiveBudgetFailureHasScopedDiagnostic(t *testing.T) {
 func TestLocalCandidateFailureRetainsOldConfig(t *testing.T) {
 	s, p := pausedSession(t, Options{})
 	old := s.Profile()
-	p.Sources[0].Source.CAFile = filepath.Join(t.TempDir(), "missing-ca.pem")
-	if e := s.Reconfigure(p); AsError(e).Code != "tls_error" {
+	p.Sources[0].Source.CAFile = "relative-ca.pem"
+	if e := s.Reconfigure(p); e == nil {
 		t.Fatal(e)
 	}
 	if !reflect.DeepEqual(old, s.Profile()) {
@@ -584,5 +585,76 @@ func TestParentCancellationAndEmptyProfileReconfigurationJoin(t *testing.T) {
 		if active.Load() != 0 {
 			t.Fatal("collection survived parent cancellation")
 		}
+	}
+}
+
+// A CA file is a source-local runtime dependency, including when a profile is
+// first opened or reconfigured. Exercise the production collector, not a stub.
+func TestSessionLocalTLSFailureIsIsolated(t *testing.T) {
+	for _, invalid := range []bool{false, true} {
+		t.Run(fmt.Sprint("invalidPEM=", invalid), func(t *testing.T) {
+			h := fixtureHub(t)
+			st := testStore(t)
+			r := testRequest(h)
+			p := saveFixture(t, st, r)
+			r.BaseRevision = p.Revision
+			r.Source.ID = "bs-other"
+			p = saveFixture(t, st, r)
+			ca := filepath.Join(t.TempDir(), "ca.pem")
+			if invalid {
+				if err := os.WriteFile(ca, []byte("not a certificate"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			p.Sources[1].Source.CAFile = ca
+			s, err := NewSession(context.Background(), st, p, Options{Now: func() time.Time { return h.at }, Backoff: func(int) time.Duration { return time.Hour }})
+			if err != nil {
+				t.Fatal("one CA failure rejected the profile", err)
+			}
+			defer s.Close()
+			check := func(want string) {
+				t.Helper()
+				deadline := time.Now().Add(2 * time.Second)
+				for {
+					snap, err := s.Snapshot("", h.at)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if snap.Direct.Sources[0].State == "connected" && snap.Direct.Sources[1].State == want {
+						if want == "retrying" && (snap.Direct.Sources[1].Code == nil || *snap.Direct.Sources[1].Code != "tls_error" || snap.SourcesStatus.Counts.Current != 1) {
+							t.Fatal(snap.SourcesStatus)
+						}
+						if want == "connected" && snap.SourcesStatus.Counts.Current != 2 {
+							t.Fatal(snap.SourcesStatus)
+						}
+						return
+					}
+					if time.Now().After(deadline) {
+						t.Fatal("source states did not settle", snap.SourcesStatus)
+					}
+					time.Sleep(5 * time.Millisecond)
+				}
+			}
+			check("retrying")
+			s.mu.Lock()
+			healthyLoop := s.loops[p.Sources[0].Source.ID]
+			s.mu.Unlock()
+			p.Sources[1].Source.CAFile = ""
+			if err := s.Reconfigure(p); err != nil {
+				t.Fatal(err)
+			}
+			check("connected")
+			p.Sources[1].Source.CAFile = ca
+			if err := s.Reconfigure(p); err != nil {
+				t.Fatal("one CA failure rejected reconfiguration", err)
+			}
+			check("retrying")
+			s.mu.Lock()
+			same := s.loops[p.Sources[0].Source.ID] == healthyLoop
+			s.mu.Unlock()
+			if !same {
+				t.Fatal("healthy source restarted")
+			}
+		})
 	}
 }

@@ -25,9 +25,6 @@ func (s *Session) Reconfigure(p Profile) error {
 	if e != nil {
 		return e
 	}
-	if e := validateLocalTLS(c); e != nil {
-		return e
-	}
 	rt := probe.NewSourceRuntime(probe.ProductionSourceAdapters())
 	if rt.Validate(c) != nil {
 		return fail("profile_unavailable")
