@@ -192,6 +192,8 @@ The mouse works too. Colors adapt to truecolor, 256-color and `NO_COLOR` termina
 
 ## Documentation
 
+The [Chinese task guide](docs/GUIDE.zh.md) covers onboarding, diagnostics, changes, alerts and recovery.
+
 | | |
 |---|---|
 | [User guide](docs/GUIDE.md) | The TUI, editing, preview mode, semantics, probes, multi-location deployment |
