@@ -37,6 +37,7 @@ func New() *App {
 const help = `Topophany — where your network stands, seen from where, and on what evidence
 
 Get started
+  topo setup                        guided website, direct resources or network setup
   topo preview                      the whole UI on synthetic evidence; x switches scenarios
   topo init --dir DIR               a local demo: a topology, credentials and a collector to run
   topo init --url URL --dir DIR     prepare real website monitoring from this machine
@@ -145,6 +146,8 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		return a.monitor(ctx, args[1:])
 	case "preferences":
 		return a.preferences(args[1:])
+	case "setup":
+		return a.startSetup(ctx, args[1:])
 	case "login":
 		return a.login(ctx, args[1:])
 	case "init":

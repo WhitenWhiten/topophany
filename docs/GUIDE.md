@@ -6,6 +6,18 @@ several locations, and how the code is laid out and verified. Start with the
 [README](../README.md) for an overview; field-level detail is in the
 [Configuration and API Reference](REFERENCE.md).
 
+## Choose a setup task
+
+Run `topo setup` to choose website monitoring, Beszel/Komari resource reads, or
+a multi-location deployment. `--task website|direct|network` skips the first
+question. Setup never starts a background service or executes probes.
+
+Direct setup discovers accessible servers, lets you select IDs, and saves a
+private profile through the same version-checked storage as Data sources in the
+menu bar. Credentials are entered without echo in a terminal; scripts use
+`--credential-file` with a private file. Existing source IDs are not overwritten.
+Network setup prepares an installation bundle from a reviewed topology.
+
 ## Monitor a website
 
 Prepare a real HTTP check from this machine without writing a topology by hand:

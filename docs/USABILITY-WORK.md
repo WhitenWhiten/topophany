@@ -7,7 +7,7 @@ code and appropriate verification, not merely a proposal.
 ## P0: connect, understand, investigate
 
 - [x] Website onboarding: generate a real HTTP check and matching local credentials with `init --url`; configuration review precedes execution.
-- [ ] Task-based onboarding entry point: direct resources, website/server, multi-location network.
+- [x] Task-based onboarding entry point: direct resources, website/server, multi-location network.
 - [ ] First-sample progress and guided handling of failed enrollment.
 - [ ] Status scope, monitoring coverage and explicit unknown reasons across viewers.
 - [ ] Related-incident grouping with independent evidence and counter-evidence preserved.
