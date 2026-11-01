@@ -1,8 +1,10 @@
 package monitor
 
 import (
-	"github.com/WhitenWhiten/topophany/internal/view"
+	"maps"
 	"slices"
+
+	"github.com/WhitenWhiten/topophany/internal/view"
 )
 
 func copyPointer[T any](p *T) *T {
@@ -42,6 +44,10 @@ func clone(p Panel) Panel {
 			r.Value = v
 		case []ServiceListEntry:
 			r.Value = slices.Clone(v)
+		case SummaryVerdict:
+			v.Coverage.Gaps = slices.Clone(v.Coverage.Gaps)
+			v.Coverage.Reasons = maps.Clone(v.Coverage.Reasons)
+			r.Value = v
 		case LinkCard:
 			r.Value = cloneLinkCard(v)
 		case []LinkSummary:

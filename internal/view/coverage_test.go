@@ -22,10 +22,36 @@ func TestCoverageSeparatesScopeAndMissingApplicationEvidence(t *testing.T) {
 			t.Fatal(gap)
 		}
 	}
+	// The counts and the per-service codes are read from the same gaps.
+	reasons, total := got.Reasons(), 0
+	for _, n := range reasons {
+		total += n
+	}
+	unknown := got.UnknownReasons()
+	if len(reasons) != 5 || total != got.Services-got.Known || len(unknown) != 5 || unknown["remote"] != "outside_view" || unknown["socket"] != "no_application_check" {
+		t.Fatal(reasons, unknown)
+	}
 	v.Cached = true
 	for _, gap := range v.Coverage().Gaps {
 		if gap.Code != "cached" {
 			t.Fatal(gap)
 		}
+	}
+}
+
+// A known service has no reason, and the counts cover only the unknown.
+func TestCoverageReasonsOmitKnownServices(t *testing.T) {
+	s := model.Snapshot{Topology: model.Config{Services: []model.Service{{ID: "known", Node: "n"}, {ID: "empty"}, {ID: "other-empty"}}, Observers: []model.Observer{{ID: "o", Node: "n"}},
+		Checks: []model.Check{{ID: "local", Service: "known", Observer: "o", Kind: "http", Target: "http://127.0.0.1/health"}}},
+		Checks: []model.CheckState{{ID: "local", Observer: "o", Health: "up", Freshness: "fresh", Last: &model.Observation{}}}}
+	got := (View{Snapshot: s}).Coverage()
+	if got.Known != 1 || got.Reasons()["unmonitored"] != 2 || len(got.Reasons()) != 1 {
+		t.Fatal(got)
+	}
+	if _, ok := got.UnknownReasons()["known"]; ok {
+		t.Fatal("a known service has a reason")
+	}
+	if len((Coverage{}).Reasons()) != 0 || len((Coverage{}).UnknownReasons()) != 0 {
+		t.Fatal("reasons without gaps")
 	}
 }

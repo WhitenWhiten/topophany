@@ -815,11 +815,14 @@ The metric catalog includes:
   `unknown` with `freshness` `stale` (`unavailable` for an implausibly future
   deadline). Identities and hints remain. Assessment changes publish
   immediately. Reported runtime and path evidence never establish
-  availability. Older binaries omit the field.
+  availability. Older binaries omit the field. An optional `unknown_reason`
+  names the [coverage gap](#service-availability-coverage) code while the
+  service's availability is unknown.
 - `services.list` (`list`): up to 256 services in the Services tab's order,
   each with `id`, `name`, `application` (its name), `health`, `note`,
-  `monitored`, `elsewhere` and `host` (`id`, `name`, `kind`, `provider`), matching its
-  `service.card`. Use its ID as that card's `select.service`. Cached entries
+  `monitored`, `elsewhere` and `host` (`id`, `name`, `kind`, `provider`), and
+  the optional `unknown_reason` gap code, matching its `service.card`. Use its
+  ID as that card's `select.service`. Cached entries
   have unknown health; the row health is the worst listed, its text, for
   example, `23 services`, and its deadline the earliest of the source envelope
   and the listed services' judgments.
@@ -1173,6 +1176,13 @@ are `unmonitored`, `suspended`, `outside_view`, `no_application_check`, `stale`,
 `summary.verdict` carries the same observer and counts without the detailed gap
 list. This additive protocol-1 field is optional for existing readers. A view's
 all-clear verdict concerns its active checks, independently of coverage.
+Its optional `reasons` object maps each gap code that occurs to the number of
+services it explains, for example `{"no_application_check":5,"unmonitored":1}`;
+the counts sum to `services - known`, and the object is omitted when every
+service is known. `service.card` and each `services.list` entry carry the same
+service's code as an optional `unknown_reason`, omitted while its availability is
+known. All three come from one coverage computation per frame, so they cannot
+disagree. The English gap sentences are not exported to streams.
 
 ### Fixed rollup windows
 

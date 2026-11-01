@@ -65,7 +65,7 @@ func safetyState(p Panel) string {
 					state = append(state, c.ID, c.Health, c.Freshness, diagnosticState(c.Diagnostic))
 				}
 			}
-			state = append(state, assessmentState(v.Assessment))
+			state = append(state, assessmentState(v.Assessment), v.UnknownReason)
 		case []CheckListEntry:
 			state = append(state, v)
 		case ServerCard:

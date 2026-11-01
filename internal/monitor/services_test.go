@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -473,5 +474,84 @@ func TestServiceAssessmentEvidenceBound(t *testing.T) {
 	a := Build(Config{Source: "client", Template: serviceTemplate("api")}, Input{Snapshot: snap}, now).Rows[1].Value.(ServiceCard).Assessment
 	if len(a.Evidence) != AssessmentEvidenceLimit || a.Evidence[0].Check != "c00" || a.ValidUntil == nil || !a.ValidUntil.Equal(now.Add(4*time.Second)) {
 		t.Fatalf("%d %v", len(a.Evidence), a.ValidUntil)
+	}
+}
+
+// Every unknown service says why in the coverage's closed words, the same
+// in the list, on its card and in the summary's counts; a known one says
+// nothing.
+func TestUnknownReasonsMatchCoverage(t *testing.T) {
+	now := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
+	codes := []string{"cached", "draft", "unmonitored", "suspended", "outside_view", "no_application_check", "stale", "no_samples", "application_unconfirmed"}
+	for _, name := range previewSim(t, "", now).ScenarioIDs() {
+		for _, observer := range []string{"", "obs-mac"} {
+			snap, err := previewSim(t, name, now).Snapshot(observer, now)
+			if err != nil {
+				continue // Collector outage has no snapshot.
+			}
+			v := view.View{Snapshot: snap, Now: now}
+			coverage := v.Coverage()
+			want := coverage.UnknownReasons()
+			ids := []string{}
+			for _, sv := range snap.Topology.Services {
+				ids = append(ids, sv.ID)
+			}
+			tpl := serviceTemplate(ids...)
+			tpl.Rows = append(tpl.Rows, Row{ID: "summary", Metric: "summary.verdict", Visual: "status"})
+			p := Build(Config{Source: "preview", Template: tpl}, Input{Snapshot: snap}, now)
+			list := p.Rows[0].Value.([]ServiceListEntry)
+			for _, entry := range list {
+				if entry.UnknownReason != want[entry.ID] {
+					t.Fatalf("%s/%s: %s says %q, coverage %q", name, observer, entry.ID, entry.UnknownReason, want[entry.ID])
+				}
+				if entry.UnknownReason != "" && !slices.Contains(codes, entry.UnknownReason) {
+					t.Fatal("not a gap code", entry.UnknownReason)
+				}
+			}
+			for i, id := range ids {
+				if card := p.Rows[i+1].Value.(ServiceCard); card.UnknownReason != want[id] {
+					t.Fatalf("%s/%s: card %s says %q, coverage %q", name, observer, id, card.UnknownReason, want[id])
+				}
+			}
+			summary := p.Rows[len(p.Rows)-1].Value.(SummaryVerdict)
+			total := 0
+			for code, n := range summary.Coverage.Reasons {
+				if n <= 0 || !slices.Contains(codes, code) {
+					t.Fatal(code, n)
+				}
+				total += n
+			}
+			if total != summary.Coverage.Services-summary.Coverage.Known || total != len(want) || summary.Coverage.Gaps != nil {
+				t.Fatalf("%s/%s: reasons %v for %d of %d known", name, observer, summary.Coverage.Reasons, summary.Coverage.Known, summary.Coverage.Services)
+			}
+			raw, err := json.Marshal(p.Rows[len(p.Rows)-1].Value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var wire struct{ Coverage map[string]any }
+			if err := json.Unmarshal(raw, &wire); err != nil {
+				t.Fatal(err)
+			}
+			if _, ok := wire.Coverage["gaps"]; ok {
+				t.Fatal("summary exports per-service gaps")
+			}
+			if _, ok := wire.Coverage["reasons"]; ok != (total > 0) {
+				t.Fatal("reasons present without an unknown service, or absent with one", wire.Coverage)
+			}
+			// A clone owns its counts.
+			p.Clone().Rows[len(p.Rows)-1].Value.(SummaryVerdict).Coverage.Reasons["edited"] = 1
+			if _, ok := summary.Coverage.Reasons["edited"]; ok {
+				t.Fatal("clone shares the summary's reasons")
+			}
+		}
+	}
+	// A known service's entry has no unknown_reason on the wire.
+	p := Build(Config{Source: "client", Template: serviceTemplate("api")}, Input{Snapshot: assessedSnapshot(time.Now().UTC())}, time.Now().UTC())
+	raw, err := json.Marshal(p.Rows[0].Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if card := p.Rows[1].Value.(ServiceCard); card.UnknownReason != "" || strings.Contains(string(raw), "unknown_reason") {
+		t.Fatal("known availability has a reason", string(raw))
 	}
 }

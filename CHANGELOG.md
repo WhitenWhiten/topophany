@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   state word (`local_fail`, `access_fail`, `path_warn` and so on), availability,
   path reachability, worker words, scoped evidence and hint codes. The whole
   assessment is withheld at its evidence's earliest deadline.
+- Stream consumers can say why availability is unknown: `service.card` and
+  `services.list` entries carry an optional `unknown_reason` coverage gap code,
+  and `summary.verdict` coverage counts services by code in `reasons`.
 
 ## [1.5.2] - 2026-11-01
 

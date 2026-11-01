@@ -17,8 +17,15 @@ type SummaryCounts struct {
 	Paused      int `json:"paused"`
 	Maintenance int `json:"maintenance"`
 }
+
+// SummaryCoverage is the view's coverage without its per-service gaps:
+// only the closed codes they use, with how many services each explains.
+type SummaryCoverage struct {
+	view.Coverage
+	Reasons map[string]int `json:"reasons,omitempty"`
+}
 type SummaryVerdict struct {
-	Coverage view.Coverage `json:"coverage"`
+	Coverage SummaryCoverage `json:"coverage"`
 	view.Verdict
 	Counts     SummaryCounts `json:"counts"`
 	Configured int           `json:"configured"`
@@ -180,9 +187,9 @@ func stamp(t time.Time) *time.Time {
 	u := t.UTC()
 	return &u
 }
-func summary(v view.View) SummaryVerdict {
+func summary(v view.View, coverage view.Coverage) SummaryVerdict {
 	out := SummaryVerdict{Verdict: v.Verdict(), Counts: SummaryCounts{Counts: v.Counts()}, Incidents: len(v.Snapshot.Incidents)}
-	out.Coverage = v.Coverage()
+	out.Coverage = SummaryCoverage{Coverage: coverage, Reasons: coverage.Reasons()}
 	out.Coverage.Gaps = nil // summary stays bounded; detailed gaps belong to status/show
 	out.Configured = out.Counts.Total()
 	out.Observers.Live, out.Observers.All = v.Live()
@@ -517,7 +524,7 @@ func (p *projection) richValue(value Value) Value {
 			value.Health = "degraded"
 		}
 	case "summary.verdict":
-		s := summary(v)
+		s := summary(v, p.coverage())
 		value.Value = s
 		value.Text = s.Text
 		value.Health = verdictHealth(s.State)

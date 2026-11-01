@@ -49,47 +49,71 @@ func (v View) coverage(assessments map[string]ServiceAssessment) Coverage {
 			out.Known++
 			continue
 		}
-		gap := CoverageGap{Service: service.ID}
-		active, inView, application, stale, sampled := 0, 0, 0, false, false
-		for _, check := range byService[service.ID] {
-			if check.Disabled || check.Maintenance {
-				continue
-			}
-			active++
-			if out.Observer != "" && check.Observer != out.Observer {
-				continue
-			}
-			inView++
-			if check.Kind != "http" {
-				continue
-			}
-			application++
-			state, ok := states[check.ID]
-			stale = stale || ok && state.Freshness == "stale"
-			sampled = sampled || ok && state.Last != nil
+		code, reason := v.coverageGap(byService[service.ID], states, out.Observer)
+		out.Gaps = append(out.Gaps, CoverageGap{Service: service.ID, Code: code, Reason: Text(v.Language, reason)})
+	}
+	return out
+}
+
+// coverageGap is the one choice of why a service's availability is
+// unknown in this view, from its configured checks: a closed code and its
+// sentence. Every consumer of a gap reads it from Coverage's Gaps.
+func (v View) coverageGap(checks []model.Check, states map[string]model.CheckState, observer string) (code, reason string) {
+	active, inView, application, stale, sampled := 0, 0, 0, false, false
+	for _, check := range checks {
+		if check.Disabled || check.Maintenance {
+			continue
 		}
-		switch {
-		case v.Cached:
-			gap.Code, gap.Reason = "cached", "Only cached evidence is available. Reconnect to obtain current samples."
-		case v.Draft:
-			gap.Code, gap.Reason = "draft", "This topology has not supplied live evidence."
-		case len(byService[service.ID]) == 0:
-			gap.Code, gap.Reason = "unmonitored", "No check is configured for this service."
-		case active == 0:
-			gap.Code, gap.Reason = "suspended", "All configured checks are paused or in maintenance."
-		case inView == 0:
-			gap.Code, gap.Reason = "outside_view", "This observer has no active check for this service."
-		case application == 0:
-			gap.Code, gap.Reason = "no_application_check", "Configured checks do not establish application availability. Add an HTTP application check."
-		case stale:
-			gap.Code, gap.Reason = "stale", "Application evidence has expired. Check the worker and its delivery."
-		case !sampled:
-			gap.Code, gap.Reason = "no_samples", "Waiting for the first application sample in this view."
-		default:
-			gap.Code, gap.Reason = "application_unconfirmed", "Current checks do not establish application availability; inspect path and monitor-side evidence."
+		active++
+		if observer != "" && check.Observer != observer {
+			continue
 		}
-		gap.Reason = Text(v.Language, gap.Reason)
-		out.Gaps = append(out.Gaps, gap)
+		inView++
+		if check.Kind != "http" {
+			continue
+		}
+		application++
+		state, ok := states[check.ID]
+		stale = stale || ok && state.Freshness == "stale"
+		sampled = sampled || ok && state.Last != nil
+	}
+	switch {
+	case v.Cached:
+		return "cached", "Only cached evidence is available. Reconnect to obtain current samples."
+	case v.Draft:
+		return "draft", "This topology has not supplied live evidence."
+	case len(checks) == 0:
+		return "unmonitored", "No check is configured for this service."
+	case active == 0:
+		return "suspended", "All configured checks are paused or in maintenance."
+	case inView == 0:
+		return "outside_view", "This observer has no active check for this service."
+	case application == 0:
+		return "no_application_check", "Configured checks do not establish application availability. Add an HTTP application check."
+	case stale:
+		return "stale", "Application evidence has expired. Check the worker and its delivery."
+	case !sampled:
+		return "no_samples", "Waiting for the first application sample in this view."
+	}
+	return "application_unconfirmed", "Current checks do not establish application availability; inspect path and monitor-side evidence."
+}
+
+// Reasons counts the services whose availability is unknown by gap code,
+// only the codes that occur. The counts sum to Services - Known.
+func (c Coverage) Reasons() map[string]int {
+	out := map[string]int{}
+	for _, gap := range c.Gaps {
+		out[gap.Code]++
+	}
+	return out
+}
+
+// UnknownReasons is each service's gap code, for the services whose
+// availability is unknown; a known service has none.
+func (c Coverage) UnknownReasons() map[string]string {
+	out := make(map[string]string, len(c.Gaps))
+	for _, gap := range c.Gaps {
+		out[gap.Service] = gap.Code
 	}
 	return out
 }

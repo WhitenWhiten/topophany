@@ -179,7 +179,7 @@ func TestSummarySubsetsAndHealthVocabulary(t *testing.T) {
 	now := time.Now().UTC()
 	s := model.Snapshot{GeneratedAt: now, Checks: []model.CheckState{{Health: "up"}, {Health: "unknown", Freshness: "paused"}, {Health: "unknown", Freshness: "maintenance"}}}
 	v := view.View{Snapshot: s, Now: now}
-	got := summary(v)
+	got := summary(v, v.Coverage())
 	if got.Configured != 3 || got.Counts.Unknown != 2 || got.Counts.Paused != 1 || got.Counts.Maintenance != 1 {
 		t.Fatal(got)
 	}

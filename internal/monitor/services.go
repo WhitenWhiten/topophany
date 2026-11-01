@@ -111,37 +111,42 @@ type AssessmentEvidence struct {
 // AssessmentEvidenceLimit bounds the evidence an assessment lists.
 const AssessmentEvidenceLimit = 16
 
+// ServiceCard is a service's card as the Services tab draws it. Its
+// UnknownReason, like a services.list entry's, is the coverage gap code
+// that says why its availability is unknown; "" while it is known.
 type ServiceCard struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Application RefValue          `json:"application"`
-	Environment string            `json:"environment"`
-	Runtime     string            `json:"runtime"`
-	Health      string            `json:"health"`
-	Note        string            `json:"note"`
-	Evidence    string            `json:"evidence"`
-	Reason      string            `json:"reason"`
-	Assessment  *AssessmentValue  `json:"assessment,omitempty"`
-	Monitored   bool              `json:"monitored"`
-	Elsewhere   bool              `json:"elsewhere"`
-	Host        ServiceHostValue  `json:"host"`
-	SeenFrom    []SeenFromValue   `json:"seen_from"`
-	Endpoints   []EndpointValue   `json:"endpoints"`
-	Answered    *AnsweredValue    `json:"answered_from"`
-	DependsOn   []DependencyValue `json:"depends_on"`
-	UsedBy      []DependencyValue `json:"used_by"`
-	Runbook     string            `json:"runbook"`
-	Memo        string            `json:"memo"`
+	ID            string            `json:"id"`
+	Name          string            `json:"name"`
+	Application   RefValue          `json:"application"`
+	Environment   string            `json:"environment"`
+	Runtime       string            `json:"runtime"`
+	Health        string            `json:"health"`
+	Note          string            `json:"note"`
+	Evidence      string            `json:"evidence"`
+	Reason        string            `json:"reason"`
+	Assessment    *AssessmentValue  `json:"assessment,omitempty"`
+	UnknownReason string            `json:"unknown_reason,omitempty"`
+	Monitored     bool              `json:"monitored"`
+	Elsewhere     bool              `json:"elsewhere"`
+	Host          ServiceHostValue  `json:"host"`
+	SeenFrom      []SeenFromValue   `json:"seen_from"`
+	Endpoints     []EndpointValue   `json:"endpoints"`
+	Answered      *AnsweredValue    `json:"answered_from"`
+	DependsOn     []DependencyValue `json:"depends_on"`
+	UsedBy        []DependencyValue `json:"used_by"`
+	Runbook       string            `json:"runbook"`
+	Memo          string            `json:"memo"`
 }
 type ServiceListEntry struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Application string    `json:"application"`
-	Health      string    `json:"health"`
-	Note        string    `json:"note"`
-	Monitored   bool      `json:"monitored"`
-	Elsewhere   bool      `json:"elsewhere"`
-	Host        HostValue `json:"host"`
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	Application   string    `json:"application"`
+	Health        string    `json:"health"`
+	Note          string    `json:"note"`
+	UnknownReason string    `json:"unknown_reason,omitempty"`
+	Monitored     bool      `json:"monitored"`
+	Elsewhere     bool      `json:"elsewhere"`
+	Host          HostValue `json:"host"`
 }
 
 func hostValue(h view.ServiceHost) HostValue {
@@ -195,7 +200,7 @@ func (p *projection) service(id string) (ServiceCard, time.Time, time.Time, bool
 	if a := c.Answered; a != nil {
 		out.Answered = &AnsweredValue{Pops: a.Pops, Cache: a.Cache}
 	}
-	out.Assessment = p.assessment(c.Assessment)
+	out.Assessment, out.UnknownReason = p.assessment(c.Assessment), p.unknownReason(id)
 	ageServiceCard(&out, p.v.Now)
 	return out, sampled, until, true
 }
@@ -262,7 +267,7 @@ func (p *projection) serviceList() ([]ServiceListEntry, time.Time, time.Time) {
 		if !ok {
 			continue
 		}
-		out = append(out, ServiceListEntry{ID: c.ID, Name: c.Name, Application: c.Application.Name, Health: c.Health, Note: c.Note, Monitored: c.Monitored, Elsewhere: c.Elsewhere, Host: hostValue(c.Host)})
+		out = append(out, ServiceListEntry{ID: c.ID, Name: c.Name, Application: c.Application.Name, Health: c.Health, Note: c.Note, UnknownReason: p.unknownReason(c.ID), Monitored: c.Monitored, Elsewhere: c.Elsewhere, Host: hostValue(c.Host)})
 		p.serviceEvidence(c.ID, ids, seen)
 		if len(out) == 256 {
 			break

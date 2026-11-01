@@ -27,6 +27,25 @@ type projection struct {
 	currentClocks, completeClocks  *evidenceIndex
 	aged                           *model.Snapshot
 	samples                        map[string][]model.Observation
+	coverageValue                  *view.Coverage
+	unknownReasons                 map[string]string
+}
+
+// coverage is the view's coverage, computed once per frame: the summary's
+// reasons and every service's unknown_reason are read from the same gaps.
+func (p *projection) coverage() view.Coverage {
+	if p.coverageValue == nil {
+		c := p.v.Coverage()
+		p.coverageValue, p.unknownReasons = &c, c.UnknownReasons()
+	}
+	return *p.coverageValue
+}
+
+// unknownReason is why the service's availability is unknown, a gap code;
+// "" when it is known.
+func (p *projection) unknownReason(id string) string {
+	p.coverage()
+	return p.unknownReasons[id]
 }
 
 func (p *projection) scalarSnapshot() model.Snapshot {
