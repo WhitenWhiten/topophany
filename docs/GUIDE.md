@@ -645,3 +645,25 @@ Each series retains measured coverage, inconclusive/unmeasured time, original
 contract and retention resolution. Buckets are aggregate estimates, and missing
 history is never filled with healthy time. Comparisons use current contracts;
 a changed measurement begins a separate series and may have no older evidence.
+
+### Save a working view
+
+```sh
+topo views save home-services --page services --observer home --service-cards --filter web
+topo views save incidents --page incidents --related-incidents
+topo views list
+topo views open home-services
+topo views open incidents --preview
+topo views open home-services -- --profile production
+topo views remove home-services
+```
+
+Named views retain presentation, observer and filter settings independently of
+credentials and topology. Arguments after `--` when opening override the saved
+launch flags. The registry is private, capped at 64 views and detects concurrent
+edits. `--views-file` selects a separate registry; otherwise it lives beside the
+preferences file. A saved observer must exist in the chosen project. Direct mode
+uses its own supported observer scope, so save direct views without a collector
+observer. Maps retain their existing selected-item route highlighting.
+
+`--filter TEXT` and `--related-incidents` are also single-launch TUI flags.

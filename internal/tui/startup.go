@@ -10,11 +10,13 @@ import (
 // Startup carries the resolved defaults and the location to save explicitly.
 // Notice, when set, says why the saved defaults were not used.
 type Startup struct {
-	Settings  preferences.Settings
-	Path      string
-	Overrides []string
-	Notice    string
-	Device    string // a device to lay the TUI out for and simulate (Devices), "" for none
+	Search           string
+	RelatedIncidents bool
+	Settings         preferences.Settings
+	Path             string
+	Overrides        []string
+	Notice           string
+	Device           string // a device to lay the TUI out for and simulate (Devices), "" for none
 }
 
 func (m *Model) initializeStartup(options []Startup) {
@@ -28,6 +30,8 @@ func (m *Model) initializeStartup(options []Startup) {
 	m.PreferencesPath = s.Path
 	m.PreferenceOverrides = s.Overrides
 	m.applyPreferences(s.Settings)
+	m.Search = s.Search
+	m.RelatedIncidents = s.RelatedIncidents
 	for i, field := range preferenceForm(s.Settings).fields {
 		m.preferenceInitial[i] = field.value
 	}

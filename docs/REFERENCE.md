@@ -1241,3 +1241,7 @@ independent collectors can judge different evidence, so exactly-once delivery is
 not promised. Upgrade collectors before adding new policy fields. The canonical
 queue schema remains unchanged; older binaries require removing unsupported
 policy fields when rolling back.
+
+`topo monitor stream --capabilities` now advertises `investigation: true` when
+`doctor`, `compare` and the TUI's `--related-incidents` entry point are available.
+Consumers must treat a missing flag as false before offering those shortcuts.

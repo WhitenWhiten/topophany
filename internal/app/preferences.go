@@ -6,17 +6,22 @@ import (
 	"fmt"
 
 	"github.com/WhitenWhiten/topophany/internal/preferences"
+	"github.com/WhitenWhiten/topophany/internal/secure"
 	"github.com/WhitenWhiten/topophany/internal/tui"
 )
 
 type preferenceFlags struct {
-	path   *string
-	values preferences.Settings
-	flags  *flag.FlagSet
+	path    *string
+	search  *string
+	related *bool
+	values  preferences.Settings
+	flags   *flag.FlagSet
 }
 
 func addPreferenceFlags(f *flag.FlagSet) *preferenceFlags {
 	p := &preferenceFlags{flags: f, values: preferences.Defaults()}
+	p.search = f.String("filter", "", "initial text filter")
+	p.related = f.Bool("related-incidents", false, "group the Incidents tab by declared target")
 	p.path = f.String("preferences", "", "local startup preferences file (default OS config directory/topophany/preferences.json)")
 	f.StringVar(&p.values.Page, "page", "overview", "initial page: overview, topology, servers, services, paths, checks, incidents, observers, about")
 	f.BoolVar(&p.values.GroupsCollapsed, "groups-collapsed", false, "start with groups collapsed (default expanded)")
@@ -42,6 +47,9 @@ func (p *preferenceFlags) resolve() (tui.Startup, error) { return p.resolveWith(
 func (p *preferenceFlags) startup() (tui.Startup, error) { return p.resolveWith(true) }
 
 func (p *preferenceFlags) resolveWith(lenient bool) (tui.Startup, error) {
+	if len(*p.search) > 256 || secure.Text(*p.search) != *p.search {
+		return tui.Startup{}, errors.New("filter must be at most 256 bytes of printable text")
+	}
 	path, err := p.pathName()
 	if err != nil && !lenient {
 		return tui.Startup{}, err
@@ -77,7 +85,7 @@ func (p *preferenceFlags) resolveWith(lenient bool) (tui.Startup, error) {
 		}
 		overrides = append(overrides, f.Name)
 	})
-	return tui.Startup{Settings: s, Path: path, Overrides: overrides, Notice: notice}, s.Validate()
+	return tui.Startup{Search: *p.search, RelatedIncidents: *p.related, Settings: s, Path: path, Overrides: overrides, Notice: notice}, s.Validate()
 }
 func (a *App) preferences(args []string) error {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {

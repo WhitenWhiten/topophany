@@ -27,7 +27,8 @@ code and appropriate verification, not merely a proposal.
 - [ ] Comparison navigation from graphical history views.
 - [x] Alerts: explicit notification test and delivery/queue/drop visibility.
 - [x] Alerts: timed silence, maintenance windows, service routing and explicit dual-collector notification policy.
-- [ ] Saved TUI views, contextual actions and issue-focused maps.
+- [x] Saved TUI views with perspective/filter/map choices; existing selection-focused map highlighting retained.
+- [ ] Contextual investigation/history shortcuts across clients.
 - [ ] Browser connection recovery and actionable configuration help.
 - [ ] Menu bar: in-app demo, collector enrollment and signed distribution.
 - [ ] Consistent structured CLI errors, field paths and change-impact output.

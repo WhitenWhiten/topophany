@@ -86,6 +86,7 @@ Settings
   topo monitor                      configure and run persistent display panels
   topo monitor stream               stream requested panels as NDJSON; --capabilities lists support
   topo monitor stream --profiles     list saved client profiles
+  topo views list|save|open|remove  named local views with perspective and filters
   topo preferences show|set|reset   the TUI's saved startup defaults
   topo version                      print the version
 
@@ -153,6 +154,8 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		return a.monitor(ctx, args[1:])
 	case "preferences":
 		return a.preferences(args[1:])
+	case "views":
+		return a.views(ctx, args[1:])
 	case "alerts":
 		return a.alerts(ctx, args[1:])
 	case "compare":
