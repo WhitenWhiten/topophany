@@ -37,6 +37,7 @@ func New() *App {
 const help = `Topophany — where your network stands, seen from where, and on what evidence
 
 Get started
+  topo doctor --wait 90s            diagnose enrollment and wait for the first sample
   topo setup                        guided website, direct resources or network setup
   topo preview                      the whole UI on synthetic evidence; x switches scenarios
   topo init --dir DIR               a local demo: a topology, credentials and a collector to run
@@ -146,6 +147,8 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		return a.monitor(ctx, args[1:])
 	case "preferences":
 		return a.preferences(args[1:])
+	case "doctor":
+		return a.doctor(ctx, args[1:])
 	case "setup":
 		return a.startSetup(ctx, args[1:])
 	case "login":
@@ -306,7 +309,7 @@ func (a *App) init(args []string) error {
 		}
 	}
 	if *target != "" {
-		fmt.Fprintf(a.Out, "Website monitoring prepared at %s. No requests have been sent.\nReview topology.json, then start the collector:\n  topo serve --config %q --auth %q --data %q --observer demo\nIn another terminal:\n  topo --credentials %q\nExpected response: HTTP 200. Edit the assertion for your application. This measures access from this machine, not origin health.\n", *dir, filepath.Join(*dir, "topology.json"), filepath.Join(*dir, "auth.json"), filepath.Join(*dir, "data"), filepath.Join(*dir, "credentials.json"))
+		fmt.Fprintf(a.Out, "Website monitoring prepared at %s. No requests have been sent.\nReview topology.json, then start the collector:\n  topo serve --config %q --auth %q --data %q --observer demo\nIn another terminal:\n  topo --credentials %q\nWait for initial evidence with: topo doctor --credentials %q --wait 90s\nExpected response: HTTP 200. Edit the assertion for your application. This measures access from this machine, not origin health.\n", *dir, filepath.Join(*dir, "topology.json"), filepath.Join(*dir, "auth.json"), filepath.Join(*dir, "data"), filepath.Join(*dir, "credentials.json"), filepath.Join(*dir, "credentials.json"))
 		return nil
 	}
 	fmt.Fprintf(a.Out, "Demo created at %s (only loopback probes; fresh private credentials).\n\nCollector:\n  topo serve --config %s --auth %s --data %s --observer demo\n\nIn another terminal:\n  topo --credentials %s\n\nDo not run a second executor with observer=demo concurrently.\n", *dir, filepath.Join(*dir, "topology.json"), filepath.Join(*dir, "auth.json"), filepath.Join(*dir, "data"), filepath.Join(*dir, "credentials.json"))

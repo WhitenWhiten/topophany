@@ -39,6 +39,26 @@ setup. The collector listens on loopback; use the deployment guide before
 exposing it remotely. The result establishes remote access from this machine,
 not independent origin health or availability from other locations.
 
+## Verify enrollment and wait for evidence
+
+After starting a collector and its observer, run:
+
+```sh
+topo doctor --credentials ./website/credentials.json --wait 90s
+topo doctor --credentials ./website/credentials.json --json
+```
+
+The doctor uses authenticated viewer reads, reports progress on stderr and
+waits for the first current sample. A failed target sample still proves that
+the monitoring pipeline delivered evidence; inspect `topo status` for health.
+Exit codes are 0 for received samples, 1 for configuration/authentication errors,
+3 for no samples before the deadline, and 4 for an unreachable collector.
+The JSON report contains bounded transport metadata and suggested next actions;
+it omits tokens, URLs, topology text and raw errors. It is suitable for attaching
+to a bug report. `--wait` is bounded to five minutes; no service is started.
+For direct resources, `topo status --source direct --profile NAME --wait 30s`
+uses the existing first-read deadline and reports each source's acquisition state.
+
 ## The Local Demo
 
 `topo init --dir ./demo` writes a demo topology, collector auth and client credentials; `topo serve` then listens on `127.0.0.1:7447` (the default listener). The demo configuration probes only this loopback API without reaching external targets; the registered workstation and notes-only service deliberately remain unmonitored (`unknown`), never feigning completion. The `init` command generates high-entropy random credentials on each invocation and refuses to overwrite existing directories.

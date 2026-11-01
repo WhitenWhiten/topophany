@@ -214,5 +214,8 @@ func (a *App) setupDirect(ctx context.Context, root, secretFile string, ask func
 		return err
 	}
 	fmt.Fprintf(a.Out, "Saved profile %s. Open: topo --source direct --profile %s\nResource reads do not establish server availability; direct mode has no stored history.\n", saved.Profile, saved.Profile)
+	if root != "" {
+		fmt.Fprintf(a.Out, "Use the same private configuration root: --direct-root %q\n", root)
+	}
 	return nil
 }
