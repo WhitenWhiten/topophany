@@ -38,11 +38,12 @@ code and appropriate verification, not merely a proposal.
 
 ## P2 and ongoing verification
 
-- [ ] Certificate-expiry warning, sustained-latency policy and JSON-field assertions.
-- [ ] Reviewed import candidates from SSH, Compose and Tailscale, with provenance.
-- [ ] Large-topology, long-running, sleep/wake and hidden-window resource measurements.
+- [x] Certificate-expiry warning, sustained-latency policy and private bounded JSON-field assertions.
+- [x] Reviewed offline import candidates from SSH, rendered Compose JSON and Tailscale peer inventory, with provenance and paused checks.
+- [x] Large-topology benchmarks, bounded collector/checkpoint soak and recovery, controlled eight-hour wake-gap tests, and real hidden-window resource measurements. See [verification evidence and limits](USABILITY-VERIFICATION.md).
 
-Signing/publication may need the owner's signing assets and release destination.
+The signed/notarized local distribution artifact is complete. Public publication
+was not requested and has not been performed.
 Live hardware acceptance requires actual hardware evidence; synthetic tests do
 not complete it. Keep collector viewer APIs read-only and preserve original
 sample timestamps throughout these changes.
