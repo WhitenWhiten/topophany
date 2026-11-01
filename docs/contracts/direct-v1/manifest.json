@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "fixtures/capabilities.json",
-      "sha256": "09a881c0338adbf27fdff44a1f96b331762e0e78a3d1375f902e52ede1532dda"
+      "sha256": "36aed7f97b7f2eedf76a93aed728067e433a51551b052fd27f27454ff78fb234"
     },
     {
       "path": "fixtures/request-direct.json",

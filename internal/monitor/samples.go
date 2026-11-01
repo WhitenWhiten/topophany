@@ -29,6 +29,7 @@ const HistoryReads = 4
 type SampleBook struct {
 	mu       sync.Mutex
 	services []string
+	selected []string
 	source   string
 	checks   map[string]*sampleTrail
 }
@@ -47,8 +48,11 @@ func NewSampleBook(t Template) *SampleBook {
 		if r.Metric == "service.card" && !slices.Contains(b.services, r.Select.Service) {
 			b.services = append(b.services, r.Select.Service)
 		}
+		if r.Metric == "check.card" && !slices.Contains(b.selected, r.Select.Check) {
+			b.selected = append(b.selected, r.Select.Check)
+		}
 	}
-	if len(b.services) == 0 {
+	if len(b.services) == 0 && len(b.selected) == 0 {
 		return nil
 	}
 	return b
@@ -144,6 +148,14 @@ func (b *SampleBook) from(source string) {
 // checksOf are the checks of the cards' services in s.
 func (b *SampleBook) checksOf(s model.Snapshot) []string {
 	out := []string{}
+	for _, id := range b.selected {
+		for _, c := range s.Checks {
+			if c.ID == id {
+				out = append(out, id)
+				break
+			}
+		}
+	}
 	for _, id := range b.services {
 		for _, sv := range s.Services {
 			if sv.ID == id {

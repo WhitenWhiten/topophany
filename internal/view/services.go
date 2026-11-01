@@ -186,7 +186,7 @@ func (f *Fleet) ServiceCard(id string) (ServiceCard, bool) {
 			by[x.Observer] = s
 			order = append(order, x.Observer)
 		}
-		s.Checks = append(s.Checks, f.seenCheck(x))
+		s.Checks = append(s.Checks, f.Check(x))
 	}
 	for _, id := range order {
 		s := by[id]
@@ -254,8 +254,8 @@ func (f *Fleet) ServiceCard(id string) (ServiceCard, bool) {
 	return c, true
 }
 
-// seenCheck is a check as a service's card shows it.
-func (f *Fleet) seenCheck(x model.Check) SeenCheck {
+// Check is a configured check as a service or standalone card shows it.
+func (f *Fleet) Check(x model.Check) SeenCheck {
 	cs := f.checkStates[x.ID]
 	out := SeenCheck{ID: x.ID, Name: named(x.Name, x.ID), Kind: x.Kind, Endpoint: x.Endpoint, Health: cs.Health, Freshness: cs.Freshness, Interval: x.IntervalSeconds, Check: x}
 	if out.Health == "" {

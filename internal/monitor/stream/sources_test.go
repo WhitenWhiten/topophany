@@ -177,6 +177,7 @@ func TestSourcesReadServiceCardHistoryOnce(t *testing.T) {
 	r = request()
 	r.Source, r.Lang, r.Credentials = "client", "", path
 	r.Template.Rows = append(r.Template.Rows, monitor.Row{ID: "web", Metric: "service.card", Visual: "card", Select: monitor.Selector{Service: "web"}})
+	r.Template.Rows = append(r.Template.Rows, monitor.Row{ID: "check", Metric: "check.card", Visual: "card", Select: monitor.Selector{Check: "home-http"}})
 	source, e = OpenSource(context.Background(), r)
 	if e != nil {
 		t.Fatal(e)

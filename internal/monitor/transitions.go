@@ -48,6 +48,16 @@ func safetyState(p Panel) string {
 			for _, app := range v {
 				state = append(state, []any{app.ID, app.Environment, app.Health, app.Counts, services(app.Services)})
 			}
+		case CheckCard:
+			state = append(state, v.Health, v.Freshness, diagnosticState(v.Diagnostic))
+		case ServiceCard:
+			for _, o := range v.SeenFrom {
+				for _, c := range o.Checks {
+					state = append(state, c.ID, c.Health, c.Freshness, diagnosticState(c.Diagnostic))
+				}
+			}
+		case []CheckListEntry:
+			state = append(state, v)
 		case ServerCard:
 			state = append(state, v.Health, v.Note, services(v.Services), observers(v.Observes))
 			for _, resource := range v.Resources {

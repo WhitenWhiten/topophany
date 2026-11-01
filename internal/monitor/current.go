@@ -37,6 +37,17 @@ func Current(p Panel, now time.Time) Panel {
 			}
 			ageCard(&card, now)
 			p.Rows[i].Value = card
+		} else if r.Metric == "check.card" && r.Value != nil {
+			card, ok := r.Value.(CheckCard)
+			if !ok {
+				raw, err := json.Marshal(r.Value)
+				if err != nil || json.Unmarshal(raw, &card) != nil {
+					p.Rows[i] = missing(r, "invalid_value")
+					continue
+				}
+			}
+			ageSeenCheck(&card.SeenCheckValue, now)
+			p.Rows[i].Value = card
 		} else if r.Metric == "service.card" && r.Value != nil {
 			card, ok := r.Value.(ServiceCard)
 			if !ok {
@@ -59,16 +70,7 @@ func ageServiceCard(card *ServiceCard, now time.Time) {
 	for i := range card.SeenFrom {
 		for k := range card.SeenFrom[i].Checks {
 			x := &card.SeenFrom[i].Checks[k]
-			skew := x.SampledAt != nil && x.SampledAt.After(now.Add(5*time.Minute)) || x.ValidUntil != nil && x.ValidUntil.After(now.Add(5*time.Minute))
-			if x.ValidUntil != nil && now.Before(*x.ValidUntil) && !skew {
-				continue
-			}
-			x.Health, x.Latency, x.Up24h, x.Colo, x.Samples.Slots = "unknown", nil, nil, nil, nil
-			if skew {
-				x.Freshness = "unavailable"
-			} else {
-				x.Freshness = "stale"
-			}
+			ageSeenCheck(x, now)
 		}
 	}
 }
@@ -108,4 +110,18 @@ func ageCard(card *ServerCard, now time.Time) {
 		o.Counts.Unknown = o.Counts.Total()
 		o.Counts.Up, o.Counts.Warn, o.Counts.Down = 0, 0, 0
 	}
+}
+
+func ageSeenCheck(x *SeenCheckValue, now time.Time) {
+	skew := x.SampledAt != nil && x.SampledAt.After(now.Add(5*time.Minute)) || x.ValidUntil != nil && x.ValidUntil.After(now.Add(5*time.Minute))
+	if x.ValidUntil != nil && now.Before(*x.ValidUntil) && !skew {
+		return
+	}
+	x.Health, x.Latency, x.Up24h, x.Colo, x.Samples.Slots = "unknown", nil, nil, nil, nil
+	if skew {
+		x.Freshness = "unavailable"
+	} else {
+		x.Freshness = "stale"
+	}
+	x.Diagnostic = nil
 }

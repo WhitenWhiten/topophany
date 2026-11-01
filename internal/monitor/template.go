@@ -56,6 +56,8 @@ func Catalog() []Metric {
 		{Name: "server.card", Type: "object", Sources: []string{"client", "collector"}, Selector: "node", Visual: "card"},
 		{Name: "servers.list", Type: "array", Sources: []string{"client", "collector"}, Visual: "list"},
 		{Name: "service.card", Type: "object", Sources: []string{"client", "collector"}, Selector: "service", Visual: "card"},
+		{Name: "check.card", Type: "object", Sources: []string{"client", "collector"}, Selector: "check", Visual: "card"},
+		{Name: "checks.list", Type: "array", Sources: []string{"client", "collector"}, Visual: "list"},
 		{Name: "services.list", Type: "array", Sources: []string{"client", "collector"}, Visual: "list"},
 		{Name: "summary.status", Type: "text", Sources: []string{"client", "collector"}},
 		{Name: "local.status", Type: "text", Sources: []string{"worker"}},
@@ -138,6 +140,9 @@ func (t Template) Validate(source string) error {
 		}
 		if r.Format != "" && r.Format != m.Unit {
 			return fmt.Errorf("row %s: incompatible format", r.ID)
+		}
+		if r.Metric == "check.card" && !config.ID(r.Select.Check) {
+			return fmt.Errorf("row %s: check.card requires a check selector", r.ID)
 		}
 		if r.Select.Check != "" && (!config.ID(r.Select.Check) || m.Selector != "check") {
 			return fmt.Errorf("row %s: invalid check selector", r.ID)

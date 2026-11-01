@@ -41,6 +41,11 @@ func clone(p Panel) Panel {
 			r.Value = v
 		case []ServiceListEntry:
 			r.Value = slices.Clone(v)
+		case CheckCard:
+			v.SeenCheckValue = cloneSeenCheck(v.SeenCheckValue)
+			r.Value = v
+		case []CheckListEntry:
+			r.Value = slices.Clone(v)
 		case ServiceCard:
 			r.Value = cloneServiceCard(v)
 		case []ObserverVerdict:
@@ -98,16 +103,7 @@ func cloneServiceCard(v ServiceCard) ServiceCard {
 	for i := range v.SeenFrom {
 		checks := slices.Clone(v.SeenFrom[i].Checks)
 		for k := range checks {
-			x := &checks[k]
-			x.SampledAt = copyPointer(x.SampledAt)
-			x.ValidUntil = copyPointer(x.ValidUntil)
-			x.Latency = copyPointer(x.Latency)
-			x.Up24h = copyPointer(x.Up24h)
-			x.Colo = copyPointer(x.Colo)
-			x.Samples.Slots = slices.Clone(x.Samples.Slots)
-			for s := range x.Samples.Slots {
-				x.Samples.Slots[s].ElapsedMS = copyPointer(x.Samples.Slots[s].ElapsedMS)
-			}
+			checks[k] = cloneSeenCheck(checks[k])
 		}
 		v.SeenFrom[i].Checks = checks
 	}
@@ -123,4 +119,18 @@ func cloneServiceCard(v ServiceCard) ServiceCard {
 	v.DependsOn = slices.Clone(v.DependsOn)
 	v.UsedBy = slices.Clone(v.UsedBy)
 	return v
+}
+
+func cloneSeenCheck(x SeenCheckValue) SeenCheckValue {
+	x.Diagnostic = cloneDiagnostic(x.Diagnostic)
+	x.SampledAt = copyPointer(x.SampledAt)
+	x.ValidUntil = copyPointer(x.ValidUntil)
+	x.Latency = copyPointer(x.Latency)
+	x.Up24h = copyPointer(x.Up24h)
+	x.Colo = copyPointer(x.Colo)
+	x.Samples.Slots = slices.Clone(x.Samples.Slots)
+	for i := range x.Samples.Slots {
+		x.Samples.Slots[i].ElapsedMS = copyPointer(x.Samples.Slots[i].ElapsedMS)
+	}
+	return x
 }

@@ -555,6 +555,35 @@ history, not a claim about the connection now. Consumers should show connection
 diagnostics separately from the monitored services' health, and treat absence of
 the capability/field as unsupported, not as an error.
 
+The metric catalog also advertises `check.card` and `checks.list` for client,
+preview and collector sources. `check.card` requires `select: {"check":"ID"}`;
+it contains the service card's check fields plus `observer` (ID/name), `service`,
+`link`, `path` and the collector's `reason`. `checks.list` lists up to 256 checks
+in topology order, restricted to the current observer's snapshot, with ID/name,
+kind, observer ID, service/link IDs, health and freshness. Both use the original
+evidence deadlines; a standalone card cannot borrow a different observer's data.
+Standalone check histories share the bounded, deduplicated service history book.
+
+Service-card checks and standalone check cards now include an optional
+`diagnostic` while their observation is fresh: `outcome`, `evidence`,
+`path_evidence`, `stage`, `code`, `policy_confirmed`, `facts` and `expected`.
+These are evidence, not another health calculation. An `error` outcome is a
+monitor failure; a policy sample need not be confirmed. Reported runtime paths
+are not proof of application traffic routing. Diagnostics disappear at the
+check's own deadline, including inside a still-current service card.
+
+Facts are an explicit display allowlist: edge response metadata; Mihomo mode,
+TUN, reported chain/selection, provider comparison/publication/loading state and
+declared-provider readings; cloudflared readiness/connections/colos/counters;
+Cloudflare tunnel, DNS comparison and pool/origin health. Existing probe
+redaction remains in force. No raw responses, controller test URLs, connector
+UUIDs, undeclared fact keys or full adapter configuration are added. Expectations
+include only mode, TUN, connection count, colos and DNS proxied policy, not DNS
+record contents or credentials. Missing facts mean unavailable, not zero. Facts
+remain bounded to 32 keys of at most 128 bytes and values of at most 2048 bytes;
+the normal row/frame budgets still apply. Diagnostic state transitions bypass
+display cadence, whereas changes to telemetry facts follow normal cadence.
+
 `topo monitor stream --profiles` lists saved client profiles in one JSON line,
 then exits 0:
 

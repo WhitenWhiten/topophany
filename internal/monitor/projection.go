@@ -12,6 +12,8 @@ import (
 // only checks would leave entity and incident judgments backed by expired data.
 type projection struct {
 	v, all                         view.View
+	checkStates                    map[string]model.CheckState
+	checkDefs                      map[string]model.Check
 	fleet                          *view.Fleet
 	nodeChecks                     map[string][]string
 	serviceChecks                  map[string][]string

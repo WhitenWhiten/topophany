@@ -38,19 +38,20 @@ type SamplesValue struct {
 	Slots    []SlotValue `json:"slots"`
 }
 type SeenCheckValue struct {
-	ID         string        `json:"id"`
-	Name       string        `json:"name"`
-	Kind       string        `json:"kind"`
-	Endpoint   string        `json:"endpoint"`
-	Health     string        `json:"health"`
-	Freshness  string        `json:"freshness"`
-	SampledAt  *time.Time    `json:"sampled_at"`
-	ValidUntil *time.Time    `json:"valid_until"`
-	Latency    *LatencyValue `json:"latency"`
-	Up24h      *float64      `json:"up_24h"`
-	FirstByte  string        `json:"first_byte"`
-	Colo       *string       `json:"colo"`
-	Samples    SamplesValue  `json:"samples"`
+	Diagnostic *CheckDiagnostic `json:"diagnostic,omitempty"`
+	ID         string           `json:"id"`
+	Name       string           `json:"name"`
+	Kind       string           `json:"kind"`
+	Endpoint   string           `json:"endpoint"`
+	Health     string           `json:"health"`
+	Freshness  string           `json:"freshness"`
+	SampledAt  *time.Time       `json:"sampled_at"`
+	ValidUntil *time.Time       `json:"valid_until"`
+	Latency    *LatencyValue    `json:"latency"`
+	Up24h      *float64         `json:"up_24h"`
+	FirstByte  string           `json:"first_byte"`
+	Colo       *string          `json:"colo"`
+	Samples    SamplesValue     `json:"samples"`
 }
 type SeenFromValue struct {
 	Observer RefValue         `json:"observer"`
@@ -181,6 +182,7 @@ func (p *projection) seenCheck(x view.SeenCheck, samples []model.Observation) Se
 	if l := x.Latency; l != nil {
 		out.Latency = &LatencyValue{P50: l.P50, P95: l.P95}
 	}
+	out.Diagnostic = p.checkDiagnostic(x.ID)
 	colo := x.Colo
 	out.Colo = &colo
 	strip := view.NewStrip(x.Check, samples, p.v.Now, CardSamples)

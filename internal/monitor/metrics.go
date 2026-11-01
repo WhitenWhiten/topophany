@@ -558,6 +558,32 @@ func (p *projection) richValue(value Value) Value {
 		value.Health = card.Health
 		value.SampledAt = sampled
 		value.ValidUntil = until
+	case "check.card":
+		card, ok := p.check(value.Select.Check)
+		if !ok {
+			return missing(value, "entity_missing")
+		}
+		value.Value, value.Text, value.Health = card, card.Name, card.Health
+		clock := p.evidence().checks[card.ID]
+		value.SampledAt, value.ValidUntil = clock.sampled, clock.until
+	case "checks.list":
+		p.indexChecks()
+		list := []CheckListEntry{}
+		ids := map[string]bool{}
+		for _, def := range p.v.Snapshot.Topology.Checks {
+			cs, ok := p.checkStates[def.ID]
+			if !ok {
+				continue
+			}
+			list = append(list, CheckListEntry{ID: def.ID, Name: named(def.ID, def.Name), Kind: def.Kind, Observer: def.Observer, Service: def.Service, Link: def.Link, Health: cs.Health, Freshness: cs.Freshness})
+			ids[def.ID] = true
+			value.Health = worse(value.Health, cs.Health)
+			if len(list) == 256 {
+				break
+			}
+		}
+		value.Value, value.Text = list, fmt.Sprintf("%d checks", len(list))
+		value.SampledAt, value.ValidUntil = p.evidence().times(ids, false)
 	case "service.card":
 		card, sampled, until, ok := p.service(value.Select.Service)
 		if !ok {
