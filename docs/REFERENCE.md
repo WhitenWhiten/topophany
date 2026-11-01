@@ -597,6 +597,17 @@ Its nested check still expires independently and loses its health/diagnostics.
 API-only runtime evidence does not prove end-to-end availability. Link, service
 and standalone check cards deduplicate history reads in the same source book.
 
+Capabilities `card_history: true` advertises the optional row-level `history`
+boolean on `service.card`, `check.card` and `link.card`. Omitted/true preserves
+existing behavior. False returns current state, diagnostics and snapshot rollups
+without recent sample slots. Only checks needed by a history-enabled card are
+read from `/v1/history`; a fully compact template makes no history requests and
+holds no sample book. Compact and detailed rows for the same entity remain
+independent, while detailed rows share history reads. Consumers may request a
+compact template for the initial panel and a detailed template when needed.
+Changing this option is a normal template replacement, not a retry hint. Check
+the capability before relying on the option: older binaries may ignore it.
+
 `topo monitor stream --profiles` lists saved client profiles in one JSON line,
 then exits 0:
 

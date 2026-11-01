@@ -81,6 +81,7 @@ func Build(c Config, in Input, now time.Time) Panel {
 	}
 	projection := newProjection(in, now)
 	type richKey struct {
+		history  bool
 		metric   string
 		selectBy Selector
 		limit    int
@@ -91,7 +92,7 @@ func Build(c Config, in Input, now time.Time) Panel {
 		m, _ := metric(r.Metric)
 		var value Value
 		if m.Visual == "status" || m.Visual == "list" || m.Visual == "card" {
-			key := richKey{metric: r.Metric, selectBy: r.Select}
+			key := richKey{metric: r.Metric, selectBy: r.Select, history: r.History == nil || *r.History}
 			if r.Limit != nil {
 				key.limit = *r.Limit
 			}

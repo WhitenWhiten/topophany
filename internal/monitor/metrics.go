@@ -648,5 +648,8 @@ func (p *projection) richValue(value Value) Value {
 			value.Health = worse(value.Health, server.Health)
 		}
 	}
+	if value.History != nil && !*value.History {
+		value.Value = withoutHistory(value.Value)
+	}
 	return value
 }

@@ -23,6 +23,29 @@ const CardSamples = 40
 // deadline.
 const HistoryReads = 4
 
+// Projections own these card slices. Suppress samples for a compact row even
+// when another row requested history for the same check in the shared book.
+func withoutHistory(value any) any {
+	switch c := value.(type) {
+	case CheckCard:
+		c.Samples.Slots = nil
+		return c
+	case ServiceCard:
+		for i := range c.SeenFrom {
+			for j := range c.SeenFrom[i].Checks {
+				c.SeenFrom[i].Checks[j].Samples.Slots = nil
+			}
+		}
+		return c
+	case LinkCard:
+		for i := range c.Checks {
+			c.Checks[i].Samples.Slots = nil
+		}
+		return c
+	}
+	return value
+}
+
 // SampleBook keeps the recent samples of the checks of the services a
 // template's cards show, for Input.Samples. A source owns one; it is safe
 // for one fetch at a time, and its methods do nothing on a nil book.
@@ -46,6 +69,9 @@ type sampleTrail struct {
 func NewSampleBook(t Template) *SampleBook {
 	b := &SampleBook{checks: map[string]*sampleTrail{}}
 	for _, r := range t.Rows {
+		if r.History != nil && !*r.History {
+			continue
+		}
 		if r.Metric == "service.card" && !slices.Contains(b.services, r.Select.Service) {
 			b.services = append(b.services, r.Select.Service)
 		}

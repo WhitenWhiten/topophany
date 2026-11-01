@@ -112,8 +112,9 @@ func writeCapabilities(w io.Writer) error {
 		Profiles      bool             `json:"profiles"`
 		CollectorRead bool             `json:"collector_read"`
 		ClientRetry   bool             `json:"client_retry"`
+		CardHistory   bool             `json:"card_history"`
 		Direct        any              `json:"direct"`
-	}{1, model.Version, []string{"client", "preview", "direct"}, []string{"text", "bar", "status", "list", "card"}, monitor.Catalog(), true, true, true, map[string]any{"schema": 1, "config_api": 1, "adapters": []string{"beszel", "komari"}, "allow_insecure": true, "retry": true, "limits": map[string]int{"sources_per_profile": 64, "objects_per_source": 20, "objects_per_profile": 256, "template_rows": 128}}})
+	}{1, model.Version, []string{"client", "preview", "direct"}, []string{"text", "bar", "status", "list", "card"}, monitor.Catalog(), true, true, true, true, map[string]any{"schema": 1, "config_api": 1, "adapters": []string{"beszel", "komari"}, "allow_insecure": true, "retry": true, "limits": map[string]int{"sources_per_profile": 64, "objects_per_source": 20, "objects_per_profile": 256, "template_rows": 128}}})
 }
 
 func (a *App) writeProfiles(path string) error {

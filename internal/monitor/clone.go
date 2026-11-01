@@ -29,6 +29,7 @@ func clone(p Panel) Panel {
 	p.Rows = slices.Clone(p.Rows)
 	for i := range p.Rows {
 		r := &p.Rows[i]
+		r.History = copyPointer(r.History)
 		r.Limit = copyPointer(r.Limit)
 		switch v := r.Value.(type) {
 		case view.SourcesStatus:

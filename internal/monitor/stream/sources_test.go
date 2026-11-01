@@ -190,4 +190,19 @@ func TestSourcesReadServiceCardHistoryOnce(t *testing.T) {
 	if in, err = source.Fetch(context.Background()); err != nil || histories.Load() != 2 || len(in.Samples["home-http"]) < 4 {
 		t.Fatal("history read again", histories.Load(), err)
 	}
+	noHistory := false
+	for i := range r.Template.Rows {
+		if r.Template.Rows[i].Visual == "card" {
+			r.Template.Rows[i].History = &noHistory
+		}
+	}
+	compact, e := OpenSource(context.Background(), r)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer compact.Close()
+	in, err = compact.Fetch(context.Background())
+	if err != nil || in.Unavailable || in.CollectorRead.State != "ok" || histories.Load() != 2 || len(in.Samples) != 0 {
+		t.Fatal("compact request fetched history or lost current evidence", histories.Load(), err)
+	}
 }

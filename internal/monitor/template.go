@@ -21,13 +21,14 @@ type Template struct {
 	Rows []Row `json:"rows"`
 }
 type Row struct {
-	ID     string   `json:"id"`
-	Label  string   `json:"label"`
-	Metric string   `json:"metric"`
-	Select Selector `json:"select,omitempty"`
-	Format string   `json:"format,omitempty"`
-	Visual string   `json:"visual"`
-	Limit  *int     `json:"limit,omitempty"`
+	History *bool    `json:"history,omitempty"`
+	ID      string   `json:"id"`
+	Label   string   `json:"label"`
+	Metric  string   `json:"metric"`
+	Select  Selector `json:"select,omitempty"`
+	Format  string   `json:"format,omitempty"`
+	Visual  string   `json:"visual"`
+	Limit   *int     `json:"limit,omitempty"`
 }
 type Selector struct {
 	Link      string `json:"link,omitempty"`
@@ -134,6 +135,9 @@ func (t Template) Validate(source string) error {
 		}
 		if r.Limit != nil && (r.Metric != "attention.list" || *r.Limit < 1 || *r.Limit > 20) {
 			return fmt.Errorf("row %s: limit must be 1..20 and is only for attention.list", r.ID)
+		}
+		if r.History != nil && r.Metric != "service.card" && r.Metric != "check.card" && r.Metric != "link.card" {
+			return fmt.Errorf("row %s: history is only for service, check or link cards", r.ID)
 		}
 		if m.Selector == "node" && !config.ID(r.Select.Node) || r.Select.Node != "" && m.Selector != "node" {
 			return fmt.Errorf("row %s: invalid or missing node selector", r.ID)
