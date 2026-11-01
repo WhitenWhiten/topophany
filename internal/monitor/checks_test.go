@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -114,5 +115,65 @@ func TestDiagnosticFactAllowlistByAdapter(t *testing.T) {
 	tpl.Rows = append(tpl.Rows, Row{ID: "bad", Metric: "check.card", Visual: "card"})
 	if tpl.Validate("client") == nil {
 		t.Fatal("missing selector accepted")
+	}
+}
+
+// A diagnostic says what 1.5.2's probe policies measured and declared:
+// the certificate's expiry, the elapsed time against its budget. It never
+// says what a private JSON assertion expected.
+func TestDiagnosticProbePolicies(t *testing.T) {
+	facts := map[string]string{"tls_days_remaining": "9", "tls_not_after": "2026-11-10T07:00:00Z", "tls_version": "0x304"}
+	for _, kind := range []string{"http", "tls"} {
+		if f := diagnosticFacts(model.Check{Kind: kind}, facts); len(f) != 2 || f["tls_days_remaining"] != "9" || f["tls_not_after"] != "2026-11-10T07:00:00Z" {
+			t.Fatal(kind, f)
+		}
+	}
+	for _, kind := range []string{"tcp", "mihomo", "cloudflare", "wireguard"} {
+		if f := diagnosticFacts(model.Check{Kind: kind}, facts); len(f) != 0 {
+			t.Fatal(kind, f)
+		}
+	}
+	if e := expectedFacts(model.Check{Kind: "http"}); len(e) != 0 {
+		t.Fatal("unset policies exported", e)
+	}
+
+	now := time.Now().UTC().Truncate(time.Second)
+	check := model.Check{ID: "site", Name: "Site", Observer: "o", Kind: "http", Target: "https://site.test/health", StaleSeconds: 60, MaxDurationMS: 800, TLSMinDays: 14,
+		HTTP: model.HTTPOptions{JSONEquals: map[string]json.RawMessage{"/private-pointer": json.RawMessage(`"private-expected"`)}}}
+	last := &model.Observation{SampledAt: now.Add(-time.Second), Outcome: "policy", Evidence: "measured", Stage: "latency_policy", Code: "latency_exceeded", DurationMS: 1430, Facts: facts}
+	snap := model.Snapshot{GeneratedAt: now, Topology: model.Config{Observers: []model.Observer{{ID: "o", Name: "Observer"}}, Checks: []model.Check{check}},
+		Checks: []model.CheckState{{ID: "site", Observer: "o", Health: "degraded", Freshness: "fresh", PolicyConfirmed: true, Last: last}}}
+	tpl := serviceTemplate()
+	tpl.Rows = append(tpl.Rows, Row{ID: "check", Metric: "check.card", Visual: "card", Select: Selector{Check: "site"}})
+	p := Build(Config{Source: "client", Template: tpl}, Input{Snapshot: snap}, now)
+	d := p.Rows[1].Value.(CheckCard).Diagnostic
+	if d == nil || d.DurationMS == nil || *d.DurationMS != 1430 || d.Expected["max_duration_ms"] != "800" || d.Expected["tls_min_days"] != "14" || len(d.Expected) != 2 || d.Facts["tls_days_remaining"] != "9" {
+		t.Fatalf("%+v", d)
+	}
+	raw, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"duration_ms":1430`) || strings.Contains(string(raw), "private-expected") || strings.Contains(string(raw), "private-pointer") || strings.Contains(string(raw), "json_equals") {
+		t.Fatal(string(raw))
+	}
+	// A clone owns its duration, and a duration is telemetry, not decision state.
+	*p.Clone().Rows[1].Value.(CheckCard).Diagnostic.DurationMS = 1
+	if *d.DurationMS != 1430 {
+		t.Fatal("clone shares the duration")
+	}
+	other := *d
+	slower := int64(5000)
+	other.DurationMS = &slower
+	if fmt.Sprint(diagnosticState(&other)) != fmt.Sprint(diagnosticState(d)) {
+		t.Fatal("elapsed time bypasses cadence")
+	}
+	// A measured zero is a duration; an impossible negative one is unknown.
+	for elapsed, want := range map[int64]string{0: `"duration_ms":0`, -1: ""} {
+		snap.Checks[0].Last.DurationMS = elapsed
+		raw, _ := json.Marshal(Build(Config{Source: "client", Template: tpl}, Input{Snapshot: snap}, now).Rows[1].Value)
+		if got := strings.Contains(string(raw), `"duration_ms"`); got != (want != "") || want != "" && !strings.Contains(string(raw), want) {
+			t.Fatal(elapsed, string(raw))
+		}
 	}
 }

@@ -18,6 +18,7 @@ type CheckDiagnostic struct {
 	Stage           string            `json:"stage,omitempty"`
 	Code            string            `json:"code,omitempty"`
 	PolicyConfirmed bool              `json:"policy_confirmed,omitempty"`
+	DurationMS      *int64            `json:"duration_ms,omitempty"` // the observation's measured elapsed time
 	Facts           map[string]string `json:"facts,omitempty"`
 	Expected        map[string]string `json:"expected,omitempty"`
 }
@@ -63,9 +64,14 @@ func (p *projection) checkDiagnostic(id string) *CheckDiagnostic {
 		return nil
 	}
 	o := c.Last
-	return &CheckDiagnostic{Outcome: o.Outcome, Evidence: o.Evidence, PathEvidence: o.PathEvidence,
+	d := &CheckDiagnostic{Outcome: o.Outcome, Evidence: o.Evidence, PathEvidence: o.PathEvidence,
 		Stage: o.Stage, Code: o.Code, PolicyConfirmed: c.PolicyConfirmed,
 		Facts: diagnosticFacts(p.checkDefs[id], o.Facts), Expected: expectedFacts(p.checkDefs[id])}
+	if o.DurationMS >= 0 {
+		elapsed := o.DurationMS
+		d.DurationMS = &elapsed
+	}
+	return d
 }
 
 func (p *projection) check(id string) (CheckCard, bool) {
@@ -97,6 +103,7 @@ func cloneDiagnostic(d *CheckDiagnostic) *CheckDiagnostic {
 	}
 	out := *d
 	out.Facts, out.Expected = maps.Clone(d.Facts), maps.Clone(d.Expected)
+	out.DurationMS = copyPointer(d.DurationMS)
 	return &out
 }
 
@@ -105,6 +112,9 @@ func cloneDiagnostic(d *CheckDiagnostic) *CheckDiagnostic {
 func diagnosticFacts(c model.Check, facts map[string]string) map[string]string {
 	keys := strings.Fields("response_proof connection_semantics edge_provider edge_pop edge_cache edge_access edge_mitigation edge_rtt_ms trace_colo trace_warp trace_gateway trace_http trace_tls")
 	switch c.Kind {
+	case "http", "tls":
+		// Written only while tls_min_days asks for the peer certificate's expiry.
+		keys = append(keys, "tls_days_remaining", "tls_not_after")
 	case "mihomo":
 		keys = append(keys, strings.Fields("mode tun_enabled reported_chain reported_selection chain_resolution core_delay_ms core_last_checked sampling_atomicity provider_parameters provider_comparison provider_reference_published_at provider_reference_consistency provider_reference_settling provider_reference_load_pending peer_text")...)
 		providers := map[string]bool{}
@@ -136,8 +146,16 @@ func diagnosticFacts(c model.Check, facts map[string]string) map[string]string {
 	return out
 }
 
+// Expectations are the check's own declared policy, never its private
+// assertion values (http.json_equals) or credentials.
 func expectedFacts(c model.Check) map[string]string {
 	out := map[string]string{}
+	if c.MaxDurationMS > 0 {
+		out["max_duration_ms"] = strconv.Itoa(c.MaxDurationMS)
+	}
+	if c.TLSMinDays > 0 {
+		out["tls_min_days"] = strconv.Itoa(c.TLSMinDays)
+	}
 	connections := func(n *int, colos []string) {
 		if n != nil {
 			out["connections"] = strconv.Itoa(*n)

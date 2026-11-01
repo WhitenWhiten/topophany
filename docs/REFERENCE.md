@@ -567,19 +567,26 @@ Standalone check histories share the bounded, deduplicated service history book.
 Service-card checks and standalone check cards now include an optional
 `diagnostic` while their observation is fresh: `outcome`, `evidence`,
 `path_evidence`, `stage`, `code`, `policy_confirmed`, `facts` and `expected`.
+`duration_ms` (an integer, 0 or more) is the newest observation's measured
+elapsed time, the value `max_duration_ms` is compared against; it is omitted
+when unknown.
 These are evidence, not another health calculation. An `error` outcome is a
 monitor failure; a policy sample need not be confirmed. Reported runtime paths
 are not proof of application traffic routing. Diagnostics disappear at the
 check's own deadline, including inside a still-current service card.
 
-Facts are an explicit display allowlist: edge response metadata; Mihomo mode,
+Facts are an explicit display allowlist: edge response metadata; for HTTP and
+TLS checks with `tls_min_days`, the peer certificate's `tls_not_after` and
+`tls_days_remaining`; Mihomo mode,
 TUN, reported chain/selection, provider comparison/publication/loading state and
 declared-provider readings; cloudflared readiness/connections/colos/counters;
 Cloudflare tunnel, DNS comparison and pool/origin health. Existing probe
 redaction remains in force. No raw responses, controller test URLs, connector
 UUIDs, undeclared fact keys or full adapter configuration are added. Expectations
-include only mode, TUN, connection count, colos and DNS proxied policy, not DNS
-record contents or credentials. Missing facts mean unavailable, not zero. Facts
+include only the `max_duration_ms` and `tls_min_days` budgets, mode, TUN,
+connection count, colos and DNS proxied policy, as decimal or closed strings;
+never `http.json_equals` values, DNS record contents or credentials. Missing
+facts mean unavailable, not zero. Facts
 remain bounded to 32 keys of at most 128 bytes and values of at most 2048 bytes;
 the normal row/frame budgets still apply. Diagnostic state transitions bypass
 display cadence, whereas changes to telemetry facts follow normal cadence.
@@ -1302,7 +1309,8 @@ fact-budget room is available. Trust and hostname verification remain mandatory;
 an invalid/expired certificate still fails the TLS handshake. The warning is
 about the peer reached by that request, including an edge, not an unmeasured
 origin. Ordinary assertion failures take precedence. `policy_threshold` controls
-confirmation using the existing policy mechanism.
+confirmation using the existing policy mechanism. Monitor stream diagnostics
+show both facts and the configured `tls_min_days` under `expected`.
 
 This assertion participates in the measurement contract. Zero/omitted values
 preserve legacy contracts. Upgrade collector, workers and viewers before adding
@@ -1316,6 +1324,8 @@ A successful request exceeding that elapsed-time budget records `policy` /
 violations retain precedence. Use `policy_threshold` to require consecutive
 policy samples before confirmation; it counts all policy outcomes on that check.
 Use separate checks if certificate, exit and latency streaks must be independent.
+Monitor stream diagnostics show the sample's `duration_ms` beside the configured
+`max_duration_ms` under `expected`.
 Upgrade all components before enabling new policy fields; disabled fields leave
 existing measurement contracts unchanged.
 

@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stream consumers can say why availability is unknown: `service.card` and
   `services.list` entries carry an optional `unknown_reason` coverage gap code,
   and `summary.verdict` coverage counts services by code in `reasons`.
+- Check diagnostics in streams show the probe policies added in 1.5.2: the
+  sample's measured `duration_ms`, the `max_duration_ms` and `tls_min_days`
+  budgets under `expected`, and the `tls_not_after` and `tls_days_remaining`
+  certificate facts. Private `http.json_equals` values are never exported.
 
 ## [1.5.2] - 2026-11-01
 
