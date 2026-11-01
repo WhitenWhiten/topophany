@@ -31,7 +31,7 @@ code and appropriate verification, not merely a proposal.
 - [x] Investigation/history shortcuts in TUI/browser incident sheets and the menu bar.
 - [x] Browser connection recovery and actionable configuration help.
 - [x] Menu bar: in-app demo, collector enrollment and explicit migration of direct pins.
-- [ ] Signed and notarized distribution artifact.
+- [x] Signed and notarized universal 0.2.0 local distribution artifact; provenance in the companion repository.
 - [x] Consistent structured CLI errors, field paths and change-impact output.
 - [ ] Operational status, backup/restore validation and upgrade compatibility checks.
 - [ ] Chinese status, error and troubleshooting copy; task-oriented documentation.
