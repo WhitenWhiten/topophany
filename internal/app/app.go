@@ -76,6 +76,8 @@ Describe your network
 Deploy
   topo init --role ROLE             make a private server, worker or client bundle
   topo install                      install a reviewed bundle (--dry-run, --rollback DIR)
+  topo alerts status --data DIR     inspect notification delivery without exposing URLs
+  topo alerts test --webhook ID      explicitly test one configured notification destination
   topo rollout --config FILE        inspect configuration agreement at every collector address
   topo capacity                     preflight collector storage before a migration
   topo token                        make a random bearer token and its hash
@@ -151,6 +153,8 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		return a.monitor(ctx, args[1:])
 	case "preferences":
 		return a.preferences(args[1:])
+	case "alerts":
+		return a.alerts(ctx, args[1:])
 	case "compare":
 		return a.compare(ctx, args[1:])
 	case "templates":

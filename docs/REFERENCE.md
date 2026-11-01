@@ -1166,3 +1166,20 @@ end. `generated_at` remains the actual read time. This is a read-only query;
 it does not trim, rewrite or recover stored evidence. Existing readers ignore
 the new field. Fixed-window clients require the echo to detect older collectors
 that ignore the query parameter, and pin source, revision and measurement contract.
+
+### Inspect and test notifications
+
+`topo alerts status --data COLLECTOR_DATA [--json]` reads a delivery snapshot:
+pending, sent and dropped counts, oldest queued time and attempt count, latest
+HTTP/error result and last success. It never starts delivery or exposes webhook
+URLs, bearer values or event bodies. `as_of` is the last persistence time, not a
+live collector lease. An absent queue is shown without a timestamp, not as a
+successful notification. A separate private `alert-queue.json.status.json`
+sidecar preserves diagnostics without changing the canonical queue schema.
+
+`topo alerts test --config topology.json --alerts alerts.json --webhook ID`
+sends exactly one explicitly labelled test to the named destination. It does
+not create an incident, modify the ledger or enqueue retries. A successful
+response exits 0; failure exits 2 with bounded HTTP/error metadata. The command
+requires an explicit webhook ID and uses the normal verified transport and
+redirect policy. No test notification is sent during setup or status inspection.

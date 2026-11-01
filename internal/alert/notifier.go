@@ -43,6 +43,7 @@ const (
 // by webhook ID: a webhook's URL is a secret and is never logged, nor
 // kept with the alerts.
 type Notifier struct {
+	delivery          map[string]DeliveryState
 	Project, Instance string
 	Log               func(format string, args ...any)
 	Client            *http.Client                    // nil: no proxy, no redirects, 10s timeout
@@ -94,6 +95,14 @@ func (n *Notifier) Load() error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.queues = map[string]*queue{}
+	n.delivery = map[string]DeliveryState{}
+	if n.Path != "" {
+		if previous, err := readStatus(n.Path + ".status.json"); err == nil {
+			for _, h := range previous.Webhooks {
+				n.delivery[h.ID] = h.Delivery
+			}
+		}
+	}
 	if n.Path == "" {
 		return nil
 	}
@@ -342,6 +351,9 @@ func (n *Notifier) deliver(ctx context.Context, h *hook) {
 			continue
 		}
 		status, failure := n.post(ctx, h.Webhook, next.Event)
+		if ctx.Err() == nil {
+			n.recordAttempt(h.ID, status, failure)
+		}
 		switch {
 		case ctx.Err() != nil:
 			return
@@ -427,6 +439,7 @@ func (n *Notifier) save() {
 	defer n.writeMu.Unlock()
 	n.mu.Lock()
 	b, e := json.Marshal(saved{Schema: 1, Webhooks: n.queues})
+	status := n.statusLocked(time.Now().UTC())
 	n.mu.Unlock()
 	if e == nil && len(b) > maxBytes {
 		e = errors.New("encoded alert queue exceeds restart read budget")
@@ -437,6 +450,12 @@ func (n *Notifier) save() {
 			write = secure.AtomicWrite
 		}
 		e = write(n.Path, b, 0600)
+	}
+	status.QueueDurable = e == nil
+	if data, err := json.Marshal(status); err == nil {
+		if err = secure.AtomicWrite(n.Path+".status.json", data, 0600); err != nil {
+			n.logf("alert status report could not be written")
+		}
 	}
 	n.mu.Lock()
 	defer n.mu.Unlock()
