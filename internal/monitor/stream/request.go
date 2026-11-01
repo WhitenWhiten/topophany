@@ -116,8 +116,8 @@ func Decode(line Line) (Request, *Error) {
 	if len(r.RequestID) > 64 {
 		return bad("request_id exceeds 64 bytes")
 	}
-	if r.Source != "client" && r.Source != "preview" && r.Source != "direct" {
-		return bad("source must be client, preview or direct")
+	if r.Source != "client" && r.Source != "preview" && r.Source != "direct" && r.Source != "local" {
+		return bad("source must be client, preview, direct or local")
 	}
 	if r.Credentials != "" && !filepath.IsAbs(r.Credentials) {
 		return bad("credentials must be an absolute path")
@@ -135,14 +135,17 @@ func Decode(line Line) (Request, *Error) {
 	if len(r.ProfileRevision) > 128 || len(r.RetryNonce) > 128 {
 		return bad("direct revision/nonce exceeds budget")
 	}
-	if r.Source != "direct" && r.ProfileRevision != "" {
-		return bad("profile_revision requires direct")
+	if r.Source != "direct" && r.Source != "local" && r.ProfileRevision != "" {
+		return bad("profile_revision requires direct or local")
 	}
 	if r.Source != "direct" && r.Source != "client" && r.RetryNonce != "" {
 		return bad("retry_nonce requires client or direct")
 	}
 	if r.Source == "direct" && (r.Profile == "" || r.Credentials != "" || r.Scenario != 0 || r.Lang != "") {
 		return bad("direct requires profile and no client/preview credentials/scenario/lang")
+	}
+	if r.Source == "local" && (r.Profile != "" || r.Project != "" || r.Credentials != "" || r.Observer != "" || r.Scenario != 0 || r.Lang != "") {
+		return bad("local takes no profile, project, credentials, observer, scenario or lang")
 	}
 	if r.Source == "client" && (r.Scenario != 0 || r.Lang != "") {
 		return bad("scenario and lang require preview")

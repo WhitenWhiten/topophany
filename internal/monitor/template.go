@@ -89,6 +89,10 @@ func Catalog() []Metric {
 		if catalog[i].Name == "server.card" || catalog[i].Name == "servers.list" || strings.HasPrefix(catalog[i].Name, "resource.") {
 			catalog[i].Sources = append(catalog[i].Sources, "direct")
 		}
+		// This machine's own checks have no topology beyond the checks.
+		if catalog[i].Name == "check.card" || catalog[i].Name == "checks.list" {
+			catalog[i].Sources = append(catalog[i].Sources, "local")
+		}
 		if catalog[i].Visual == "" {
 			catalog[i].Visual = "text"
 			if catalog[i].Unit == "percent" {
@@ -110,7 +114,7 @@ func (t Template) Validate(source string) error {
 	if source == "preview" {
 		source = "client"
 	}
-	if !slices.Contains([]string{"client", "collector", "worker", "direct"}, source) {
+	if !slices.Contains([]string{"client", "collector", "worker", "direct", "local"}, source) {
 		return errors.New("unknown monitor source")
 	}
 	if t.Schema != 1 || len(t.Title) == 0 || len(t.Title) > 256 || len(t.Icon) > 64 || len(t.Rows) == 0 || len(t.Rows) > 128 {

@@ -76,6 +76,9 @@ func (c Config) Validate() error {
 	if c.Project != "" && !config.ID(c.Project) || c.Observer != "" && !config.ID(c.Observer) {
 		return errors.New("invalid monitor project/observer")
 	}
+	if c.Source == "local" {
+		return errors.New("local checks are read by topo monitor stream only")
+	}
 	if c.Source == "collector" && c.Observer != "" {
 		return errors.New("collector monitor uses the complete local collector view")
 	}

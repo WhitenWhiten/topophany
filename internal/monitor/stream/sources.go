@@ -11,9 +11,21 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/preview"
 )
 
-// OpenSource prepares either saved client credentials or synthetic evidence.
+// OpenSource prepares saved client credentials, synthetic evidence, a direct
+// profile or this machine's local checks from their default roots.
 // Embedding callers may supply their own Open function to Run instead.
 func OpenSource(ctx context.Context, r Request) (Source, *Error) {
+	if r.Source == "local" {
+		m := NewLocalManager("", time.Now)
+		src, e := m.Open(ctx, r)
+		if e != nil {
+			m.Close()
+			return src, e
+		}
+		closeHandle := src.Close
+		src.Close = func() { closeHandle(); m.Close() }
+		return src, nil
+	}
 	if r.Source == "direct" {
 		m := NewDirectManager("", time.Now)
 		src, e := m.Open(ctx, r)

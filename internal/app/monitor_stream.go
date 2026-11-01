@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/client"
+	"github.com/WhitenWhiten/topophany/internal/local"
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/monitor"
 	"github.com/WhitenWhiten/topophany/internal/monitor/stream"
@@ -23,6 +24,7 @@ import (
 func (a *App) monitorStream(ctx context.Context, args []string) error {
 	f := a.flags("monitor stream")
 	directRoot := f.String("direct-root", "", "absolute private direct configuration root")
+	localRoot := f.String("local-root", "", "absolute private local check configuration root")
 	capabilities := f.Bool("capabilities", false, "print protocol, version, sources, visuals and metrics; then exit")
 	profiles := f.Bool("profiles", false, "list saved client profile names, projects and active selection; then exit")
 	credentials := f.String("credentials", "", "credential file for --profiles (default normal discovery)")
@@ -34,6 +36,9 @@ func (a *App) monitorStream(ctx context.Context, args []string) error {
 	}
 	if *directRoot != "" && !filepath.IsAbs(*directRoot) {
 		return &ExitError{Code: 2, Err: errors.New("--direct-root must be absolute")}
+	}
+	if *localRoot != "" && !filepath.IsAbs(*localRoot) {
+		return &ExitError{Code: 2, Err: errors.New("--local-root must be absolute")}
 	}
 	if *capabilities && *profiles {
 		return &ExitError{Code: 2, Err: errors.New("--capabilities and --profiles are mutually exclusive")}
@@ -74,7 +79,15 @@ func (a *App) monitorStream(ctx context.Context, args []string) error {
 		defer closeSink()
 		manager := stream.NewDirectManager(*directRoot, a.now)
 		defer manager.Close()
-		err = stream.RunClock(runCtx, lines, manager.Open, write, a.now)
+		locals := stream.NewLocalManager(*localRoot, a.now)
+		defer locals.Close()
+		open := func(ctx context.Context, r stream.Request) (stream.Source, *stream.Error) {
+			if r.Source == "local" {
+				return locals.Open(ctx, r)
+			}
+			return manager.Open(ctx, r)
+		}
+		err = stream.RunClock(runCtx, lines, open, write, a.now)
 		cancel()
 		if closer, ok := a.In.(io.ReadCloser); ok {
 			// An inherited blocking stdin descriptor may also block Close until
@@ -115,7 +128,9 @@ func writeCapabilities(w io.Writer) error {
 		ClientRetry   bool             `json:"client_retry"`
 		CardHistory   bool             `json:"card_history"`
 		Direct        any              `json:"direct"`
-	}{true, 1, model.Version, []string{"client", "preview", "direct"}, []string{"text", "bar", "status", "list", "card"}, monitor.Catalog(), true, true, true, true, map[string]any{"schema": 1, "config_api": 1, "adapters": []string{"beszel", "komari"}, "allow_insecure": true, "retry": true, "limits": map[string]int{"sources_per_profile": 64, "objects_per_source": 20, "objects_per_profile": 256, "template_rows": 128}}})
+		Local         any              `json:"local"`
+	}{true, 1, model.Version, []string{"client", "preview", "direct", "local"}, []string{"text", "bar", "status", "list", "card"}, monitor.Catalog(), true, true, true, true, map[string]any{"schema": 1, "config_api": 1, "adapters": []string{"beszel", "komari"}, "allow_insecure": true, "retry": true, "limits": map[string]int{"sources_per_profile": 64, "objects_per_source": 20, "objects_per_profile": 256, "template_rows": 128}},
+		map[string]any{"schema": 1, "config_api": 1, "adapters": []string{"mihomo"}, "limits": map[string]int{"checks": local.MaxChecks}}})
 }
 
 func (a *App) writeProfiles(path string) error {
