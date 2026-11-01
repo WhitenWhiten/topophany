@@ -882,6 +882,7 @@ func (m *Model) openForm(kind, id string) {
 		f.add("Fail after", numStr(x.FailureThreshold), fInt, "Consecutive failures before down (1…20)")
 		f.add("Recover after", numStr(x.RecoveryThreshold), fInt, "Consecutive successes before up (1…20)")
 		f.add("Policy after", numStr(x.PolicyThreshold), fInt, "Consecutive policy samples (0 = immediate, 1…20 explicit)")
+		f.add("TLS warning days", numStr(x.TLSMinDays), fInt, "TLS/HTTPS only; 0 disables, 1…3650 days")
 		f.add("Disabled", yesno(x.Disabled), fBool, "Paused checks are never counted as uptime")
 		f.add("Maintenance", yesno(x.Maintenance), fBool, "")
 		status := []string{}
@@ -928,8 +929,8 @@ func (m *Model) openForm(kind, id string) {
 		f.commit = func(c *model.Config) error {
 			x.Application, x.Environment = f.val("Application"), f.val("Environment")
 			x.ID, x.Name, x.Observer, x.Kind, x.Endpoint, x.Target, x.Service, x.Path, x.Notes = f.val("ID"), f.val("Name"), f.val("Observer"), f.val("Kind"), f.val("Endpoint"), f.val("Target"), f.val("Service"), f.val("Path"), f.val("Notes")
-			nums := []*int{&x.IntervalSeconds, &x.TimeoutSeconds, &x.StaleSeconds, &x.FailureThreshold, &x.RecoveryThreshold, &x.PolicyThreshold}
-			for i, label := range []string{"Interval s", "Timeout s", "Stale s", "Fail after", "Recover after", "Policy after"} {
+			nums := []*int{&x.IntervalSeconds, &x.TimeoutSeconds, &x.StaleSeconds, &x.FailureThreshold, &x.RecoveryThreshold, &x.PolicyThreshold, &x.TLSMinDays}
+			for i, label := range []string{"Interval s", "Timeout s", "Stale s", "Fail after", "Recover after", "Policy after", "TLS warning days"} {
 				n, err := f.num(label)
 				if err != nil {
 					return err

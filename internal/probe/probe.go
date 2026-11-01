@@ -51,6 +51,10 @@ func (r Runner) Run(ctx context.Context, c model.Config, x model.Check) model.Ob
 		return o
 	}
 	x = resolved
+	if config.ValidateProbePolicies(c, x) != nil {
+		o.Outcome, o.Code, o.Detail = "error", "invalid_probe_policy", "invalid local probe policy"
+		return o
+	}
 	if x.Disabled || x.Maintenance {
 		o.Detail = "check not executed"
 		return o
@@ -191,6 +195,9 @@ func stream(ctx context.Context, d Dialer, x model.Check, target string, o *mode
 		}
 		o.Timings["tls_ms"] = time.Since(b).Milliseconds()
 		o.Facts["tls_version"] = fmt.Sprintf("0x%x", t.ConnectionState().Version)
+		if x.TLSMinDays > 0 {
+			defer func() { certificatePolicy(t.ConnectionState(), x.TLSMinDays, o, time.Now()) }()
+		}
 		o.Detail = "verified TLS handshake; application and proxy authentication not verified"
 		o.Facts["response_proof"] = "verified_tls"
 	case "ssh-banner":
@@ -354,6 +361,9 @@ func (r Runner) http(ctx context.Context, d Dialer, x model.Check, target string
 	}
 	o.Facts["response_proof"] = "http_response"
 	if resp.TLS != nil {
+		if x.TLSMinDays > 0 {
+			defer func() { certificatePolicy(*resp.TLS, x.TLSMinDays, o, time.Now()) }()
+		}
 		o.Facts["response_proof"] = "verified_https"
 	}
 	mergeEdgeFacts(o.Facts, EdgeFacts(resp.Header), secret)

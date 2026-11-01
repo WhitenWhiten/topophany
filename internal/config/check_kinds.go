@@ -62,6 +62,9 @@ func EditableCheckKinds() []string {
 }
 
 func validateCheckKind(c model.Config, x model.Check) error {
+	if err := ValidateProbePolicies(c, x); err != nil {
+		return err
+	}
 	kind, ok := checkKindOf(x.Kind)
 	if !ok {
 		return fmt.Errorf("check %s: unsupported kind %q", x.ID, x.Kind)

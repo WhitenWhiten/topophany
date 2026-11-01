@@ -1265,3 +1265,18 @@ Successful validation now includes non-fatal `diagnostics` for unmonitored
 services, missing application checks and inferred availability scope. These
 hints do not invent health or change the validation result. Batch edit dry runs
 provide the separate added/removed/changed measurement-contract report.
+
+### Certificate expiry policy
+
+A `tls` check or an HTTPS `http` check can set `tls_min_days` (0 disables,
+1..3650). Verified peer certificates nearing expiry produce the policy outcome
+`certificate_expiring`, with `tls_not_after` and `tls_days_remaining` facts when
+fact-budget room is available. Trust and hostname verification remain mandatory;
+an invalid/expired certificate still fails the TLS handshake. The warning is
+about the peer reached by that request, including an edge, not an unmeasured
+origin. Ordinary assertion failures take precedence. `policy_threshold` controls
+confirmation using the existing policy mechanism.
+
+This assertion participates in the measurement contract. Zero/omitted values
+preserve legacy contracts. Upgrade collector, workers and viewers before adding
+the new topology field; older binaries reject unsupported configuration fields.
