@@ -12,7 +12,7 @@ code and appropriate verification, not merely a proposal.
 - [x] Status scope, monitoring coverage and explicit unknown reasons across viewers.
 - [x] CLI related-incident grouping with independent evidence and counter-evidence preserved (`topo problems`).
 - [x] Related-incident navigation in native/browser TUI.
-- [ ] Related-incident shortcut from the menu bar.
+- [x] Related-incident shortcut from the menu bar (capability-gated).
 - [x] Unified collector/viewer diagnostics, next actions and redacted diagnostic export.
 - [x] Direct-source diagnostics in the same doctor report.
 
@@ -24,11 +24,11 @@ code and appropriate verification, not merely a proposal.
 - [x] Bundled adapter templates, pinned compatibility notes and missing-evidence guidance.
 - [x] Direct-to-collector migration preserving selected server identity and display preferences.
 - [x] CLI history: incident before/after and observer comparison with pinned source and time range.
-- [ ] Comparison navigation from graphical history views.
+- [x] Service history comparison from the menu bar service picker.
 - [x] Alerts: explicit notification test and delivery/queue/drop visibility.
 - [x] Alerts: timed silence, maintenance windows, service routing and explicit dual-collector notification policy.
 - [x] Saved TUI views with perspective/filter/map choices; existing selection-focused map highlighting retained.
-- [ ] Contextual investigation/history shortcuts across clients.
+- [x] Investigation/history shortcuts in TUI/browser incident sheets and the menu bar.
 - [ ] Browser connection recovery and actionable configuration help.
 - [ ] Menu bar: in-app demo, collector enrollment and signed distribution.
 - [ ] Consistent structured CLI errors, field paths and change-impact output.
