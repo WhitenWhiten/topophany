@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/WhitenWhiten/topophany/internal/model"
+	"github.com/WhitenWhiten/topophany/internal/view"
 )
 
 // CheckDiagnostic is current observation evidence, not a second health verdict.
@@ -18,6 +19,7 @@ type CheckDiagnostic struct {
 	Stage           string            `json:"stage,omitempty"`
 	Code            string            `json:"code,omitempty"`
 	PolicyConfirmed bool              `json:"policy_confirmed,omitempty"`
+	Policy          string            `json:"policy,omitempty"`      // adapter checks only: view.AdapterPolicy
 	DurationMS      *int64            `json:"duration_ms,omitempty"` // the observation's measured elapsed time
 	Facts           map[string]string `json:"facts,omitempty"`
 	Expected        map[string]string `json:"expected,omitempty"`
@@ -65,7 +67,7 @@ func (p *projection) checkDiagnostic(id string) *CheckDiagnostic {
 	}
 	o := c.Last
 	d := &CheckDiagnostic{Outcome: o.Outcome, Evidence: o.Evidence, PathEvidence: o.PathEvidence,
-		Stage: o.Stage, Code: o.Code, PolicyConfirmed: c.PolicyConfirmed,
+		Stage: o.Stage, Code: o.Code, PolicyConfirmed: c.PolicyConfirmed, Policy: view.AdapterPolicy(p.checkDefs[id], c),
 		Facts: diagnosticFacts(p.checkDefs[id], o.Facts), Expected: expectedFacts(p.checkDefs[id])}
 	if o.DurationMS >= 0 {
 		elapsed := o.DurationMS
@@ -189,5 +191,5 @@ func diagnosticState(d *CheckDiagnostic) any {
 	if d == nil {
 		return nil
 	}
-	return []any{d.Outcome, d.Evidence, d.PathEvidence, d.Stage, d.Code, d.PolicyConfirmed}
+	return []any{d.Outcome, d.Evidence, d.PathEvidence, d.Stage, d.Code, d.PolicyConfirmed, d.Policy}
 }

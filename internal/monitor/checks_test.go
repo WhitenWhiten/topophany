@@ -177,3 +177,54 @@ func TestDiagnosticProbePolicies(t *testing.T) {
 		}
 	}
 }
+
+// An adapter check's diagnostic says whether it declares a policy and what
+// its sample says of it, in the TUI's terms; other checks say nothing.
+func TestDiagnosticAdapterPolicy(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	snapshot := func(check model.Check, outcome string, facts map[string]string) model.Snapshot {
+		check.ID, check.Observer, check.StaleSeconds = "c", "o", 60
+		return model.Snapshot{GeneratedAt: now, Topology: model.Config{Observers: []model.Observer{{ID: "o"}}, Checks: []model.Check{check}},
+			Checks: []model.CheckState{{ID: "c", Observer: "o", Health: "up", Freshness: "fresh", Last: &model.Observation{SampledAt: now.Add(-time.Second), Outcome: outcome, Evidence: "reported", Stage: "adapter", Facts: facts}}}}
+	}
+	tpl := serviceTemplate()
+	tpl.Rows = append(tpl.Rows, Row{ID: "check", Metric: "check.card", Visual: "card", Select: Selector{Check: "c"}})
+	build := func(s model.Snapshot) Panel {
+		return Build(Config{Source: "client", Template: tpl}, Input{Snapshot: s}, now)
+	}
+	controller := model.Check{Kind: "mihomo", Target: "http://127.0.0.1:9090"}
+	for _, tc := range []struct {
+		name    string
+		adapter model.AdapterOptions
+		outcome string
+		mode    string
+		want    string
+	}{
+		{"no expectations", model.AdapterOptions{}, "ok", "rule", "not_configured"},
+		{"mode matches", model.AdapterOptions{ExpectedMode: "rule"}, "ok", "rule", "matched"},
+		{"mode differs", model.AdapterOptions{ExpectedMode: "rule"}, "policy", "global", "violated"},
+	} {
+		check := controller
+		check.Adapter = tc.adapter
+		p := build(snapshot(check, tc.outcome, map[string]string{"mode": tc.mode}))
+		d := p.Rows[1].Value.(CheckCard).Diagnostic
+		if d == nil || d.Policy != tc.want {
+			t.Fatal(tc.name, d)
+		}
+		raw, _ := json.Marshal(d)
+		if !strings.Contains(string(raw), `"policy":"`+tc.want+`"`) {
+			t.Fatal(string(raw))
+		}
+	}
+	p := build(snapshot(model.Check{Kind: "http", Target: "https://site.test"}, "ok", nil))
+	raw, _ := json.Marshal(p.Rows[1].Value)
+	if d := p.Rows[1].Value.(CheckCard).Diagnostic; d == nil || d.Policy != "" || strings.Contains(string(raw), `"policy"`) {
+		t.Fatal("an application check has an adapter policy", string(raw))
+	}
+	// A policy verdict is decision state.
+	matched := build(snapshot(model.Check{Kind: "mihomo", Target: controller.Target, Adapter: model.AdapterOptions{ExpectedMode: "rule"}}, "ok", map[string]string{"mode": "rule"}))
+	violated := build(snapshot(model.Check{Kind: "mihomo", Target: controller.Target, Adapter: model.AdapterOptions{ExpectedMode: "rule"}}, "ok", map[string]string{"mode": "global"}))
+	if safetyState(matched) == safetyState(violated) {
+		t.Fatal("a policy violation waited for cadence")
+	}
+}

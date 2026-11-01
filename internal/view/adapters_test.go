@@ -1,6 +1,7 @@
 package view
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -74,5 +75,63 @@ func TestCloudflaredAdapterDetails(t *testing.T) {
 	}
 	if adapterDetails(model.Check{Kind: "http"}, model.CheckState{}) != nil {
 		t.Fatal("application probes relabeled as software telemetry")
+	}
+}
+
+// The TUI's policy line and a stream's policy word are one decision: what
+// the check declares, and what its current sample says of that.
+func TestAdapterPolicy(t *testing.T) {
+	yes, no, four := true, false, 4
+	sample := func(freshness, outcome string, facts map[string]string) model.CheckState {
+		return model.CheckState{Freshness: freshness, Last: &model.Observation{Evidence: "reported", Stage: "adapter", Outcome: outcome, Facts: facts}}
+	}
+	fresh := func(outcome string, facts map[string]string) model.CheckState { return sample("fresh", outcome, facts) }
+	mihomo := func(a model.AdapterOptions) model.Check { return model.Check{Kind: "mihomo", Adapter: a} }
+	reference := &model.MihomoProviderReference{URL: "https://publisher.test/members.json", Providers: []string{"edge"}, MaxAgeSeconds: 600}
+	providers := map[string][]string{"pool": {"a", "b"}}
+	for _, tc := range []struct {
+		name  string
+		check model.Check
+		state model.CheckState
+		want  string
+	}{
+		{"mihomo without expectations", mihomo(model.AdapterOptions{}), fresh("ok", map[string]string{"mode": "rule", "tun_enabled": "true"}), "not_configured"},
+		{"mihomo without expectations, stale", mihomo(model.AdapterOptions{}), sample("stale", "ok", nil), "not_configured"},
+		{"mihomo mode matches", mihomo(model.AdapterOptions{ExpectedMode: "rule"}), fresh("ok", map[string]string{"mode": "rule"}), "matched"},
+		{"mihomo mode differs", mihomo(model.AdapterOptions{ExpectedMode: "rule"}), fresh("policy", map[string]string{"mode": "global"}), "violated"},
+		{"mihomo mode differs in its facts", mihomo(model.AdapterOptions{ExpectedMode: "rule"}), fresh("ok", map[string]string{"mode": "global"}), "violated"},
+		{"mihomo mode, stale sample", mihomo(model.AdapterOptions{ExpectedMode: "rule"}), sample("stale", "ok", map[string]string{"mode": "rule"}), "unverified"},
+		{"mihomo mode, read failed", mihomo(model.AdapterOptions{ExpectedMode: "rule"}), fresh("error", nil), "unverified"},
+		{"mihomo TUN off, expected on", mihomo(model.AdapterOptions{ExpectedTUN: &yes}), fresh("ok", map[string]string{"tun_enabled": "false"}), "violated"},
+		{"mihomo TUN off, expected off", mihomo(model.AdapterOptions{ExpectedTUN: &no}), fresh("ok", map[string]string{"tun_enabled": "false"}), "matched"},
+		{"mihomo providers match", mihomo(model.AdapterOptions{ExpectedProviders: providers}), fresh("ok", map[string]string{"provider.pool": "a,b"}), "matched"},
+		{"mihomo providers differ", mihomo(model.AdapterOptions{ExpectedProviders: providers}), fresh("policy", map[string]string{"provider.pool": "b,a"}), "violated"},
+		{"mihomo provider reference matches", mihomo(model.AdapterOptions{ProviderReference: reference}), fresh("ok", nil), "matched"},
+		{"mihomo provider reference differs", mihomo(model.AdapterOptions{ProviderReference: reference}), fresh("policy", nil), "violated"},
+		{"mihomo provider reference changed while sampled", mihomo(model.AdapterOptions{ProviderReference: reference}), fresh("unknown", nil), "unverified"},
+		{"cloudflare proxied matches", model.Check{Kind: "cloudflare", Adapter: model.AdapterOptions{Cloudflare: &model.CloudflareOptions{Read: "dns_record", ExpectedProxied: &yes}}}, fresh("ok", map[string]string{"record_proxied": "true"}), "matched"},
+		{"cloudflare proxied differs", model.Check{Kind: "cloudflare", Adapter: model.AdapterOptions{Cloudflare: &model.CloudflareOptions{Read: "dns_record", ExpectedProxied: &yes}}}, fresh("policy", map[string]string{"record_proxied": "false"}), "violated"},
+		{"cloudflare content matches", model.Check{Kind: "cloudflare", Adapter: model.AdapterOptions{Cloudflare: &model.CloudflareOptions{Read: "dns_record", ExpectedContent: "192.0.2.1"}}}, fresh("ok", nil), "matched"},
+		{"cloudflare read without expectations", model.Check{Kind: "cloudflare", Adapter: model.AdapterOptions{Cloudflare: &model.CloudflareOptions{Read: "tunnel"}}}, fresh("ok", map[string]string{"tunnel_status": "healthy"}), "not_configured"},
+		{"cloudflared connections", model.Check{Kind: "cloudflared", Adapter: model.AdapterOptions{Cloudflared: &model.CloudflaredOptions{ExpectedConnections: &four}}}, fresh("ok", nil), "matched"},
+		{"wireguard keepalive differs", model.Check{Kind: "wireguard", Adapter: model.AdapterOptions{ExpectedKeepaliveSeconds: &four}}, fresh("policy", map[string]string{"keepalive_match": "false"}), "violated"},
+		{"tailscale declares none", model.Check{Kind: "tailscale"}, fresh("ok", map[string]string{"backend_state": "Running"}), "not_configured"},
+		{"http is not an adapter", model.Check{Kind: "http"}, fresh("ok", nil), ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := AdapterPolicy(tc.check, tc.state)
+			details := adapterDetails(tc.check, tc.state)
+			if got != tc.want || (got == "") != (details == nil) {
+				t.Fatal(got, details)
+			}
+			if got != "" && details[1] != "Policy check: "+strings.ReplaceAll(tc.want, "_", " ") {
+				t.Fatal(details)
+			}
+		})
+	}
+	// The TUI's lines stay exactly as they were.
+	want := []string{"Runtime read: available", "Policy check: not configured", "Business reachability: unmeasured; use a separate application probe"}
+	if got := adapterDetails(model.Check{Kind: "mihomo"}, fresh("ok", map[string]string{"mode": "rule"})); !slices.Equal(got, want) {
+		t.Fatal(got)
 	}
 }

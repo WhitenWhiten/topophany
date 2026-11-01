@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sample's measured `duration_ms`, the `max_duration_ms` and `tls_min_days`
   budgets under `expected`, and the `tls_not_after` and `tls_days_remaining`
   certificate facts. Private `http.json_equals` values are never exported.
+- Software adapter diagnostics carry the TUI's policy state as `policy`
+  (`not_configured`, `unverified`, `matched` or `violated`), so a consumer can
+  tell a check with no declared policy from one whose runtime matches it.
 
 ## [1.5.2] - 2026-11-01
 

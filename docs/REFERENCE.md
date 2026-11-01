@@ -569,7 +569,12 @@ Service-card checks and standalone check cards now include an optional
 `path_evidence`, `stage`, `code`, `policy_confirmed`, `facts` and `expected`.
 `duration_ms` (an integer, 0 or more) is the newest observation's measured
 elapsed time, the value `max_duration_ms` is compared against; it is omitted
-when unknown.
+when unknown. Software adapter checks (`mihomo`, `tailscale`, `wireguard`,
+`cloudflared` and `cloudflare`) add `policy`, the TUI's "Policy check" line as
+a closed word: `not_configured` when the check declares no expectation,
+`unverified` until a fresh successful sample confirms it, `matched` and
+`violated`. Other kinds omit it. A matched policy describes the reported
+runtime state only, and policy changes publish immediately.
 These are evidence, not another health calculation. An `error` outcome is a
 monitor failure; a policy sample need not be confirmed. Reported runtime paths
 are not proof of application traffic routing. Diagnostics disappear at the
