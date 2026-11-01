@@ -7,12 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-11-01
+
+This release improves setup, investigation and maintenance, adds optional probe
+policies and reviewed inventory imports, and fixes direct-source and browser
+diagnostics. See the [release notes](docs/releases/v1.5.2.md) for compatibility
+and upgrade details.
+
+### Added
+
+- Task-based setup, website configuration from `init --url`, bundled adapter
+  templates, enrollment checks and first-evidence progress.
+- Service availability coverage and explicit unknown reasons, related-incident
+  investigation through `topo problems` and the TUI, saved views, and fixed-window
+  history comparisons pinned to one collector and measurement contract.
+- Unified `doctor` reports for collectors, viewers and direct sources, structured
+  CLI failures with `--json-errors`, configuration diagnostics, rollout agreement
+  inspection, local loaded-revision status and isolated recovery validation.
+- Reviewed direct-to-collector export with stable server identities, and offline
+  SSH, rendered Compose JSON and Tailscale inventory imports. Imported checks
+  remain paused and candidate files never overwrite existing files.
+- Explicit notification tests, private delivery status, timed quiet periods,
+  maintenance windows, service routing and a configured primary notifier.
+- Optional verified-certificate expiry warnings (`tls_min_days`), measured
+  latency budgets (`max_duration_ms`) and private, bounded HTTP JSON Pointer
+  assertions (`http.json_equals`).
+
+### Changed
+
+- Monitor streams expose standalone checks, link evidence and collector-read
+  diagnostics with independent evidence deadlines. Client refreshes retain
+  their source, and compact resource cards can omit history acquisition.
+- Critical CLI/TUI/browser status and recovery workflows are localized, with a
+  Chinese task guide and capability-gated investigation shortcuts for consumers.
+- Topology editing detects concurrent file changes and supports reviewed batch
+  replacements with separate measurement-impact reports.
+
 ### Fixed
 
 - Cloudflare Tunnel API checks accept standard hyphenated UUIDs in both
   configuration validation and request paths. Legacy 32-hex tunnel IDs remain
   accepted without changing their spelling or measurement contracts; account,
   zone and pool ID validation remains unchanged.
+- Direct-source TLS failures remain scoped to their source, and expired samples
+  remain distinct from failed source contact.
+- Browser viewers retain read-only topology access and offer connection editing,
+  startup recovery and localized diagnostics. Generated pages now reference the
+  current WebAssembly asset hashes, restoring the CI site consistency check.
+- Invalid history comparison windows fail explicitly, structured configuration
+  errors retain their fields, JSON assertion values require private topology
+  files, and unsupported SSH/Compose routes remain inventory-only.
 
 ## [1.5.1] - 2026-10-26
 
@@ -1918,7 +1962,8 @@ Initial release.
 - Terminal UI with geographic and network topology maps, offline preview
   scenarios and a local topology editor.
 
-[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/WhitenWhiten/topophany/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/WhitenWhiten/topophany/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/WhitenWhiten/topophany/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/WhitenWhiten/topophany/compare/v1.4.1...v1.4.2
