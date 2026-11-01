@@ -67,6 +67,7 @@ Run
   topo once                         run local checks once; write observations as JSON
 
 Describe your network
+  topo import --format FORMAT --input FILE  review an offline paused inventory
   topo templates list               choose a reviewed, paused starter topology
   topo edit                         add, edit and delete topology entities in a TUI
   topo validate                     check a topology; print revision and coverage hints
@@ -167,6 +168,8 @@ func (a *App) run(ctx context.Context, args []string) error {
 		return a.alerts(ctx, args[1:])
 	case "compare":
 		return a.compare(ctx, args[1:])
+	case "import":
+		return a.importTopology(args[1:])
 	case "templates":
 		return a.templates(args[1:])
 	case "rollout":

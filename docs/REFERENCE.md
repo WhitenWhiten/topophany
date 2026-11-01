@@ -1309,3 +1309,26 @@ JSON is `http_assert/invalid_json`. Neither response nor expected values enter
 observations, and assertion maps are omitted from public topology projections.
 Configure these in the JSON editor or reviewed batch edit. Upgrade all components
 before enabling this field; it participates in the private measurement contract.
+
+### Offline inventory import
+
+`topo import --format ssh|compose|tailscale --input FILE` emits a review report
+with source SHA-256, warning codes and a topology. Add `--output NEW_FILE` to
+write a private candidate without overwriting anything. It never executes
+commands or probes. All checks are paused, and every node retains provenance.
+Review identity, targets, observer context, credentials and routes before using
+`topo edit --apply` or enabling any checks. Input is limited to 4 MiB.
+
+- SSH: literal Host blocks, HostName and Port become paused SSH-banner checks.
+  IdentityFile and users are not imported. ProxyCommand/ProxyJump blocks remain
+  inventory only. Includes, Match and patterns are not expanded; ambiguous global
+  context makes the entire candidate inventory-only. This is not an OpenSSH
+  configuration interpreter, and no proxy path is inferred.
+- Compose: accepts **rendered Compose JSON**, not YAML. Supply `--host` with the
+  reviewed deployment address. Published TCP ports become paused TCP checks;
+  unpublished, UDP, ambiguous bindings and ranges require manual review. Each
+  service retains a container inventory node. Environment, images, credentials,
+  healthcheck commands and runtime state are not imported.
+- Tailscale: accepts saved `tailscale status --json` peer inventory. Peer-key
+  hashes form stable IDs; reported IPs become tailnet endpoints. Online flags,
+  geography, service ports, routes and application health are never inferred.
