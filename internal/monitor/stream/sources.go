@@ -139,6 +139,15 @@ func openSource(ctx context.Context, r Request, now func() time.Time) (Source, *
 			return in, nil
 		}
 		if err != nil {
+			// A missed read does not invalidate evidence already acquired.
+			// Keep its original clocks while reporting the failed acquisition;
+			// Build will withhold it when those clocks actually expire. No
+			// fallback across authentication, identity or malformed responses.
+			if !previous.Unavailable && (errors.Is(err, client.ErrNoCollector) || errors.Is(err, context.DeadlineExceeded)) {
+				in := previous
+				in.CollectorRead = &status
+				return in, nil
+			}
 			return monitor.Input{Unavailable: true, CollectorRead: &status}, err
 		}
 		in := monitor.Input{Snapshot: s, AllSnapshot: all, CollectorRead: &status}

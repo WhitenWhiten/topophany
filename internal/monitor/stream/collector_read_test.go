@@ -20,7 +20,12 @@ import (
 func TestCollectorReadFailureRecoveryAndOwnership(t *testing.T) {
 	c := testkit.Config()
 	var unavailable atomic.Bool
+	var forbidden atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if forbidden.Load() {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 		if unavailable.Load() {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			_, _ = w.Write([]byte(`{"error":"private-response-secret"}`))
@@ -49,7 +54,7 @@ func TestCollectorReadFailureRecoveryAndOwnership(t *testing.T) {
 	unavailable.Store(true)
 	for n := uint64(1); n <= 2; n++ {
 		bad, err := src.Fetch(context.Background())
-		if err == nil || !bad.Unavailable || bad.CollectorRead.State != "error" || bad.CollectorRead.Stage != "http" || bad.CollectorRead.ConsecutiveFailures != n || bad.CollectorRead.LastSuccessAt != good.CollectorRead.LastSuccessAt {
+		if err != nil || bad.Unavailable || bad.CollectorRead.State != "error" || bad.CollectorRead.Stage != "http" || bad.CollectorRead.ConsecutiveFailures != n || bad.CollectorRead.LastSuccessAt != good.CollectorRead.LastSuccessAt {
 			t.Fatal(bad.CollectorRead, err)
 		}
 		p := monitor.Build(monitor.Config{Source: "client", Template: r.Template}, bad, time.Now())
@@ -64,9 +69,16 @@ func TestCollectorReadFailureRecoveryAndOwnership(t *testing.T) {
 		if p.CollectorRead.State != "error" || bad.CollectorRead.State != "error" {
 			t.Fatal("aliased diagnostics")
 		}
-		for _, row := range p.Rows {
-			if row.Value != nil || row.Reason != "source_unavailable" {
-				t.Fatal("diagnostics revived evidence", row)
+		fresh := monitor.Build(monitor.Config{Source: "client", Template: r.Template}, good, p.GeneratedAt)
+		for i, row := range p.Rows {
+			if row.ValidUntil != fresh.Rows[i].ValidUntil || row.SampledAt != fresh.Rows[i].SampledAt {
+				t.Fatal("failed read extended evidence", row)
+			}
+		}
+		expired := monitor.Build(monitor.Config{Source: "client", Template: r.Template}, bad, good.Snapshot.GeneratedAt.Add(16*time.Second))
+		for _, row := range expired.Rows {
+			if row.Value != nil {
+				t.Fatal("failed read revived expired evidence", row)
 			}
 		}
 	}
@@ -77,5 +89,10 @@ func TestCollectorReadFailureRecoveryAndOwnership(t *testing.T) {
 	recovered, err := src.Fetch(context.Background())
 	if err != nil || recovered.CollectorRead.State != "ok" || recovered.CollectorRead.ConsecutiveFailures != 0 || recovered.CollectorRead.Code != "" || !recovered.CollectorRead.LastSuccessAt.After(good.CollectorRead.LastSuccessAt) {
 		t.Fatal(recovered.CollectorRead, err)
+	}
+	forbidden.Store(true)
+	denied, err := src.Fetch(context.Background())
+	if err == nil || !denied.Unavailable || denied.CollectorRead.State != "error" {
+		t.Fatal("authorization rejection retained live evidence", denied, err)
 	}
 }

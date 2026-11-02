@@ -31,6 +31,27 @@ func TestSnapshotBusyRetryRecovers(t *testing.T) {
 	}
 }
 
+func TestSnapshotRotationRetryRecovers(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if hits.Add(1) == 1 {
+			w.Header().Set("Connection", "close")
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(503)
+			json.NewEncoder(w).Encode(map[string]string{"error": "connection_rotating"})
+			return
+		}
+		json.NewEncoder(w).Encode(snapshot())
+	}))
+	defer srv.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	snap, _, err := newClient(t, srv.URL).Snapshot(ctx, "")
+	if err != nil || snap.Project != "lab" || hits.Load() != 2 {
+		t.Fatal("connection rotation escaped the read's retry budget", err, hits.Load())
+	}
+}
+
 func TestSnapshotBusyRetryBoundedAndSelective(t *testing.T) {
 	for _, tc := range []struct {
 		name, code string
@@ -40,6 +61,7 @@ func TestSnapshotBusyRetryBoundedAndSelective(t *testing.T) {
 		{"snapshot_busy", "snapshot_busy", 429, 2},
 		{"principal_rate", "rate_limited", 429, 1},
 		{"server_error", "snapshot_busy", 503, 1},
+		{"connection_rotation", "connection_rotating", 503, 2},
 		{"auth", "snapshot_busy", 401, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

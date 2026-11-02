@@ -260,13 +260,14 @@ func (c *Client) snapshot(ctx context.Context, observer string, retryBusy bool) 
 			// Concurrent readers can meet the collector while it builds a
 			// snapshot. Both LAN and overlay addresses may be that same
 			// collector, so immediate failover alone cannot clear the lock.
-			// Only this explicit, bounded busy response earns one delayed
-			// retry, after trying the other configured collectors first.
-			if resp.StatusCode == 429 && len(b) <= 1024 {
+			// Explicit snapshot contention or connection rotation earns one
+			// delayed retry, after trying the other configured collectors first.
+			if (resp.StatusCode == 429 || resp.StatusCode == 503) && len(b) <= 1024 {
 				var reason struct {
 					Error string `json:"error"`
 				}
-				if json.Unmarshal(b, &reason) == nil && reason.Error == "snapshot_busy" {
+				if json.Unmarshal(b, &reason) == nil && (resp.StatusCode == 429 && reason.Error == "snapshot_busy" ||
+					resp.StatusCode == 503 && reason.Error == "connection_rotating") {
 					busy = true
 				}
 			}
@@ -313,8 +314,9 @@ func (c *Client) snapshot(ctx context.Context, observer string, retryBusy bool) 
 		return snap, ep.URL, nil
 	}
 	if busy && retryBusy {
-		// The server advertises Retry-After: 1. Use a fixed upper bound
-		// rather than trusting an unbounded response header. The viewer
+		// Busy snapshots and rotating connections advertise Retry-After: 1.
+		// Rotation closes the connection; the retry uses a new one. Use a
+		// fixed upper bound rather than trusting a response header. The viewer
 		// keeps rendering while this read waits, and cancellation is prompt.
 		timer := time.NewTimer(time.Second)
 		defer timer.Stop()
