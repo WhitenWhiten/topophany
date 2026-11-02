@@ -22,6 +22,8 @@ production protocol or operating-system routing compatibility.
 
 Local macOS ARM64 receipts under `evidence/mihomo-matrix/` passed for both
 versions: four inventory cases and nine network cases per version. They name
-the exact binaries tested. Linux/Windows and TUN jobs are configured here but
-are not claimed as executed by these local receipts. Cloudflare account
+the exact binaries tested. Linux ARM64 Docker runs subsequently passed all ten network cases, including
+real TUN capture, for both versions in a fresh network namespace. Their
+`tun-v1.19.*.json` receipts record the exact binaries. Native Windows and
+Linux AMD64 matrix jobs remain CI execution targets, not local results. Cloudflare account
 acceptance is outside this matrix.

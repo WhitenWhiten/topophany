@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "platform": "Linux",
+  "machine": "aarch64",
+  "tun": true,
+  "core_sha256": "8c73570d9a5f388bc2f58eee0b347ccfab84fb3cf1a0f8f2cf5eac7005fbcdc0",
+  "topo_sha256": "ea43d91d32b9d7f6c987f9bdc1c6f913127cc2053d50f426aa6181ed1f256536",
+  "cases": [
+    {
+      "name": "socks5",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "socks5-origin-failure",
+      "outcome": "fail",
+      "code": "unexpected_status",
+      "pass": true
+    },
+    {
+      "name": "socks5-recovered",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "http-connect",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "http-connect-origin-failure",
+      "outcome": "fail",
+      "code": "unexpected_status",
+      "pass": true
+    },
+    {
+      "name": "http-connect-recovered",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "dns",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "runtime",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "tun-capture",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "stopped-core",
+      "outcome": "fail",
+      "code": "network_error",
+      "pass": true
+    }
+  ],
+  "version": {
+    "meta": true,
+    "version": "v1.19.33"
+  },
+  "pass": true
+}
