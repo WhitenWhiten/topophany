@@ -3,7 +3,7 @@
 Pure interpretation of Cloudflare response headers, redirects and the
 `/cdn-cgi/trace` body: `Cf-Ray`, `Cf-Cache-Status`, `Cf-Mitigated`,
 `Server-Timing`, Access login redirects and trace lines; plus a read-only
-Cloudflare API adapter (`kind: "cloudflare"`) for three documented resources.
+Cloudflare API adapter (`kind: "cloudflare"`) for four documented reads.
 A nonempty ray header selects the provider, even when its labels cannot be
 retained. The POP is the suffix after the last hyphen. `Cf-Mitigated` is kept
 only as the closed value `challenge`, which Cloudflare sets on challenge
@@ -116,7 +116,7 @@ and their evidence limits here when extending this platform.
 
 ## Cloudflare API adapter (`kind: "cloudflare"`)
 
-Reads three things only Cloudflare knows, with a least-privilege token. Each
+Reads platform state only Cloudflare knows, with a least-privilege token. Each
 check performs **one** allowlisted `GET`; nothing else is requested. The token
 is named by `adapter.token_env` and read from the worker's environment; it is
 never written in the topology, never sent to the zone, and cleared from the
@@ -130,13 +130,13 @@ Monitors and Pools › Read; a read that needs another permission is out of scop
 | `dns_record` | `GET /zones/{zone_id}/dns_records?name={record_name}&type={record_type}` | `record_count`, `record_proxied` (`true`/`false` when every record agrees), `record_ttl` (when every record agrees), `record_content_matches` (`true`/`false`/`not_declared`) | `record_missing`, `record_not_proxied`, `record_proxied_unexpectedly`, `record_content_mismatch` |
 | `pool` | `GET /accounts/{account_id}/load_balancers/pools/{pool_id}/health` | `pool_healthy` (when a region reports it), `origins_healthy`, `origins_total`, `regions_reporting`, `origin.<declared>` (`healthy`/`unhealthy`, declared origins only) | `origins_below_expected` |
 
-Side-effect review: all three are documented `GET` reads — Get a Cloudflare
-Tunnel, List DNS Records and Pool Health Details — and none creates, updates
+Side-effect review: all four are documented `GET` reads — Get a Cloudflare
+Tunnel, List Cloudflare Tunnel Connections, List DNS Records and Pool Health Details — and none creates, updates
 or deletes a tunnel, record, pool, monitor or load balancer. Paths added later
 need their own review, because a `GET` alone is not proof of no side effects.
 
 The DNS query is the only query this adapter builds, and it carries exactly one
-`name` and one `type` (`A`, `AAAA` or `CNAME`). A path outside the three forms,
+`name` and one `type` (`A`, `AAAA` or `CNAME`). A path outside the four forms,
 an extra query parameter, a dot segment and a lookalike suffix are refused in
 the client before a request exists, with code `api_path_not_allowed`. The
 bearer token is attached only after the allowlist check.
@@ -144,7 +144,7 @@ bearer token is attached only after the allowlist check.
 ### Options
 
 `adapter.cloudflare` is nested inside `adapter`: `read` is required and names
-one of the three reads. `account_id`, `zone_id` and `pool_id` are 32 ASCII hex
+one of the four reads. `account_id`, `zone_id` and `pool_id` are 32 ASCII hex
 characters. `tunnel_id` accepts a UUID in `8-4-4-4-12` ASCII hex form, with
 uppercase or lowercase letters; legacy 32-hex inputs remain accepted. Its
 spelling is preserved in the configuration and request path, without
@@ -195,7 +195,7 @@ stage `adapter_api`:
 | Situation | Code |
 |---|---|
 | `token_env` unset or the variable missing/empty | `cloudflare_token_missing` (stage `setup`, nothing sent) |
-| a path outside the three exact forms, a dot segment or an extra DNS filter | `api_path_not_allowed` |
+| a path outside the four exact forms, a dot segment or an extra DNS filter | `api_path_not_allowed` |
 | invalid options or target in a hand-built check | `invalid_cloudflare_options` / `invalid_adapter_url` (stage `setup`) |
 | connect error, timeout, TLS failure, context deadline | `api_unavailable` |
 | `401` or `403` | `authentication_failed` |
@@ -242,9 +242,9 @@ the outcome is `unknown` (`connections_unreported`) and the policy is
 is a count of zero: `tunnel_connections` is `0`, so a declared minimum
 connection count is violated. With only a colo policy configured, no live
 connection has a colo to verify and the policy remains unverified. A populated array is counted as returned whatever the status
-says. `tunnel_status` carries the API's own word in every case. The read does
-not call the dedicated endpoint: one GET per check is the rule, and that
-endpoint is outside the three allowlisted paths. The connection's `origin_ip`, its `id`, `client_id`
+says. `tunnel_status` carries the API's own word in every case. The tunnel-status read does
+not call the dedicated endpoint: one GET per check is the rule. Configure a
+separate `tunnel_connections` read for the dedicated endpoint. The connection's `origin_ip`, its `id`, `client_id`
 and `uuid`, and the tunnel's name and account tag are never read into a fact.
 Connector versions are not exported because they are free-form strings that
 can carry fragments of a bearer token. `tunnel_colos` keeps only three uppercase
@@ -308,5 +308,18 @@ name. They pin field names and vocabularies only; the acceptance record
 lists what a real account still has to confirm.
 
 Run `go test ./internal/adapters/cloudflare` from the repository root. The
-three response parsers have bounded fuzz targets; loopback servers cover the
+response parsers have bounded fuzz targets; loopback servers cover the
 allowlist, budgets, status mapping, every policy code and the reflection test.
+
+## Dedicated tunnel connections
+
+Use `adapter.cloudflare.read: "tunnel_connections"` with `account_id`,
+`tunnel_id`, and optional `expected_connections` / `expected_colos` to read
+`GET /accounts/{account_id}/cfd_tunnel/{tunnel_id}/connections`. This is one
+read-only GET using the existing Cloudflare Tunnel Read permission. The
+response lists connectors; the adapter counts their nested `conns` sessions,
+not connectors. It reports the existing connection facts and policies but
+never invents `tunnel_status`. Keep a separate `tunnel` check for that status.
+An explicit empty inventory is zero sessions; absent session lists and partial
+pages are monitor errors. Identifiers, addresses and versions remain withheld.
+This endpoint is covered by synthetic tests, not real-account acceptance.

@@ -17,13 +17,15 @@ import (
 type tunnelResponse struct {
 	Success *bool `json:"success"`
 	Result  *struct {
-		Status      string `json:"status"`
-		Connections []struct {
-			ColoName           string `json:"colo_name"`
-			IsPendingReconnect bool   `json:"is_pending_reconnect"`
-			OpenedAt           string `json:"opened_at"`
-		} `json:"connections"`
+		Status      string             `json:"status"`
+		Connections []tunnelConnection `json:"connections"`
 	} `json:"result"`
+}
+
+type tunnelConnection struct {
+	ColoName           string `json:"colo_name"`
+	IsPendingReconnect bool   `json:"is_pending_reconnect"`
+	OpenedAt           string `json:"opened_at"`
 }
 
 // Closed tunnel statuses, per Cloudflare's Get a Cloudflare Tunnel reference.
@@ -75,12 +77,16 @@ func collectTunnel(body []byte, options model.CloudflareOptions, o *model.Observ
 		}
 		return nil
 	}
-	connections := len(doc.Result.Connections)
+	return collectConnections(doc.Result.Connections, options, o)
+}
+
+func collectConnections(list []tunnelConnection, options model.CloudflareOptions, o *model.Observation) error {
+	connections := len(list)
 	pending := 0
 	colos := map[string]bool{}
 	missingColo := false
 	var oldest time.Time
-	for _, c := range doc.Result.Connections {
+	for _, c := range list {
 		if c.IsPendingReconnect {
 			pending++
 		}

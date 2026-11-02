@@ -1088,7 +1088,7 @@ func cloudflareFields(f *Form, x model.Check, when func(*Form) bool) {
 		proxied = strconv.FormatBool(*cf.ExpectedProxied)
 	}
 	f.add("Cloudflare token env", x.Adapter.TokenEnv, fText, "cloudflare: worker variable holding the API token").when = when
-	f.add("Cloudflare read", cf.Read, fChoice, "cloudflare: one read per check", "", "tunnel", "dns_record", "pool").when = when
+	f.add("Cloudflare read", cf.Read, fChoice, "cloudflare: one read per check", "", "tunnel", "tunnel_connections", "dns_record", "pool").when = when
 	f.add("Cloudflare account id", cf.AccountID, fText, "cloudflare tunnel/pool: 32 hex characters").when = when
 	f.add("Cloudflare zone id", cf.ZoneID, fText, "cloudflare dns_record: 32 hex characters").when = when
 	f.add("Cloudflare tunnel id", cf.TunnelID, fText, "cloudflare tunnel: 32 hex characters").when = when
@@ -1114,7 +1114,7 @@ func cloudflareFieldsCommit(f *Form, x *model.Check) error {
 	x.Adapter.TokenEnv = f.val("Cloudflare token env")
 	cf := &model.CloudflareOptions{Read: read}
 	switch read {
-	case "tunnel":
+	case "tunnel", "tunnel_connections":
 		cf.AccountID, cf.TunnelID = f.val("Cloudflare account id"), f.val("Cloudflare tunnel id")
 		if value := f.val("Cloudflare expected connections"); value != "" {
 			n, err := f.num("Cloudflare expected connections")

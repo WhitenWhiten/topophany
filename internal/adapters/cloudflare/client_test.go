@@ -55,7 +55,7 @@ func TestReadOnceAllowlist(t *testing.T) {
 		{"tunnel legacy compact", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + legacyTunnelID}, true},
 		{"pool", readRequest{path: "/accounts/" + testAccountID + "/load_balancers/pools/" + testPoolID + "/health"}, true},
 		{"dns", readRequest{path: "/zones/" + testZoneID + "/dns_records", query: map[string][]string{"name": {"www.example.com"}, "type": {"A"}}}, true},
-		{"connections endpoint", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID + "/connections"}, false},
+		{"connections endpoint", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID + "/connections"}, true},
 		{"tunnel extra suffix", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID + "x"}, false},
 		{"tunnel extra prefix", readRequest{path: "/other/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID}, false},
 		{"tunnel trailing slash", readRequest{path: "/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID + "/"}, false},
@@ -91,8 +91,8 @@ func TestReadOnceAllowlist(t *testing.T) {
 			}
 		})
 	}
-	if got := hits.Load(); got != 5 {
-		t.Fatalf("requests=%d want 5 allowed requests", got)
+	if got := hits.Load(); got != 6 {
+		t.Fatalf("requests=%d want 6 allowed requests", got)
 	}
 }
 
@@ -141,6 +141,7 @@ func TestReadOnceBuildsEachPath(t *testing.T) {
 		options           model.CloudflareOptions
 	}{
 		{"tunnel", "/client/v4/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID, "", tunnelOptions()},
+		{"connections", "/client/v4/accounts/" + testAccountID + "/cfd_tunnel/" + testTunnelID + "/connections", "", model.CloudflareOptions{Read: ReadTunnelConnections, AccountID: testAccountID, TunnelID: testTunnelID}},
 		{"dns", "/client/v4/zones/" + testZoneID + "/dns_records", "name=www.example.com&type=A", dnsOptions()},
 		{"pool", "/client/v4/accounts/" + testAccountID + "/load_balancers/pools/" + testPoolID + "/health", "", poolOptions()},
 	} {

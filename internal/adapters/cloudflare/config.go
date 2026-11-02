@@ -13,12 +13,13 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/secure"
 )
 
-// The three allowlisted reads. A check selects exactly one; the client builds
+// The four allowlisted reads. A check selects exactly one; the client builds
 // that read's request from validated identifiers only.
 const (
-	ReadTunnel    = "tunnel"
-	ReadDNSRecord = "dns_record"
-	ReadPool      = "pool"
+	ReadTunnel            = "tunnel"
+	ReadTunnelConnections = "tunnel_connections"
+	ReadDNSRecord         = "dns_record"
+	ReadPool              = "pool"
 )
 
 // Bounds. These are malformed-input guards and small topology limits, not
@@ -48,7 +49,7 @@ var tunnelID = regexp.MustCompile(`^` + tunnelIDPattern + `$`)
 // the check's contract without asking for the read it belongs to.
 func Validate(o model.CloudflareOptions) error {
 	switch o.Read {
-	case ReadTunnel:
+	case ReadTunnel, ReadTunnelConnections:
 		if !hexID.MatchString(o.AccountID) {
 			return errors.New("cloudflare read requires a 32-character hex account_id")
 		}
@@ -113,7 +114,7 @@ func Validate(o model.CloudflareOptions) error {
 			seen[key] = true
 		}
 	default:
-		return errors.New("cloudflare read must be tunnel, dns_record or pool")
+		return errors.New("cloudflare read must be tunnel, tunnel_connections, dns_record or pool")
 	}
 	return nil
 }

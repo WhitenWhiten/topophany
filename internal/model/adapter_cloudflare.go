@@ -8,7 +8,7 @@ import "slices"
 // the others. The token itself lives in the worker's environment and is named
 // by AdapterOptions.TokenEnv, never written here.
 type CloudflareOptions struct {
-	// Read selects the one allowlisted API read: tunnel, dns_record or pool.
+	// Read selects the one allowlisted API read: tunnel, tunnel_connections, dns_record or pool.
 	Read string `json:"read,omitempty"`
 	// AccountID and TunnelID name the tunnel read's account and tunnel.
 	AccountID string `json:"account_id,omitempty"`

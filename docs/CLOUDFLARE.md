@@ -219,3 +219,16 @@ unregistered tunnel; connected-success fixtures are synthetic. See the
 [API acceptance record](acceptance/CLOUDFLARE_API_2026-10-19.md) and
 [connector acceptance record](acceptance/CLOUDFLARED_2026-10-19.md) for the exact
 boundaries and remaining live checks.
+
+## Dedicated tunnel connections
+
+Use `adapter.cloudflare.read: "tunnel_connections"` with `account_id`,
+`tunnel_id`, and optional `expected_connections` / `expected_colos` to read
+`GET /accounts/{account_id}/cfd_tunnel/{tunnel_id}/connections`. This is one
+read-only GET using the existing Cloudflare Tunnel Read permission. The
+response lists connectors; the adapter counts their nested `conns` sessions,
+not connectors. It reports the existing connection facts and policies but
+never invents `tunnel_status`. Keep a separate `tunnel` check for that status.
+An explicit empty inventory is zero sessions; absent session lists and partial
+pages are monitor errors. Identifiers, addresses and versions remain withheld.
+This endpoint is covered by synthetic tests, not real-account acceptance.

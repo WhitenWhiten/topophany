@@ -47,9 +47,10 @@ const (
 // path outside these forms (including one with traversal segments) is refused
 // before any request is built. There is no prefix or suffix exception.
 var (
-	tunnelPath     = regexp.MustCompile(`^/accounts/[0-9a-fA-F]{32}/cfd_tunnel/` + tunnelIDPattern + `$`)
-	dnsPath        = regexp.MustCompile(`^/zones/[0-9a-fA-F]{32}/dns_records$`)
-	poolHealthPath = regexp.MustCompile(`^/accounts/[0-9a-fA-F]{32}/load_balancers/pools/[0-9a-fA-F]{32}/health$`)
+	connectionsPath = regexp.MustCompile(`^/accounts/[0-9a-fA-F]{32}/cfd_tunnel/` + tunnelIDPattern + `/connections$`)
+	tunnelPath      = regexp.MustCompile(`^/accounts/[0-9a-fA-F]{32}/cfd_tunnel/` + tunnelIDPattern + `$`)
+	dnsPath         = regexp.MustCompile(`^/zones/[0-9a-fA-F]{32}/dns_records$`)
+	poolHealthPath  = regexp.MustCompile(`^/accounts/[0-9a-fA-F]{32}/load_balancers/pools/[0-9a-fA-F]{32}/health$`)
 )
 
 // Dependencies are supplied by the probe, preserving its explicit route and
@@ -66,7 +67,7 @@ type readRequest struct {
 }
 
 func (r readRequest) allowed() bool {
-	matched := tunnelPath.MatchString(r.path) || poolHealthPath.MatchString(r.path) || dnsPath.MatchString(r.path)
+	matched := connectionsPath.MatchString(r.path) || tunnelPath.MatchString(r.path) || poolHealthPath.MatchString(r.path) || dnsPath.MatchString(r.path)
 	if !matched {
 		return false
 	}
@@ -130,6 +131,8 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 	o.PathEvidence = PathEvidence
 	o.Facts["peer_text"] = adapters.Withheld
 	switch options.Read {
+	case ReadTunnelConnections:
+		err = collectTunnelConnections(body, options, o)
 	case ReadTunnel:
 		err = collectTunnel(body, options, o)
 	case ReadDNSRecord:
@@ -207,6 +210,8 @@ func scrubToken(o *model.Observation, token string) {
 // or a tunnel UUID, a DNS name and a closed record type.
 func readFor(options model.CloudflareOptions) (readRequest, int64) {
 	switch options.Read {
+	case ReadTunnelConnections:
+		return readRequest{path: "/accounts/" + options.AccountID + "/cfd_tunnel/" + options.TunnelID + "/connections"}, maxTunnelBytes
 	case ReadTunnel:
 		return readRequest{path: "/accounts/" + options.AccountID + "/cfd_tunnel/" + options.TunnelID}, maxTunnelBytes
 	case ReadDNSRecord:
