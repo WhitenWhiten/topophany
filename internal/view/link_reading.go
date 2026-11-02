@@ -80,6 +80,9 @@ func readingCount(fact string) (int, bool) {
 // sessions, or that it has none, and the colos they are held at.
 func connectorReading(facts map[string]string) []string {
 	out := []string{}
+	if facts["metrics_status"] == "unavailable" {
+		out = append(out, "metrics unavailable")
+	}
 	n, ok := readingCount(facts["ready_connections"])
 	switch {
 	case !ok:

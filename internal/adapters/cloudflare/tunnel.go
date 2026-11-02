@@ -50,7 +50,13 @@ const connectionsNotReported = "Cloudflare API state reported; the connections l
 // is configured, its result is unknown even though the API read succeeded.
 // An empty list beside down or inactive is a count of zero, and the policies
 // apply. tunnel_status carries the API's own word either way.
-func collectTunnel(body []byte, options model.CloudflareOptions, o *model.Observation) error {
+func collectTunnel(body []byte, options model.CloudflareOptions, o *model.Observation) (err error) {
+	defer func() {
+		if err == nil && options.ExpectedStatus != "" && o.Facts["tunnel_status"] != options.ExpectedStatus {
+			o.Outcome, o.Code, o.Detail = "policy", "tunnel_status_mismatch", "Cloudflare tunnel status differs from the declared policy"
+		}
+	}()
+
 	var doc tunnelResponse
 	if err := decodeJSON(body, &doc); err != nil {
 		return err

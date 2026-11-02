@@ -15,7 +15,7 @@ func adapterDetails(check model.Check, state model.CheckState) []string {
 	}
 	runtime := "unverified"
 	if last := state.Last; last != nil && state.Freshness == "fresh" {
-		if last.Evidence == "reported" && ((last.Stage == "adapter" || last.Stage == "adapter_api") && last.Outcome != "error" || last.Facts["mode"] != "" || last.Facts["backend_state"] != "" || last.Facts["rx_bytes"] != "" || last.Facts["ready_connections"] != "" || last.Facts["ha_connections"] != "" || last.Facts["tunnel_status"] != "" || last.Facts["record_count"] != "" || last.Facts["pool_healthy"] != "") {
+		if last.Evidence == "reported" && ((last.Stage == "adapter" || last.Stage == "adapter_api") && last.Outcome != "error" || last.Facts["connector_ready"] == "true" || last.Facts["mode"] != "" || last.Facts["backend_state"] != "" || last.Facts["rx_bytes"] != "" || last.Facts["ready_connections"] != "" || last.Facts["ha_connections"] != "" || last.Facts["tunnel_status"] != "" || last.Facts["record_count"] != "" || last.Facts["pool_healthy"] != "") {
 			runtime = "available"
 		}
 	}
@@ -61,6 +61,9 @@ func policyEvidenceComplete(check model.Check, last *model.Observation) bool {
 	}
 	if check.Kind == "cloudflare" && check.Adapter.Cloudflare != nil {
 		options := check.Adapter.Cloudflare
+		if options.ExpectedStatus != "" && last.Facts["tunnel_status"] != options.ExpectedStatus {
+			return false
+		}
 		if options.ExpectedConnections != nil || len(options.ExpectedColos) > 0 {
 			count := last.Facts["tunnel_connections"]
 			if count == "" {
@@ -78,7 +81,7 @@ func policyEvidenceComplete(check model.Check, last *model.Observation) bool {
 // assertion. Without one the adapter still reports facts, but there is no
 // policy to match or violate.
 func cloudflarePolicyConfigured(options *model.CloudflareOptions) bool {
-	return options != nil && (options.ExpectedConnections != nil || len(options.ExpectedColos) > 0 || options.ExpectedProxied != nil || options.ExpectedContent != "" || len(options.ExpectedOrigins) > 0)
+	return options != nil && (options.ExpectedStatus != "" || options.ExpectedConnections != nil || len(options.ExpectedColos) > 0 || options.ExpectedProxied != nil || options.ExpectedContent != "" || len(options.ExpectedOrigins) > 0)
 }
 
 func policyViolation(check model.Check, last *model.Observation) bool {

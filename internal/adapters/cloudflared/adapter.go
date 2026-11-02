@@ -77,14 +77,16 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 	if metricsErr == nil && metricsStatus == http.StatusOK {
 		metrics = ParseMetrics(body)
 	}
-	if established && (metricsErr != nil || metricsStatus != http.StatusOK || !metrics.Parsed()) {
-		return adapters.Local("adapter", "metrics_unavailable")
-	}
-
 	o.Facts["ready_connections"] = strconv.Itoa(ready.Connections)
 	if ready.ConnectorID != "" {
 		o.Facts["connector_id"] = ready.ConnectorID
 	}
+	if established && (metricsErr != nil || metricsStatus != http.StatusOK || !metrics.Parsed()) {
+		o.Facts["connector_ready"] = "true"
+		o.Facts["metrics_status"] = "unavailable"
+		return adapters.Local("adapter", "metrics_unavailable")
+	}
+
 	for fact, value := range map[string]*int64{
 		"ha_connections": metrics.HAConnections,
 		"requests_total": metrics.TotalRequests,

@@ -420,3 +420,13 @@ func TestCollectReadsReadyThenMetricsWithGET(t *testing.T) {
 		t.Fatalf("reads %v", seen)
 	}
 }
+
+func TestPartialMetricsPreservesReadyEvidence(t *testing.T) {
+	o, err := collect(t, model.CloudflaredOptions{}, write(readyFour), status(500, "unavailable"))
+	if err == nil || o.Facts["ready_connections"] != "4" || o.Facts["connector_ready"] != "true" || o.Facts["metrics_status"] != "unavailable" || o.Facts["connector_id"] == "" {
+		t.Fatal(err, o)
+	}
+	if o.Facts["ha_connections"] != "" {
+		t.Fatal("invented metrics", o)
+	}
+}

@@ -139,3 +139,13 @@ func TestAdapterPolicy(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestCloudflareStatusMissingIsUnverified(t *testing.T) {
+	check := model.Check{Kind: "cloudflare", Adapter: model.AdapterOptions{Cloudflare: &model.CloudflareOptions{Read: "tunnel", ExpectedStatus: "healthy"}}}
+	for _, tc := range []struct{ actual, want string }{{"", "unverified"}, {"healthy", "matched"}, {"down", "unverified"}} {
+		state := model.CheckState{Freshness: "fresh", Last: &model.Observation{Outcome: "ok", Facts: map[string]string{"tunnel_status": tc.actual}}}
+		if got := AdapterPolicy(check, state); got != tc.want {
+			t.Fatal(tc, got)
+		}
+	}
+}

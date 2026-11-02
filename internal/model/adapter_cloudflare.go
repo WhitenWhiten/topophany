@@ -10,6 +10,8 @@ import "slices"
 type CloudflareOptions struct {
 	// Read selects the one allowlisted API read: tunnel, tunnel_connections, dns_record or pool.
 	Read string `json:"read,omitempty"`
+	// ExpectedStatus asserts the platform status word; tunnel reads only.
+	ExpectedStatus string `json:"expected_status,omitempty"`
 	// AccountID and TunnelID name the tunnel read's account and tunnel.
 	AccountID string `json:"account_id,omitempty"`
 	ZoneID    string `json:"zone_id,omitempty"`

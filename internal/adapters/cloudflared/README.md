@@ -146,3 +146,13 @@ targets; loopback servers cover the read paths. Add a new
 `testdata/<version>/` directory with provenance notes for another observed
 response shape. Do not commit a real connector UUID, tunnel secret, account
 tag or full log.
+
+### Partial metrics reads
+
+When `/ready` reports a session but `/metrics` fails, the sample remains a
+monitor error. It now preserves `ready_connections` and the shaped connector
+ID, with `connector_ready: true` and `metrics_status: unavailable`. The view
+shows the session reading alongside the metrics error; no missing metric is
+filled with zero. Link health remains conservative and the partial read does
+not bypass failure/recovery thresholds. A stopped listener still contributes
+no readiness fact. Normal complete samples retain their existing fact set.

@@ -238,3 +238,12 @@ requests per five minutes across the topology. Retry-After and exhausted
 Ratelimit headers pause further API reads; a paused sample is a monitor error
 (`api_rate_limited`), not an application outage. Separate deployments and other
 API clients still consume the upstream user's shared quota.
+
+For a `tunnel` API read, `adapter.cloudflare.expected_status: "healthy"`
+asserts Cloudflare's reported status. Accepted expectations are `healthy`,
+`degraded`, `down` and `inactive`; a different status produces policy code
+`tunnel_status_mismatch`, even if connection evidence is unavailable. Other
+read types reject this field. Omitting it preserves existing behavior: `ok`
+means a successful read, not an assertion that the tunnel is healthy. Adding
+or changing the expectation starts a new measurement contract; upgrade readers
+and workers before using the new field.

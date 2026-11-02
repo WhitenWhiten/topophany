@@ -1095,6 +1095,7 @@ func cloudflareFields(f *Form, x model.Check, when func(*Form) bool) {
 	f.add("Cloudflare pool id", cf.PoolID, fText, "cloudflare pool: 32 hex characters").when = when
 	f.add("Cloudflare record name", cf.RecordName, fText, "cloudflare dns_record: DNS record name").when = when
 	f.add("Cloudflare record type", cf.RecordType, fChoice, "cloudflare dns_record: record type", "", "A", "AAAA", "CNAME").when = when
+	f.add("Cloudflare expected status", cf.ExpectedStatus, fChoice, "cloudflare tunnel: platform state assertion", "", "healthy", "degraded", "down", "inactive").when = when
 	f.add("Cloudflare expected connections", connections, fText, "cloudflare tunnel: 1…64").when = when
 	f.add("Cloudflare expected colos", strings.Join(cf.ExpectedColos, ", "), fList, "cloudflare tunnel: e.g. HKG, NRT").when = when
 	f.add("Cloudflare expected proxied", proxied, fChoice, "cloudflare dns_record: true or false", "", "true", "false").when = when
@@ -1109,12 +1110,15 @@ func cloudflareFields(f *Form, x model.Check, when func(*Form) bool) {
 func cloudflareFieldsCommit(f *Form, x *model.Check) error {
 	read := f.val("Cloudflare read")
 	if read == "" {
-		return errors.New("Cloudflare read must be tunnel, dns_record or pool")
+		return errors.New("Cloudflare read must be tunnel, tunnel_connections, dns_record or pool")
 	}
 	x.Adapter.TokenEnv = f.val("Cloudflare token env")
 	cf := &model.CloudflareOptions{Read: read}
 	switch read {
 	case "tunnel", "tunnel_connections":
+		if read == "tunnel" {
+			cf.ExpectedStatus = f.val("Cloudflare expected status")
+		}
 		cf.AccountID, cf.TunnelID = f.val("Cloudflare account id"), f.val("Cloudflare tunnel id")
 		if value := f.val("Cloudflare expected connections"); value != "" {
 			n, err := f.num("Cloudflare expected connections")
@@ -1139,7 +1143,7 @@ func cloudflareFieldsCommit(f *Form, x *model.Check) error {
 		cf.AccountID, cf.PoolID = f.val("Cloudflare account id"), f.val("Cloudflare pool id")
 		cf.ExpectedOrigins = f.list("Cloudflare expected origins")
 	default:
-		return errors.New("Cloudflare read must be tunnel, dns_record or pool")
+		return errors.New("Cloudflare read must be tunnel, tunnel_connections, dns_record or pool")
 	}
 	x.Adapter.Cloudflare = cf
 	return nil

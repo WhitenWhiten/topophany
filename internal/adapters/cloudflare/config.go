@@ -48,6 +48,17 @@ var tunnelID = regexp.MustCompile(`^` + tunnelIDPattern + `$`)
 // refused rather than silently ignored, so a mistyped topology cannot change
 // the check's contract without asking for the read it belongs to.
 func Validate(o model.CloudflareOptions) error {
+	if o.ExpectedStatus != "" {
+		if o.Read != ReadTunnel {
+			return errors.New("expected_status requires the tunnel read")
+		}
+		switch o.ExpectedStatus {
+		case tunnelHealthy, tunnelDegraded, tunnelDown, tunnelInactive:
+		default:
+			return errors.New("expected_status must be healthy, degraded, down or inactive")
+		}
+	}
+
 	switch o.Read {
 	case ReadTunnel, ReadTunnelConnections:
 		if !hexID.MatchString(o.AccountID) {

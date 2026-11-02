@@ -262,3 +262,41 @@ func TestCollectTunnelColoPolicyUsesFullSet(t *testing.T) {
 		t.Fatalf("fact is not the capped list: %q", o.Facts["tunnel_colos"])
 	}
 }
+
+func TestTunnelStatusExpectationPrecedesMissingConnections(t *testing.T) {
+	for _, status := range []string{"healthy", "degraded", "down", "inactive"} {
+		options := tunnelOptions()
+		options.ExpectedStatus = "healthy"
+		o := observation()
+		err := collectTunnel([]byte(`{"success":true,"result":{"status":"`+status+`","connections":[]}}`), options, o)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status == "healthy" {
+			if o.Outcome != "ok" {
+				t.Fatal(o)
+			}
+		} else if o.Outcome != "policy" || o.Code != "tunnel_status_mismatch" {
+			t.Fatal(o)
+		}
+	}
+	options := tunnelOptions()
+	options.ExpectedStatus = "healthy"
+	count := 4
+	options.ExpectedConnections = &count
+	o := observation()
+	if err := collectTunnel([]byte(`{"success":true,"result":{"status":"degraded","connections":[]}}`), options, o); err != nil || o.Code != "tunnel_status_mismatch" {
+		t.Fatal(err, o)
+	}
+	for _, read := range []string{ReadTunnelConnections, ReadDNSRecord, ReadPool} {
+		options.Read = read
+		if Validate(options) == nil {
+			t.Fatal("status expectation accepted for", read)
+		}
+	}
+	options.Read = ReadTunnel
+	options.ExpectedStatus = "unknown"
+	if Validate(options) == nil {
+		t.Fatal("unknown status accepted")
+	}
+}
