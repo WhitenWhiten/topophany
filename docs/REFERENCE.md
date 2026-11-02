@@ -1192,7 +1192,9 @@ unproven. The link then reports its evidence as `reported` rather than
 `inferred`. A `cloudflare` API check on the same link is shown beside the
 connector's and does not vote on the link while a fresh connector report
 decides it. A connector read that failed leaves the link unknown with its own
-reason. The public check through the edge still proves only the edge, and a
+reason. If only metrics failed, the observation retains the readiness count
+and connector ID with `connector_ready: true` and `metrics_status: unavailable`;
+views show that partial evidence without filling missing counters with zero. The public check through the edge still proves only the edge, and a
 colo is the connector's metadata, not routing proof. `/ready` proves a
 connector session, never that the hostname routes to this connector or that the
 service answers; add a separate application check for that. The preview's
@@ -1219,12 +1221,15 @@ refused, and the base carries no userinfo, query, fragment or dot segments.
 the Mihomo controller read, and this kind may traverse its path's proxies
 because the API is legitimately reachable through them; there is no environment
 proxy, no redirect following and no direct fallback. An endpoint is refused:
-the API base is `target`. `interval_seconds` must be at least 60, well inside
+the API base is `target`. `interval_seconds` must be at least 60. A single check is inside
 Cloudflare's documented limit of about 1,200 requests per five minutes per user
-(the limit is shared by that user's tokens).
+(the limit is shared by that user's tokens). Runners also allocate a shared
+900-request/five-minute topology budget and honor bounded server cooldowns;
+`api_rate_limited` means this sample sent no request. Separate deployments and
+other clients still share the upstream quota.
 
-`adapter.cloudflare.read` selects exactly one of `tunnel`, `dns_record` or
-`pool`. `account_id`, `zone_id` and `pool_id` are 32 ASCII hex characters.
+`adapter.cloudflare.read` selects exactly one of `tunnel`, `tunnel_connections`,
+`dns_record` or `pool`. `account_id`, `zone_id` and `pool_id` are 32 ASCII hex characters.
 `tunnel_id` accepts a UUID in `8-4-4-4-12` ASCII hex form, with uppercase or
 lowercase letters; legacy 32-hex inputs remain accepted. Its spelling is
 preserved in the configuration and request path, without normalization, so
@@ -1232,18 +1237,19 @@ existing configurations keep their measurement contracts. `record_name` is a
 DNS name and `record_type` is `A`, `AAAA` or
 `CNAME`. `expected_proxied` and `expected_content` belong to the DNS read,
 `expected_connections` (1..64) and `expected_colos` (at most eight three-letter
-uppercase codes) to the tunnel read, and `expected_origins` (at most sixteen IP
+uppercase codes) to either tunnel read, and `expected_origins` (at most sixteen IP
 addresses or host names) to the pool read. A field belonging to another read is
 refused rather than ignored.
 
 | Read | Request | Facts | Policy |
 |---|---|---|---|
 | `tunnel` | `GET /accounts/{account_id}/cfd_tunnel/{tunnel_id}` | `tunnel_status` (`healthy`, `degraded`, `down` or `inactive`), `tunnel_connections`, `tunnel_pending_reconnect`, `tunnel_colos` (sorted, at most eight), `oldest_connection_at` (RFC 3339); the four connection facts are absent when the connection list is empty beside a `healthy` or `degraded` tunnel | `connections_below_expected`, `colo_outside_expected` |
+| `tunnel_connections` | `GET /accounts/{account_id}/cfd_tunnel/{tunnel_id}/connections` | Connection facts counted from each connector's nested `conns`; no inferred `tunnel_status` | `connections_below_expected`, `colo_outside_expected` |
 | `dns_record` | `GET /zones/{zone_id}/dns_records?name={record_name}&type={record_type}` | `record_count`, `record_proxied` (`true`/`false` when every record agrees), `record_ttl` (same), `record_content_matches` (`true`, `false` or `not_declared`) | `record_missing`, `record_not_proxied`, `record_proxied_unexpectedly`, `record_content_mismatch` |
 | `pool` | `GET /accounts/{account_id}/load_balancers/pools/{pool_id}/health` | `pool_healthy` (when a region reports it), `origins_healthy`, `origins_total`, `regions_reporting`, `origin.<declared>` (`healthy`/`unhealthy`) | `origins_below_expected` |
 
 The DNS query is the only query and carries exactly one `name` and one closed
-`type`. A path outside the three exact forms, a dot segment and an extra query
+`type`. A path outside the four exact forms, a dot segment and an extra query
 parameter are refused with `api_path_not_allowed` before a request exists. The
 DNS record's `content` is compared with `expected_content` in memory and never
 stored; the observation keeps only whether it matched, so a record that still
@@ -1275,7 +1281,11 @@ live connection to verify and remains unverified. A listed connection without
 a valid colo also leaves a declared colo policy unverified unless another
 connection establishes a violation. `tunnel_status` carries the API's own word in every case. A
 `down` or `degraded` status is a reported fact and does not by itself fail the check: it is the platform's statement, and
-`expected_connections` and `expected_colos` are the declared assertions. The pool reference renders `pop_health` both as one
+`expected_connections`, `expected_colos` and optional `expected_status` are the declared assertions.
+`expected_status` accepts `healthy`, `degraded`, `down` or `inactive` only on
+the `tunnel` read. A mismatch is `policy / tunnel_status_mismatch` and takes
+precedence over missing connection evidence. Upgrade all readers and workers
+before adding this new field or using the new dedicated connections read. The pool reference renders `pop_health` both as one
 `{healthy, origins}` object and as a list of regions, and the generated model
 collapses the region map; the adapter accepts both. `regions_reporting` counts
 parsed regions, the two origin counts cover distinct origins, and an origin
@@ -1315,8 +1325,8 @@ document-based; no live account or token was used.
 to copy from: a proxied origin with its own direct check, a Worker and a Pages
 site, a Tunnel with a `cloudflared` check on its link and a loopback check of
 the service behind it, trace and DoT checks, an Access-protected hostname using
-`request_header_envs`, and `expected_pops` on the edge check. The three reads
-above are named in the edge's `notes` with `CF_API_TOKEN` rather than enabled,
+`request_header_envs`, and `expected_pops` on the edge check. The three original API reads
+are named in the edge's `notes` with `CF_API_TOKEN` rather than enabled,
 because the example holds no token or account; the tunnel read may carry the
 Tunnel's link, where it is shown beside the connector's report and never
 decides the link. The checks that are active use documentation hostnames and

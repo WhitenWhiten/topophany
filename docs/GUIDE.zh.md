@@ -40,6 +40,12 @@ topo validate --config cloudflare.json
 选择只是运行状态，不能证明应用流量走了这条路由，因此模板另配了一条经本地监听
 端口的 HTTP 应用检查。
 
+需要成组对照诊断时，可生成 `cloudflare-diagnostics` 或 `mihomo-diagnostics`
+模板。前者对照公网入口、本地服务、连接器及两个 Cloudflare API 读取；后者
+对照控制器、显式代理、系统默认路径、出口和 DNS。两者全部默认暂停。
+系统默认路径也可能被 TUN 接管，不能直接称为“直连”。配置步骤和读数解释见
+[组合诊断指南](DIAGNOSTICS.md)。
+
 ## 读懂状态
 
 - **当前检查全部通过**：此观测视角的活跃检查通过，不代表所有登记的服务都有应用级证据。
