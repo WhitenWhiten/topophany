@@ -118,6 +118,7 @@ topo --credentials ./demo/credentials.json
 
 ### アップグレード時の注意
 
+- **1.5.4 の Cloudflare フィールドを使う前に、すべてのロールを更新してください。** `tunnel_connections` や `expected_status` をトポロジーへ追加する前に、collector、worker、閲覧クライアントを対応版へ更新してください。番号付き colo 名の修正、Cloudflare リクエスト予算の共有、コネクターの部分的な準備状態の保持には worker の更新が必要です。番号付きの拠点を使う colo ポリシーは「未検証」から「一致」または「違反」に変わる場合があります。既存の 1.5.3 の設定と状態に移行は不要です。詳しくは [1.5.4 のリリースノート](docs/releases/v1.5.4.md)を参照してください。
 - **ローカルチェックと最新のストリーム診断には 1.5.3 を使ってください。** ローカルの mihomo チェックには新しいローカルバイナリが必要です。利用側は `monitor stream --capabilities` で `local` とメトリクス一覧を確認してください。既存の 1.5.2 の設定と状態に移行は不要です。Cloudflare のトークン秘匿とアダプターの証拠判定の修正には collector と worker を更新してください。保存済みのジャーナルは書き換えません。詳しくは [1.5.3 のリリースノート](docs/releases/v1.5.3.md)を参照してください。
 - **1.5.2 のポリシーを有効にする前に更新してください。** `tls_min_days`、`max_duration_ms`、`http.json_equals` をトポロジーへ追加する前に、collector、worker、閲覧クライアントを対応版へ更新してください。JSON アサーションには非公開の設定ファイルが必要です。通知ポリシーのフィールドを追加する前に collector を更新し、ロールバック用に対応する設定のバックアップを保持してください。詳しくは [1.5.2 のリリースノート](docs/releases/v1.5.2.md)を参照してください。
 - **1.5.1 へ更新するときは、worker より先に collector を更新してください。** 1.5.1 の worker は旧版の collector が拒否する可能性のある配信診断と collector エイリアスを報告します。複数の collector を使う worker には `collector_id` を返す collector が必要です。`availability_scope` を使うトポロジーは collector、worker、閲覧クライアントをすべて更新し、`allow_insecure` を使う直接接続プロファイルはローカルの 1.5.1 バイナリが必要です。詳しくは [1.5.1 のリリースノート](docs/releases/v1.5.1.md)を参照してください。

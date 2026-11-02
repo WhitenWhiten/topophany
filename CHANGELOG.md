@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4] - 2026-11-02
+
+This release adds a dedicated Cloudflare Tunnel connections read, tunnel status
+assertions, shared Cloudflare request budgets and paired diagnostic templates,
+and fixes numbered Tunnel colo names and monitor stream evidence gaps. See the
+[release notes](docs/releases/v1.5.4.md) for compatibility and upgrade details.
+
+### Added
+
+- `adapter.cloudflare.read: "tunnel_connections"` reads
+  `GET /accounts/{account_id}/cfd_tunnel/{tunnel_id}/connections` with the
+  existing Tunnel Read permission. It counts each connector's nested `conns`
+  sessions and supports `expected_connections` and `expected_colos`, but never
+  reports a `tunnel_status`. An explicit empty inventory is zero sessions;
+  absent session lists and partial pages are monitor errors.
+- `adapter.cloudflare.expected_status` (`healthy`, `degraded`, `down` or
+  `inactive`) asserts the `tunnel` read's reported status. A mismatch is policy
+  code `tunnel_status_mismatch` and takes precedence over missing connection
+  evidence. Other reads refuse the field, and setting it starts a new
+  measurement contract. The TUI editor offers it for tunnel reads.
+- `topo templates cloudflare-diagnostics` and `topo templates
+  mihomo-diagnostics` write paused topologies that compare a public entry, the
+  local origin, the connector and both Tunnel API reads; or the controller,
+  explicit proxy listener, system default path, exit and DNS. The
+  [paired diagnostics guide](docs/DIAGNOSTICS.md) explains how to read each
+  combination of results.
+- Link readings show the newest Tunnel status and the newest Tunnel session
+  count side by side when they come from separate Cloudflare API checks.
+
+### Changed
+
+- Cloudflare API checks share a per-observer budget allocated from 900 requests
+  per five minutes across the topology. HTTP 429 and 5xx start a bounded
+  cooldown (30 seconds to five minutes), and `Retry-After` or exhausted
+  `Ratelimit` headers extend it to at most one hour. A sample taken during
+  cooldown sends no request and is monitor error `api_rate_limited`, not an
+  outage.
+- Mihomo worker and local-stream runners share a validated controller response
+  for at most one second between checks with the same target, credential and
+  transport. Each check still evaluates its own policies and redactions. Four
+  snapshots of at most 8 MiB each bound the memory held. Checks with
+  `max_duration_ms` or a dynamic provider reference always read fresh.
+- Mihomo provider reference documents may hold up to 4096 members per provider
+  within 1 MiB, matching the runtime member limit.
+- When cloudflared's `/ready` reports a session but `/metrics` fails, the
+  sample remains a monitor error but keeps `ready_connections`, the connector
+  ID, `connector_ready: true` and `metrics_status: unavailable`. Views show the
+  session reading and never fill missing counters with zero.
+
+### Fixed
+
+- Cloudflare Tunnel API locations with a numeric suffix, such as `lax12`, were
+  discarded, which left colo policies unverified. Both Tunnel reads now
+  normalize a location of three ASCII letters plus an optional number (at most
+  eight bytes) to its uppercase city code, such as `LAX`, while still counting
+  every session. A real-account run found the bug, and a separate recheck
+  verified the fix.
+- Monitor streams publish renewed evidence deadlines before a reader's previous
+  copy expires. Before, an unchanged row could go missing between display
+  updates.
+- A client stream keeps its last valid snapshot, with its original deadlines,
+  when a collector read misses because no collector answered or the read timed
+  out. Authentication, identity and malformed-response failures still withhold
+  evidence immediately. A `503 connection_rotating` response gets the same
+  single bounded retry as `429 snapshot_busy`.
+- Mihomo snapshot sharing honors cancellation before every read and never lets
+  a cached response hide a latency-budget violation.
+- DNS fallback test fixtures bind the TCP port before choosing the matching UDP
+  port, which avoids UDP ports Windows excludes for TCP.
+
 ## [1.5.3] - 2026-11-01
 
 This release adds collector-free local mihomo checks, brings service assessments
@@ -2038,7 +2108,8 @@ Initial release.
 - Terminal UI with geographic and network topology maps, offline preview
   scenarios and a local topology editor.
 
-[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.5.3...HEAD
+[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.5.4...HEAD
+[1.5.4]: https://github.com/WhitenWhiten/topophany/compare/v1.5.3...v1.5.4
 [1.5.3]: https://github.com/WhitenWhiten/topophany/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/WhitenWhiten/topophany/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/WhitenWhiten/topophany/compare/v1.5.0...v1.5.1

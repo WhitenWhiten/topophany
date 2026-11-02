@@ -1,6 +1,6 @@
 # Scenario Contracts and Test Mapping
 
-This document lists the finite, verifiable scenario contracts for version 1.5.3, deliberately avoiding unsubstantiated claims that "all conceivable network failure scenarios are verified." The unit and integration test cases below reproduce software mechanics under controlled conditions; live operational deployments require separate hardware acceptance per [ACCEPTANCE.md](ACCEPTANCE.md). Automated execution evidence is produced by `scripts/verify.py` and published as a CI artifact.
+This document lists the finite, verifiable scenario contracts for version 1.5.4, deliberately avoiding unsubstantiated claims that "all conceivable network failure scenarios are verified." The unit and integration test cases below reproduce software mechanics under controlled conditions; live operational deployments require separate hardware acceptance per [ACCEPTANCE.md](ACCEPTANCE.md). Automated execution evidence is produced by `scripts/verify.py` and published as a CI artifact.
 
 | Scenario and Invariant | Automated Test Evidence |
 |---|---|
@@ -283,6 +283,24 @@ version.
 | Service assessments retain scoped evidence and expire at its earliest deadline; unknown-reason counts agree with availability coverage | `TestServiceCardAssessment`, `TestServiceAssessmentEvidenceBound`, `TestUnknownReasonsMatchCoverage` |
 | A resolved provider chain cannot erase an independent Mihomo unknown or policy violation; missing Cloudflare connection/colo evidence cannot establish a matched policy | `TestMihomoProviderChainPreservesIndependentPolicyResults`, `TestCollectTunnelMissingColoEvidence`, `TestTunnelReadAndPolicyEvidenceRemainDistinct`, `TestAdapterPolicy` |
 | Cloudflare collection withholds arbitrary client versions, scrubs token fragments in retained values and removes legacy connector-version facts from viewer snapshots and history | `TestTunnelNeverExportsClientVersions`, `TestTokenInsideShapedFactsIsRemoved`, `TestCloudflareLegacyVersionsWithheldFromViewer` |
+
+## Cloudflare reads, Mihomo reuse and stream continuity (1.5.4)
+
+Cloudflare cases use loopback servers and sanitized captures from the
+[2026-11-02 real-account run](acceptance/CLOUDFLARE_LIVE_2026-11-02.md); they
+do not exercise upstream 429/5xx behavior on a live account.
+
+| Scenario and Invariant | Automated Test Evidence |
+|---|---|
+| The dedicated connections read counts nested sessions rather than connectors, treats an explicit empty inventory as zero and absent session lists as errors, never invents a tunnel status, and a link shows the newest status and session count from separate API checks | `TestDedicatedConnections`, `TestTunnelSeparateAPIReadsKeepStatusAndCount` |
+| `expected_status` applies only to the tunnel read, changes the measurement contract, takes precedence over missing connection evidence, and is unverified when the status fact is absent or different | `TestTunnelStatusExpectationPrecedesMissingConnections`, `TestCloudflareStatusChangesContract`, `TestCloudflareStatusMissingIsUnverified` |
+| Numbered API locations such as `lax12` normalize to their city code for matching and outside colo policies while every session still counts; other location shapes stay unreported | `TestLiveTunnelColoPolicies`, `TestTunnelColoPolicyValidatesWholeLocation` |
+| API checks share one per-observer request budget, waiting is cancellable, and 429/5xx and `Retry-After`/`Ratelimit` cooldowns pause requests with `api_rate_limited` until they expire | `TestQuotaSharesBudgetAndCancels`, `TestQuotaCooldownHeadersAndRecovery` |
+| A connector whose `/ready` succeeds while `/metrics` fails keeps readiness evidence and the metrics error, without zero-filled counters | `TestPartialMetricsPreservesReadyEvidence` |
+| Shared Mihomo controller snapshots keep per-check policies and redactions, expire within one second, honor cancellation and the memory bound, and are bypassed by latency budgets; reference documents accept 4096 members per provider | `TestSnapshotPoliciesIsolationAndExpiry`, `TestSnapshotCancellationAndMemoryBound`, `TestLargeReferenceMembershipBoundary` |
+| Paired diagnostic templates are paused and keep platform reports separate from application requests | `TestDiagnosticTemplatesSeparateReportsAndRequests` |
+| Renewed evidence deadlines, including nested ones, publish before a reader's last copy expires, while unchanged or distant deadlines keep the display cadence | `TestEvidenceRenewalPrecedesReaderExpiry`, `TestNestedEvidenceRenewalPrecedesReaderExpiry` |
+| A missed or timed-out collector read keeps the last valid snapshot with its original clocks until they expire, an authorization rejection withholds it, and `503 connection_rotating` earns one bounded retry | `TestCollectorReadFailureRecoveryAndOwnership`, `TestSnapshotRotationRetryRecovers`, `TestSnapshotBusyRetryBoundedAndSelective` |
 
 ## Geographic map labels (1.2.0)
 

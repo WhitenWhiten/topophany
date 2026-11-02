@@ -118,6 +118,7 @@ topo --credentials ./demo/credentials.json
 
 ### 升级注意事项
 
+- **使用 1.5.4 的 Cloudflare 新字段前请升级所有角色。** 在拓扑中加入 `tunnel_connections` 或 `expected_status` 之前，collector、worker 和查看端都必须支持它们。请升级 worker，以获得带编号的 colo 名称修复、共享的 Cloudflare 请求预算和连接器部分就绪证据；使用带编号位置的 colo 策略可能从“未验证”变为“匹配”或“违反”。现有 1.5.3 配置及状态无需迁移。详见 [1.5.4 发布说明](docs/releases/v1.5.4.md)。
 - **本机检查和最新流式诊断请使用 1.5.3。** 本机 mihomo 检查需要新版本机二进制；消费端应通过 `monitor stream --capabilities` 确认 `local` 和指标目录。现有 1.5.2 配置及状态无需迁移。请升级 collector 和 worker，以获得 Cloudflare 令牌脱敏和适配器证据修复；既有日志不会被重写。详见 [1.5.3 发布说明](docs/releases/v1.5.3.md)。
 - **启用 1.5.2 策略前先升级。** 在拓扑中加入 `tls_min_days`、`max_duration_ms` 和 `http.json_equals` 前，collector、worker 和查看端都必须支持这些字段。JSON 断言要求配置文件保持私密。新增通知策略字段前请先升级 collector，并保留匹配的配置备份以便回滚。详见 [1.5.2 发布说明](docs/releases/v1.5.2.md)。
 - **升级到 1.5.1 时，先升级 collector，再升级 worker。** 1.5.1 的 worker 会报告旧版 collector 可能拒绝的投递诊断信息和 collector 别名，请先升级 collector。使用多个 collector 的 worker 需要返回 `collector_id` 的 collector。使用 `availability_scope` 的拓扑需要同时升级 collector、worker 和查看端；使用 `allow_insecure` 的直连配置需要本机 1.5.1 二进制。详见 [1.5.1 发布说明](docs/releases/v1.5.1.md)。
