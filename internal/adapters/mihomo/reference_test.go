@@ -162,7 +162,7 @@ func TestMihomoReferenceFailuresAreMonitorErrors(t *testing.T) {
 		{name: "schema", body: strings.Replace(valid, `"schema":1`, `"schema":2`, 1), code: "invalid_reference_document"},
 		{name: "unknown field", body: strings.Replace(valid, `"schema":1`, `"schema":1,"secret":"private"`, 1), code: "invalid_reference_document"},
 		{name: "duplicate key", body: strings.Replace(valid, `"schema":1`, `"schema":1,"schema":1`, 1), code: "reference_complexity_exceeded"},
-		{name: "size", body: strings.Repeat("x", (64<<10)+1), code: "reference_response_limit_exceeded"},
+		{name: "size", body: strings.Repeat("x", (1<<20)+1), code: "reference_response_limit_exceeded"},
 		{name: "auth", status: 401, code: "reference_http_401"},
 		{name: "unavailable", status: 503, code: "reference_http_503"},
 	} {

@@ -60,14 +60,14 @@ func readReference(ctx context.Context, deps Dependencies, x model.Check) (refer
 	if resp.StatusCode != http.StatusOK {
 		return referenceSnapshot{}, adapters.Local("provider_reference", fmt.Sprintf("reference_http_%d", resp.StatusCode))
 	}
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10+1))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20+1))
 	if err != nil {
 		return referenceSnapshot{}, adapters.Local("provider_reference", "reference_unavailable")
 	}
-	if len(raw) > 64<<10 {
+	if len(raw) > 1<<20 {
 		return referenceSnapshot{}, adapters.Local("provider_reference", "reference_response_limit_exceeded")
 	}
-	if secure.JSONResponseBudget(raw, 128, 256, 4096) != nil {
+	if secure.JSONResponseBudget(raw, 128, 4096, 4096) != nil {
 		return referenceSnapshot{}, adapters.Local("provider_reference", "reference_complexity_exceeded")
 	}
 	var doc providerReference

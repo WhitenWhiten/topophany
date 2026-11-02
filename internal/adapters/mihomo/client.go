@@ -36,6 +36,12 @@ func readCore(ctx context.Context, c *http.Client, base, path, token string, v a
 	if !mihomoReads[path] {
 		return adapters.Local("adapter", "api_path_not_allowed")
 	}
+	snapshot, _ := ctx.Value(snapshotContextKey{}).(*coreSnapshot)
+	if snapshot != nil {
+		if body, ok := snapshot.bodies[path]; ok {
+			return json.Unmarshal(body, v)
+		}
+	}
 	u, e := url.Parse(base)
 	if e != nil {
 		return adapters.Local("setup", "invalid_adapter_url")
@@ -79,6 +85,9 @@ func readCore(ctx context.Context, c *http.Client, base, path, token string, v a
 	}
 	if e = json.Unmarshal(b, v); e != nil {
 		return adapters.Local("adapter_api", "unsupported_response_shape")
+	}
+	if snapshot != nil {
+		snapshot.retain(path, b)
 	}
 	return nil
 }

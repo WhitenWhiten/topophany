@@ -17,6 +17,9 @@ import (
 
 // Dependencies are supplied by the probe, preserving its explicit route and TLS policy.
 type Dependencies struct {
+	Cache *SnapshotCache
+	// Scope identifies the exact transport (route, bind, TLS and resolve settings).
+	Scope            string
 	Client           func(model.Check, string) (*http.Client, func(), error)
 	Proxied          bool
 	ProxyCredentials bool
@@ -59,6 +62,25 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 	token, e := deps.secret(options.TokenEnv)
 	if e != nil {
 		return adapters.Local("setup", "adapter_secret_missing")
+	}
+	// A reference must surround a fresh runtime read, never a reused one.
+	if deps.Cache != nil && options.ProviderReference == nil {
+		snapshot, release, acquireErr := deps.Cache.acquire(ctx, deps.Scope+"\x00"+target+"\x00"+token)
+		if acquireErr != nil {
+			return adapters.Local("adapter_api", "sampling_canceled")
+		}
+		defer release()
+		if snapshot != nil {
+			ctx = context.WithValue(ctx, snapshotContextKey{}, snapshot)
+			o.SampledAt = snapshot.started.UTC()
+			defer func() {
+				if err != nil {
+					snapshot.started = time.Time{}
+					snapshot.bodies = nil
+					snapshot.bytes = 0
+				}
+			}()
+		}
 	}
 	u, e := url.Parse(target)
 	if e != nil {

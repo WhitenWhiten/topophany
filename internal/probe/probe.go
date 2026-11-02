@@ -23,6 +23,7 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/adapters"
 	"github.com/WhitenWhiten/topophany/internal/adapters/cloudflare"
 	"github.com/WhitenWhiten/topophany/internal/adapters/cloudflared"
+	"github.com/WhitenWhiten/topophany/internal/adapters/mihomo"
 	"github.com/WhitenWhiten/topophany/internal/config"
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/secure"
@@ -30,6 +31,7 @@ import (
 
 type Command = adapters.Command
 type Runner struct {
+	MihomoCache  *mihomo.SnapshotCache
 	Command      Command
 	ListenPacket func(string, string) (net.PacketConn, error)
 	// HostSample is injectable for hermetic resource tests. Production reads OS state.

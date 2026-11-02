@@ -112,8 +112,8 @@ References require HTTPS or direct literal loopback HTTP without proxy hops.
 The check's explicit proxy path and bind address still apply; its controller
 `resolve_ip` and `server_name` overrides do not apply to the publisher. Redirects
 are refused, and controller credentials are never forwarded to the publisher.
-`max_age_seconds` is required (1..604800). Documents are limited to 64 KiB,
-16 providers, 256 members per provider and bounded JSON complexity. Names must
+`max_age_seconds` is required (1..604800). Documents are limited to 1 MiB,
+16 providers, 4096 members per provider and bounded JSON complexity. Names must
 be nonempty, unique, free of control characters and at most 2048 bytes. Static
 and dynamic providers must be distinct, with at most 16 combined per check.
 
@@ -193,3 +193,21 @@ missing/extra names. It applies to static or reference-backed expectations.
 controllers without exporting undeclared names. Credential-bearing controllers
 retain only closed comparison labels. A publication changing during sampling is labeled unverified.
 The summary is truncated at the usual fact budget for very large provider names.
+
+### Shared collection window
+
+Worker and local-stream runners share validated controller responses for at most
+one second, keyed by the exact target, credential and transport settings.
+Each check evaluates its own policies and redactions against independently
+decoded objects. Reuse preserves the earliest sample timestamp and never renews
+old evidence. The reads remain non-atomic. Four snapshots, each capped at 8 MiB,
+bound retained private response memory; excess controllers collect normally.
+Failures invalidate the snapshot and are never reused. Reload replaces the
+runner and its cache. Dynamic provider references bypass sharing so their two
+publication reads still bracket a fresh provider read.
+
+The independent reference now accepts up to 4096 members per provider within
+1 MiB, matching the runtime member limit. Existing freshness, duplicate-name,
+provider-count and complexity checks remain. Targeted reads and connection
+reuse are not enabled: sharing avoids duplicate inventories without expanding
+the read allowlist or changing business probes' fresh-stream semantics.

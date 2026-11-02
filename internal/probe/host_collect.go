@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/WhitenWhiten/topophany/internal/adapters/mihomo"
 	"github.com/WhitenWhiten/topophany/internal/model"
 )
 
@@ -19,7 +20,7 @@ func NewRunner(c model.Config, observer string) Runner {
 			names = append(names, x.Host.ProcessName)
 		}
 	}
-	return Runner{HostSample: newHostCollector(names).sample}
+	return Runner{MihomoCache: &mihomo.SnapshotCache{}, HostSample: newHostCollector(names).sample}
 }
 
 type processUsage struct {

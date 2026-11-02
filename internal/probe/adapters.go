@@ -2,6 +2,7 @@ package probe
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
@@ -20,7 +21,14 @@ import (
 
 // The supplied transport preserves the check's explicit route and TLS policy.
 func (r Runner) mihomo(ctx context.Context, d Dialer, x model.Check, target string, o *model.Observation) error {
-	return mihomo.Collect(ctx, r.mihomoDependencies(d), x, target, o)
+	deps := r.mihomoDependencies(d)
+	deps.Cache = r.MihomoCache
+	scope, _ := json.Marshal(struct {
+		Dialer              Dialer
+		Resolve, Server, CA string
+	}{d, x.ResolveIP, x.ServerName, x.CAFile})
+	deps.Scope = string(scope)
+	return mihomo.Collect(ctx, deps, x, target, o)
 }
 
 // InspectMihomo reads a controller once, for configuring a check of it,
