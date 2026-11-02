@@ -31,9 +31,10 @@ import (
 
 type Command = adapters.Command
 type Runner struct {
-	MihomoCache  *mihomo.SnapshotCache
-	Command      Command
-	ListenPacket func(string, string) (net.PacketConn, error)
+	CloudflareQuota *cloudflare.Quota
+	MihomoCache     *mihomo.SnapshotCache
+	Command         Command
+	ListenPacket    func(string, string) (net.PacketConn, error)
 	// HostSample is injectable for hermetic resource tests. Production reads OS state.
 	HostSample func(context.Context, model.HostOptions) (HostSample, error)
 	// Secret resolves a Mihomo check's token_env name. Nil reads the process

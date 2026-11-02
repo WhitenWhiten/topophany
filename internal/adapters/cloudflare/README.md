@@ -323,3 +323,20 @@ never invents `tunnel_status`. Keep a separate `tunnel` check for that status.
 An explicit empty inventory is zero sessions; absent session lists and partial
 pages are monitor errors. Identifiers, addresses and versions remain withheld.
 This endpoint is covered by synthetic tests, not real-account acceptance.
+
+### Shared quota and cooldown
+
+Production runners allocate a conservative 900 requests per five minutes across
+all enabled Cloudflare checks in the topology, proportional to each observer's
+check count. All of an observer's API reads share that allocation even when
+they use different tokens. This assumes one active worker per observer; separate
+topologies or applications cannot be coordinated by this in-process limiter.
+The existing 60-second check minimum and scheduler jitter remain.
+
+HTTP 429 and 5xx establish a bounded exponential cooldown (30 seconds to five
+minutes). `Retry-After` on 429/503 and exhausted `Ratelimit` service items extend
+it, capped at one hour. During cooldown checks report monitor error
+`api_rate_limited` without sending a request; acquisition is cancellable. No
+sample retries an API request or falls back to a different transport. Existing
+response status codes describe the request that triggered cooldown. Limiter
+state is private to the runner and restarts on topology reload.

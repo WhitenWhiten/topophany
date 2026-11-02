@@ -56,6 +56,7 @@ var (
 // Dependencies are supplied by the probe, preserving its explicit route and
 // TLS policy. The client follows no redirects and carries no ambient proxy.
 type Dependencies struct {
+	Quota  *Quota
 	Client func(model.Check, string) (*http.Client, func(), error)
 }
 
@@ -119,7 +120,10 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 		return err
 	}
 	defer closeClient()
-	body, err := readOnce(ctx, client, target, request, token, limit)
+	if err := deps.Quota.Wait(ctx); err != nil {
+		return err
+	}
+	body, err := readOnceWithQuota(ctx, client, target, request, token, limit, deps.Quota)
 	if err != nil {
 		return err
 	}
@@ -231,6 +235,10 @@ func readFor(options model.CloudflareOptions) (readRequest, int64) {
 // never becomes a target outage. A redirect is refused by the client, and the
 // resulting 3xx is mapped like any other unexpected status.
 func readOnce(ctx context.Context, client *http.Client, target string, r readRequest, token string, limit int64) ([]byte, error) {
+	return readOnceWithQuota(ctx, client, target, r, token, limit, nil)
+}
+
+func readOnceWithQuota(ctx context.Context, client *http.Client, target string, r readRequest, token string, limit int64, quota *Quota) ([]byte, error) {
 	if !r.allowed() {
 		return nil, adapters.Local("adapter_api", "api_path_not_allowed")
 	}
@@ -254,6 +262,7 @@ func readOnce(ctx context.Context, client *http.Client, target string, r readReq
 		return nil, adapters.Local("adapter_api", "api_unavailable")
 	}
 	defer resp.Body.Close()
+	quota.Observe(resp.StatusCode, resp.Header)
 	if err := statusFailure(resp.StatusCode); err != nil {
 		return nil, err
 	}

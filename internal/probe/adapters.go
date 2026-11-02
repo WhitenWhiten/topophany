@@ -76,7 +76,7 @@ func (r Runner) mihomoDependencies(d Dialer) mihomo.Dependencies {
 // redirect would forward the bearer token to another location, so the client
 // returns the 3xx to the adapter, which maps it to a local monitor error.
 func (r Runner) cloudflare(ctx context.Context, d Dialer, x model.Check, target string, o *model.Observation) error {
-	return cloudflare.Collect(ctx, cloudflare.Dependencies{Client: func(x model.Check, target string) (*http.Client, func(), error) {
+	return cloudflare.Collect(ctx, cloudflare.Dependencies{Quota: r.CloudflareQuota, Client: func(x model.Check, target string) (*http.Client, func(), error) {
 		u, err := url.Parse(target)
 		if err != nil {
 			return nil, nil, local("setup", "invalid_adapter_url")

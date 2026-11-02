@@ -232,3 +232,9 @@ never invents `tunnel_status`. Keep a separate `tunnel` check for that status.
 An explicit empty inventory is zero sessions; absent session lists and partial
 pages are monitor errors. Identifiers, addresses and versions remain withheld.
 This endpoint is covered by synthetic tests, not real-account acceptance.
+
+Cloudflare checks now share a per-observer request budget allocated from 900
+requests per five minutes across the topology. Retry-After and exhausted
+Ratelimit headers pause further API reads; a paused sample is a monitor error
+(`api_rate_limited`), not an application outage. Separate deployments and other
+API clients still consume the upstream user's shared quota.

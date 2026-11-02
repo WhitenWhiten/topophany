@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/WhitenWhiten/topophany/internal/adapters/cloudflare"
 	"github.com/WhitenWhiten/topophany/internal/adapters/mihomo"
 	"github.com/WhitenWhiten/topophany/internal/model"
 )
@@ -15,12 +16,19 @@ import (
 // cannot be evaluated against a snapshot collected for the old configuration.
 func NewRunner(c model.Config, observer string) Runner {
 	names := []string{}
+	localCF, totalCF := 0, 0
 	for _, x := range c.Checks {
+		if x.Kind == "cloudflare" && !x.Disabled && !x.Maintenance {
+			totalCF++
+			if x.Observer == observer {
+				localCF++
+			}
+		}
 		if x.Observer == observer && x.Kind == "host" && !x.Disabled && !x.Maintenance && x.Host != nil {
 			names = append(names, x.Host.ProcessName)
 		}
 	}
-	return Runner{MihomoCache: &mihomo.SnapshotCache{}, HostSample: newHostCollector(names).sample}
+	return Runner{CloudflareQuota: cloudflare.NewQuota(localCF, totalCF), MihomoCache: &mihomo.SnapshotCache{}, HostSample: newHostCollector(names).sample}
 }
 
 type processUsage struct {
