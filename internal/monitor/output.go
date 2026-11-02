@@ -160,11 +160,19 @@ func (o *Output) Write(p Panel, every time.Duration, force bool) error {
 
 // ShouldPublish is the shared cadence policy for file and callback consumers.
 // Health, freshness, reason and lifecycle transitions bypass display cadence;
-// all content gets a lease renewal within ten seconds.
+// evidence deadlines that could expire before the next publication do too.
+// All content gets a lease renewal within ten seconds.
 func ShouldPublish(last Panel, digest string, p Panel, every time.Duration) bool {
-	transition := safetyState(last) != safetyState(p)
 	elapsed := p.GeneratedAt.Sub(last.GeneratedAt)
-	return transition || elapsed >= 10*time.Second || elapsed >= every && content(clone(p)) != digest
+	if elapsed >= 10*time.Second || elapsed >= every && content(clone(p)) != digest {
+		return true
+	}
+	// Publication is evaluated on incoming reads and a one-second tick. A
+	// renewed row must reach readers before their last copy expires, even if
+	// every health/value stayed the same. Compare both frames at one fixed
+	// horizon so the passage of time alone never pretends evidence renewed.
+	renewBefore := last.GeneratedAt.Add(min(every, 10*time.Second) + time.Second)
+	return safetyState(last, renewBefore) != safetyState(p, renewBefore)
 }
 
 // ContentDigest excludes publication clocks and source-envelope deadlines.

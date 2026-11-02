@@ -230,7 +230,7 @@ func TestDiagnosticAdapterPolicy(t *testing.T) {
 	// A policy verdict is decision state.
 	matched := build(snapshot(model.Check{Kind: "mihomo", Target: controller.Target, Adapter: model.AdapterOptions{ExpectedMode: "rule"}}, "ok", map[string]string{"mode": "rule"}))
 	violated := build(snapshot(model.Check{Kind: "mihomo", Target: controller.Target, Adapter: model.AdapterOptions{ExpectedMode: "rule"}}, "ok", map[string]string{"mode": "global"}))
-	if safetyState(matched) == safetyState(violated) {
+	if safetyState(matched, time.Time{}) == safetyState(violated, time.Time{}) {
 		t.Fatal("a policy violation waited for cadence")
 	}
 }

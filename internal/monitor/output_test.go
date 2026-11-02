@@ -272,3 +272,74 @@ func TestNestedHealthTransitionsBypassCadence(t *testing.T) {
 		t.Fatal("ordinary value bypassed cadence")
 	}
 }
+
+func TestEvidenceRenewalPrecedesReaderExpiry(t *testing.T) {
+	now := time.Date(2026, 11, 2, 6, 2, 23, 0, time.UTC)
+	last := Panel{Schema: 1, Lifecycle: "running", GeneratedAt: now, PublisherExpiresAt: now.Add(30 * time.Second),
+		Rows: []Value{{Row: Row{ID: "status", Metric: "summary.verdict"}, Value: SummaryVerdict{},
+			Health: "up", Freshness: "fresh", SampledAt: now, ValidUntil: now.Add(9 * time.Second)}}}
+	next := clone(last)
+	next.GeneratedAt = now.Add(7 * time.Second)
+	next.Rows[0].ValidUntil = now.Add(22 * time.Second)
+	// A successful read has renewed evidence before the old frame expires,
+	// even when its value and sampled_at are unchanged. Waiting for the 10s
+	// display cadence would make Current withhold a perfectly available row.
+	if !ShouldPublish(last, ContentDigest(last), next, 10*time.Second) {
+		t.Fatal("renewed evidence was held past the reader's deadline")
+	}
+	if Current(last, now.Add(9*time.Second)).Rows[0].Value != nil || Current(next, now.Add(9*time.Second)).Rows[0].Value == nil {
+		t.Fatal("fixture did not reproduce the reader's freshness gap")
+	}
+	unchanged := clone(last)
+	unchanged.GeneratedAt = next.GeneratedAt
+	if ShouldPublish(last, ContentDigest(last), unchanged, 10*time.Second) {
+		t.Fatal("unchanged evidence was republished without a renewal")
+	}
+	last.Rows[0].ValidUntil = now.Add(time.Minute)
+	next.Rows[0].ValidUntil = now.Add(2 * time.Minute)
+	if ShouldPublish(last, ContentDigest(last), next, 10*time.Second) {
+		t.Fatal("distant deadline bypassed display cadence")
+	}
+	next.Rows[0].ValidUntil = now.Add(8 * time.Second)
+	if !ShouldPublish(last, ContentDigest(last), next, 10*time.Second) {
+		t.Fatal("shortened evidence deadline was hidden from the reader")
+	}
+}
+
+func TestNestedEvidenceRenewalPrecedesReaderExpiry(t *testing.T) {
+	now := time.Date(2026, 11, 2, 6, 2, 23, 0, time.UTC)
+	for name, value := range map[string]func(time.Time) any{
+		"resource": func(until time.Time) any {
+			return ServerCard{Resources: []ResourceValue{{Check: "host", Freshness: "fresh", ValidUntil: &until}}}
+		},
+		"observer": func(until time.Time) any {
+			return ServerCard{Observes: []ObserverVerdict{{ID: "home", Live: true, ValidUntil: &until}}}
+		},
+		"check": func(until time.Time) any {
+			return CheckCard{SeenCheckValue: SeenCheckValue{ID: "http", Freshness: "fresh", ValidUntil: &until}}
+		},
+		"link check": func(until time.Time) any {
+			return LinkCard{Checks: []CheckCard{{SeenCheckValue: SeenCheckValue{ID: "tcp", Freshness: "fresh", ValidUntil: &until}}}}
+		},
+		"service check": func(until time.Time) any {
+			return ServiceCard{SeenFrom: []SeenFromValue{{Checks: []SeenCheckValue{{ID: "http", Freshness: "fresh", ValidUntil: &until}}}}}
+		},
+		"service assessment": func(until time.Time) any {
+			return ServiceCard{Assessment: &AssessmentValue{State: "available", ValidUntil: &until}}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			last := Panel{Lifecycle: "running", GeneratedAt: now, Rows: []Value{{Row: Row{ID: "card"},
+				Value: value(now.Add(9 * time.Second)), ValidUntil: now.Add(time.Minute)}}}
+			next := clone(last)
+			next.GeneratedAt = now.Add(5 * time.Second)
+			if ShouldPublish(last, ContentDigest(last), next, 10*time.Second) {
+				t.Fatal("same nested evidence bypassed cadence")
+			}
+			next.Rows[0].Value = value(now.Add(20 * time.Second))
+			if !ShouldPublish(last, ContentDigest(last), next, 10*time.Second) {
+				t.Fatal("renewed nested evidence would expire while the row stays current")
+			}
+		})
+	}
+}

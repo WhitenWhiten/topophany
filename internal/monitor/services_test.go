@@ -402,7 +402,7 @@ func TestServiceCardAssessment(t *testing.T) {
 	// A judgment change is safety state, written without waiting for cadence.
 	changed := p.Clone()
 	changed.Rows[1].Value.(ServiceCard).Assessment.State = "access_fail"
-	if safetyState(changed) == safetyState(p) {
+	if safetyState(changed, time.Time{}) == safetyState(p, time.Time{}) {
 		t.Fatal("assessment change waited for cadence")
 	}
 
