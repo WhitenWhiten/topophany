@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "core_sha256": "94a386ec0149080deadd86b1f667363bde3c70f7489dba3258e52c56fc9a6d66",
+  "topo_sha256": "97ec12891eeb1af1d9f776013d5c479cc8401fe51b3aae9949d0dba1b0a06610",
+  "runner_sha256": "befcfad809bafbf70c322818aec58c825001061e9ce85afd445f33e128dd6d0c",
+  "native_platform": "Darwin",
+  "native_machine": "arm64",
+  "topo_version": "Topophany dev-aa6b581-dirty",
+  "started_at": "2026-11-02T06:57:34Z",
+  "scope": "isolated core; fake file providers; controller reads only",
+  "cases": [
+    {
+      "configured_nodes": 1,
+      "inventory_nodes": 10,
+      "provider_members": 1,
+      "inventory_bytes": 2319,
+      "provider_bytes": 1869,
+      "core_version": {
+        "meta": true,
+        "version": "v1.19.32"
+      },
+      "outcome": "ok",
+      "code": null,
+      "duration_ms": 1,
+      "secrets_withheld": true,
+      "pass": true
+    },
+    {
+      "configured_nodes": 1000,
+      "inventory_nodes": 1009,
+      "provider_members": 1000,
+      "inventory_bytes": 14307,
+      "provider_bytes": 286584,
+      "core_version": {
+        "meta": true,
+        "version": "v1.19.32"
+      },
+      "outcome": "ok",
+      "code": null,
+      "duration_ms": 13,
+      "secrets_withheld": true,
+      "pass": true
+    },
+    {
+      "configured_nodes": 4087,
+      "inventory_nodes": 4096,
+      "provider_members": 4087,
+      "inventory_bytes": 51351,
+      "provider_bytes": 1166378,
+      "core_version": {
+        "meta": true,
+        "version": "v1.19.32"
+      },
+      "outcome": "ok",
+      "code": null,
+      "duration_ms": 51,
+      "secrets_withheld": true,
+      "pass": true
+    },
+    {
+      "configured_nodes": 4088,
+      "inventory_nodes": 4097,
+      "provider_members": 4088,
+      "inventory_bytes": 51363,
+      "provider_bytes": 1166664,
+      "core_version": {
+        "meta": true,
+        "version": "v1.19.32"
+      },
+      "outcome": "error",
+      "code": "proxy_inventory_capacity_exceeded",
+      "duration_ms": 50,
+      "secrets_withheld": true,
+      "pass": true
+    }
+  ],
+  "pass": true
+}

@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "platform": "Darwin",
+  "machine": "arm64",
+  "tun": false,
+  "core_sha256": "94a386ec0149080deadd86b1f667363bde3c70f7489dba3258e52c56fc9a6d66",
+  "topo_sha256": "97ec12891eeb1af1d9f776013d5c479cc8401fe51b3aae9949d0dba1b0a06610",
+  "cases": [
+    {
+      "name": "socks5",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "socks5-origin-failure",
+      "outcome": "fail",
+      "code": "unexpected_status",
+      "pass": true
+    },
+    {
+      "name": "socks5-recovered",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "http-connect",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "http-connect-origin-failure",
+      "outcome": "fail",
+      "code": "unexpected_status",
+      "pass": true
+    },
+    {
+      "name": "http-connect-recovered",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "dns",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "runtime",
+      "outcome": "ok",
+      "code": "",
+      "pass": true
+    },
+    {
+      "name": "stopped-core",
+      "outcome": "fail",
+      "code": "network_error",
+      "pass": true
+    }
+  ],
+  "version": {
+    "meta": true,
+    "version": "v1.19.32"
+  },
+  "pass": true
+}
