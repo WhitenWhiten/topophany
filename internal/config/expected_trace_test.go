@@ -151,12 +151,19 @@ func TestExpectedTraceContractAndDefaultJSON(t *testing.T) {
 	}
 }
 
-// optedInExample is the one worked example that opts into the fields added
+// optedInExample names the reviewed worked examples that opt into fields added
 // for Cloudflare: examples/cloudflare.json exercises expected_pops,
 // expected_trace, request_header_envs, adapter.cloudflared and the documented
 // adapter.cloudflare reads. Every older example predates them and must stay
 // measured as it was.
-func optedInExample(path string) bool { return filepath.Base(path) == "cloudflare.json" }
+func optedInExample(path string) bool {
+	switch filepath.Base(path) {
+	case "cloudflare.json", "cloudflare-diagnostics.json", "mihomo-diagnostics.json":
+		return true
+	default:
+		return false
+	}
+}
 
 // Every topology shipped in examples/ except the Cloudflare worked example
 // was written before expected_trace and request_header_envs, so none of those

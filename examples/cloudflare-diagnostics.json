@@ -1,0 +1,205 @@
+{
+  "schema": 1,
+  "project": "cloudflare-diagnostics",
+  "applications": [
+    {
+      "id": "home",
+      "name": "Home services"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "cf",
+      "name": "Cloudflare",
+      "kind": "edge",
+      "provider": "cloudflare",
+      "notes": "Anycast edge in front of the origin. An answer from it proves the edge only. The Cloudflare API reads are not enabled here because this example holds no token or account: add three checks of kind \"cloudflare\" with adapter.token_env \"CF_API_TOKEN\" and adapter.cloudflare.read set to \"tunnel\" (with account_id and tunnel_id; it may carry link \"tunnel\", where it is shown beside the connector's report and never decides the link), \"dns_record\" (with zone_id, record_name \"www.example.com\", record_type \"A\" and expected_proxied true) and \"pool\" (with account_id and pool_id). Their least-privilege token scopes are in docs/SECURITY.md. Without a real token and account the reads cannot run, so they stay documented rather than active."
+    },
+    {
+      "id": "origin",
+      "name": "Origin VPS",
+      "kind": "vm",
+      "provider": "hetzner",
+      "location": {
+        "label": "Helsinki",
+        "lat": 60.17,
+        "lon": 24.94
+      },
+      "notes": "The machine behind the proxied hostname. Its own check pins the dial address with resolve_ip, so the request reaches this machine directly while Host and SNI stay the zone name."
+    },
+    {
+      "id": "homebox",
+      "name": "Home box",
+      "kind": "host",
+      "group": "Home",
+      "location": {
+        "label": "Shanghai",
+        "lat": 31.23,
+        "lon": 121.47
+      },
+      "notes": "Runs the dashboard, a cloudflared connector and the local metrics listener the connector check reads. The public hostname reaches it through the Tunnel; the loopback check proves the dashboard itself."
+    }
+  ],
+  "links": [
+    {
+      "id": "tunnel",
+      "from": "homebox",
+      "to": "cf",
+      "transport": "cloudflared",
+      "notes": "Outbound Tunnel from the home box. Measured by the cloudflared check's own report; an API tunnel read, with a token, may be attached to this link and is shown beside that report without deciding it. The public hostname's check through the edge proves the edge, never this link or the service behind it."
+    }
+  ],
+  "endpoints": [
+    {
+      "id": "home-public",
+      "node": "homebox",
+      "address": "https://home.example.com/",
+      "network": "public",
+      "via": [
+        "cf"
+      ],
+      "notes": "The home dashboard's public hostname, reached through the Tunnel and Cloudflare. The edge answered, so the origin is unproven."
+    },
+    {
+      "id": "home-local",
+      "node": "homebox",
+      "address": "http://127.0.0.1:8080/",
+      "network": "loopback",
+      "observer": "obs-home",
+      "notes": "The dashboard on the box itself, without the edge or the Tunnel."
+    }
+  ],
+  "services": [
+    {
+      "id": "dashboard",
+      "name": "Home dashboard",
+      "node": "homebox",
+      "application": "home",
+      "endpoints": [
+        "home-public",
+        "home-local"
+      ]
+    }
+  ],
+  "observers": [
+    {
+      "id": "obs-home",
+      "name": "Home box",
+      "node": "homebox",
+      "context": "Run this observer on the declared host; review before enabling.",
+      "stale_seconds": 180
+    },
+    {
+      "id": "obs-origin",
+      "name": "Origin VPS",
+      "node": "origin",
+      "context": "Run this observer on the declared host; review before enabling.",
+      "stale_seconds": 180
+    }
+  ],
+  "paths": [],
+  "checks": [
+    {
+      "id": "home-via-edge",
+      "name": "dashboard through the Tunnel from the VPS",
+      "observer": "obs-origin",
+      "endpoint": "home-public",
+      "service": "dashboard",
+      "kind": "http",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "failure_threshold": 3,
+      "recovery_threshold": 2,
+      "http": {
+        "status": [
+          200
+        ]
+      },
+      "notes": "Proves what Cloudflare says about the Tunnel hostname, not that the dashboard answered.",
+      "disabled": true
+    },
+    {
+      "id": "home-local",
+      "name": "dashboard on the box",
+      "observer": "obs-home",
+      "endpoint": "home-local",
+      "service": "dashboard",
+      "kind": "http",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "failure_threshold": 3,
+      "recovery_threshold": 2,
+      "http": {
+        "status": [
+          200
+        ]
+      },
+      "notes": "The service itself, measured without the edge or the Tunnel.",
+      "disabled": true
+    },
+    {
+      "id": "tunnel-connector",
+      "name": "cloudflared connector",
+      "observer": "obs-home",
+      "link": "tunnel",
+      "kind": "cloudflared",
+      "target": "http://127.0.0.1:20241",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "failure_threshold": 3,
+      "recovery_threshold": 2,
+      "adapter": {
+        "cloudflared": {
+          "expected_connections": 4
+        }
+      },
+      "notes": "Runs on the same host as the connector. expected_connections is the redundancy this deployment declares; below it is policy, zero ready sessions is tunnel_not_ready.",
+      "disabled": true
+    },
+    {
+      "id": "api-tunnel",
+      "name": "Cloudflare tunnel",
+      "observer": "obs-home",
+      "link": "tunnel",
+      "kind": "cloudflare",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "adapter": {
+        "token_env": "CF_API_TOKEN",
+        "cloudflare": {
+          "read": "tunnel",
+          "account_id": "00000000000000000000000000000000",
+          "tunnel_id": "00000000-0000-4000-8000-000000000000",
+          "expected_status": "healthy"
+        }
+      },
+      "notes": "Replace the account and tunnel identifiers. This platform report does not establish application availability.",
+      "disabled": true
+    },
+    {
+      "id": "api-tunnel-connections",
+      "name": "Cloudflare tunnel_connections",
+      "observer": "obs-home",
+      "link": "tunnel",
+      "kind": "cloudflare",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "adapter": {
+        "token_env": "CF_API_TOKEN",
+        "cloudflare": {
+          "read": "tunnel_connections",
+          "account_id": "00000000000000000000000000000000",
+          "tunnel_id": "00000000-0000-4000-8000-000000000000",
+          "expected_connections": 4
+        }
+      },
+      "notes": "Replace the account and tunnel identifiers. This platform report does not establish application availability.",
+      "disabled": true
+    }
+  ]
+}

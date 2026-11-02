@@ -96,3 +96,32 @@ func TestMihomoTemplateKeepsTheEvidenceBoundary(t *testing.T) {
 		t.Fatal(err, out)
 	}
 }
+
+func TestDiagnosticTemplatesSeparateReportsAndRequests(t *testing.T) {
+	for _, id := range []string{"cloudflare-diagnostics", "mihomo-diagnostics"} {
+		path := filepath.Join(t.TempDir(), id+".json")
+		if _, _, err := invoke("", "templates", id, "--output", path); err != nil {
+			t.Fatal(err)
+		}
+		c, err := config.Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		kinds := map[string]int{}
+		for _, x := range c.Checks {
+			kinds[x.Kind]++
+			if !x.Disabled {
+				t.Fatal("active diagnostic template")
+			}
+			if (x.Kind == "mihomo" || x.Kind == "cloudflare" || x.Kind == "cloudflared") && x.Service != "" {
+				t.Fatal("runtime report attributed as application evidence")
+			}
+		}
+		if id == "cloudflare-diagnostics" && (kinds["cloudflare"] != 2 || kinds["cloudflared"] != 1 || kinds["http"] != 2) {
+			t.Fatal(kinds)
+		}
+		if id == "mihomo-diagnostics" && (kinds["mihomo"] != 1 || kinds["http"] != 4 || kinds["dns"] != 1) {
+			t.Fatal(kinds)
+		}
+	}
+}

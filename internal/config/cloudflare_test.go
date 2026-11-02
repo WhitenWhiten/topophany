@@ -3,6 +3,7 @@ package config_test
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -242,13 +243,17 @@ func TestCloudflareContractCloneAndJSON(t *testing.T) {
 	}
 }
 
-// Every topology shipped in examples/ predates adapter.cloudflare, so none may
+// The original examples predate adapter.cloudflare; the new paused diagnostic
+// template deliberately opts in and has dedicated template tests. Older examples may not
 // carry it, not even as a null. Unset, the field writes nothing and leaves
 // every contract hash unchanged through a JSON round trip. The Cloudflare
 // worked example names the three API reads in its notes, which is text, not a
 // configured adapter; it still carries no active cloudflare read.
 func TestExampleTopologiesCarryNoCloudflare(t *testing.T) {
 	for path, c := range exampleTopologies(t) {
+		if filepath.Base(path) == "cloudflare-diagnostics.json" {
+			continue
+		}
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)

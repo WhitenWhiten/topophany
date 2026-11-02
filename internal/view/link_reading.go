@@ -36,7 +36,7 @@ func (f *Fleet) linkReadings(s model.Snapshot, t model.Config) {
 			link[x.ID], kind[x.ID] = x.Link, x.Kind
 		}
 	}
-	type pair struct{ connector, platform *model.Observation }
+	type pair struct{ connector, platformStatus, platformConnections *model.Observation }
 	newest := map[string]*pair{}
 	for _, cs := range s.Checks {
 		id := link[cs.ID]
@@ -50,7 +50,13 @@ func (f *Fleet) linkReadings(s model.Snapshot, t model.Config) {
 		}
 		slot := &p.connector
 		if kind[cs.ID] == "cloudflare" {
-			slot = &p.platform
+			if cs.Last.Facts["tunnel_status"] != "" && (p.platformStatus == nil || cs.Last.SampledAt.After(p.platformStatus.SampledAt)) {
+				p.platformStatus = cs.Last
+			}
+			if cs.Last.Facts["tunnel_connections"] != "" && (p.platformConnections == nil || cs.Last.SampledAt.After(p.platformConnections.SampledAt)) {
+				p.platformConnections = cs.Last
+			}
+			continue
 		}
 		if *slot == nil || cs.Last.SampledAt.After((*slot).SampledAt) {
 			*slot = cs.Last
@@ -61,9 +67,15 @@ func (f *Fleet) linkReadings(s model.Snapshot, t model.Config) {
 		if p.connector != nil {
 			reading = append(reading, connectorReading(p.connector.Facts)...)
 		}
-		if p.platform != nil {
-			reading = append(reading, platformReading(p.platform.Facts)...)
+		platform := map[string]string{}
+		if p.platformStatus != nil {
+			platform["tunnel_status"] = p.platformStatus.Facts["tunnel_status"]
 		}
+		if p.platformConnections != nil {
+			platform["tunnel_connections"] = p.platformConnections.Facts["tunnel_connections"]
+		}
+		reading = append(reading, platformReading(platform)...)
+
 		if len(reading) > 0 {
 			f.linkRead[id] = reading
 		}

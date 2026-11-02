@@ -106,3 +106,23 @@ func TestCardLinkReadingNeedsFreshEvidence(t *testing.T) {
 		t.Fatalf("the newest sample did not decide: %+v", l)
 	}
 }
+
+func TestTunnelSeparateAPIReadsKeepStatusAndCount(t *testing.T) {
+	now := time.Now().UTC()
+	v := tunnelView(now, "up", map[string]string{"ready_connections": "4"}, map[string]string{"tunnel_status": "healthy"})
+	// Add a second platform check carrying only the newer dedicated count.
+	var apiCheck model.Check
+	for _, x := range v.Snapshot.Topology.Checks {
+		if x.Kind == "cloudflare" {
+			apiCheck = x
+			break
+		}
+	}
+	apiCheck.ID = "dedicated-connections"
+	v.Snapshot.Topology.Checks = append(v.Snapshot.Topology.Checks, apiCheck)
+	v.Snapshot.Checks = append(v.Snapshot.Checks, model.CheckState{ID: apiCheck.ID, Freshness: "fresh", Last: &model.Observation{SampledAt: now.Add(time.Second), Facts: map[string]string{"tunnel_connections": "3"}}})
+	fleet := v.Fleet()
+	if !slices.Contains(fleet.linkRead["home-cf"], "API 3 connections healthy") {
+		t.Fatal(fleet.linkRead)
+	}
+}

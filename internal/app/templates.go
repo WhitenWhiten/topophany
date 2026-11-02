@@ -18,6 +18,8 @@ type topologyTemplate struct {
 }
 
 var topologyTemplates = []topologyTemplate{
+	{"cloudflare-diagnostics", "Compare public application, local origin, connector and Cloudflare API", "docs/DIAGNOSTICS.md", "Platform and connector reports remain distinct from application responses."},
+	{"mihomo-diagnostics", "Compare controller, explicit proxy, system path, exit and DNS", "docs/DIAGNOSTICS.md", "The system path can itself use TUN; a selected proxy is not proof of a request route."},
 	{"minimal", "Basic network checks", "docs/GUIDE.md", "Connection success does not establish application availability."},
 	{"homelab", "Multi-location network and proxy paths", "docs/GUIDE.md", "Declared routes are not proof of request-level paths."},
 	{"host-resources", "Local CPU, memory, disk and process thresholds", "docs/REFERENCE.md", "Host resource readings do not establish network reachability."},

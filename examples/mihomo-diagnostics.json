@@ -1,0 +1,214 @@
+{
+  "schema": 1,
+  "project": "mihomo-diagnostics",
+  "nodes": [
+    {
+      "id": "desktop",
+      "name": "Desktop running mihomo",
+      "kind": "host",
+      "group": "Home",
+      "notes": "The machine that runs the mihomo core. Its worker runs here as observer desktop, so the core's external controller stays on literal loopback and is never exposed to the network."
+    },
+    {
+      "id": "exit",
+      "name": "Proxy exit",
+      "kind": "vm",
+      "notes": "The upstream node the root group is expected to select. Topophany reads the selection the core reports; it never edits the configuration or switches a group."
+    },
+    {
+      "id": "app-host",
+      "name": "Application host",
+      "kind": "vm",
+      "notes": "Where the application reached through the proxy runs."
+    }
+  ],
+  "observers": [
+    {
+      "id": "desktop",
+      "name": "Desktop worker",
+      "node": "desktop",
+      "context": "native process on the machine running the mihomo core; reads its controller over loopback",
+      "stale_seconds": 180
+    }
+  ],
+  "endpoints": [
+    {
+      "id": "controller",
+      "node": "desktop",
+      "address": "http://127.0.0.1:9090",
+      "network": "loopback",
+      "observer": "desktop",
+      "notes": "The core's external-controller, bound to 127.0.0.1:9090. Its secret is read from the environment variable named by the check's adapter.token_env, never from this file."
+    },
+    {
+      "id": "app-health",
+      "node": "app-host",
+      "address": "https://app.example.invalid/healthz",
+      "network": "public",
+      "notes": "Replace with an application health URL that is meant to be reached through the proxy."
+    }
+  ],
+  "services": [
+    {
+      "id": "app",
+      "name": "Application through mihomo",
+      "node": "app-host",
+      "endpoints": [
+        "app-health"
+      ],
+      "notes": "Its availability comes from the application check's HTTP response through the core's listener, never from the controller's report."
+    }
+  ],
+  "paths": [
+    {
+      "id": "via-mihomo",
+      "name": "through the local mihomo listener",
+      "observer": "desktop",
+      "nodes": [
+        "desktop",
+        "exit",
+        "app-host"
+      ],
+      "proxies": [
+        {
+          "kind": "socks5",
+          "address": "127.0.0.1:7890",
+          "node": "desktop"
+        }
+      ],
+      "notes": "The core's own mixed-port listener on loopback, dialed as one SOCKS5 hop. The hops inside the core belong to it and are not decomposed; a declared route is not proof of a request's path."
+    }
+  ],
+  "checks": [
+    {
+      "id": "core-runtime",
+      "name": "mihomo reported runtime",
+      "observer": "desktop",
+      "endpoint": "controller",
+      "kind": "mihomo",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "failure_threshold": 3,
+      "recovery_threshold": 2,
+      "adapter": {
+        "token_env": "MIHOMO_TOKEN",
+        "root_proxy": "Proxy",
+        "expected_mode": "rule",
+        "expected_tun": true
+      },
+      "notes": "Reads only /configs, /proxies and /providers/proxies from the controller; delay tests are never triggered. root_proxy names the selector group whose selection is resolved, and expected_mode and expected_tun assert what the core reports: set expected_tun to false when the core runs as a system proxy without TUN. This is reported runtime state, not proof that application traffic followed that route: a reported mode, TUN setting or selection never shows where a request went. Keep the separate application check (app-through-mihomo) for availability.",
+      "disabled": true
+    },
+    {
+      "id": "app-through-mihomo",
+      "name": "application through mihomo",
+      "observer": "desktop",
+      "endpoint": "app-health",
+      "service": "app",
+      "path": "via-mihomo",
+      "kind": "http",
+      "availability_scope": "user_entry",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "failure_threshold": 3,
+      "recovery_threshold": 2,
+      "http": {
+        "method": "GET",
+        "status": [
+          200
+        ],
+        "max_body_bytes": 65536
+      },
+      "notes": "The application evidence: an HTTP response obtained through the core's listener, as this desktop's user enters the service (user_entry). It shows the application answered through the proxy, not which upstream node carried the request.",
+      "disabled": true
+    },
+    {
+      "id": "app-system-path",
+      "name": "Application through the system route",
+      "observer": "desktop",
+      "endpoint": "app-health",
+      "service": "app",
+      "kind": "http",
+      "availability_scope": "remote",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "failure_threshold": 3,
+      "recovery_threshold": 2,
+      "http": {
+        "method": "GET",
+        "status": [
+          200
+        ],
+        "max_body_bytes": 65536
+      },
+      "notes": "No explicit proxy. The operating system may still route this request through TUN; this is not guaranteed direct Internet access.",
+      "disabled": true
+    },
+    {
+      "observer": "desktop",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "id": "exit-system",
+      "name": "exit-system",
+      "kind": "http",
+      "target": "https://www.cloudflare.com/cdn-cgi/trace",
+      "http": {
+        "status": [
+          200
+        ],
+        "exit_format": "trace",
+        "expected_exit": [
+          "192.0.2.1"
+        ]
+      },
+      "notes": "Replace the documentation-only expected exit IP/CIDR for this route. This trace reports the exit of this request only.",
+      "disabled": true
+    },
+    {
+      "observer": "desktop",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "id": "exit-mihomo",
+      "name": "exit-mihomo",
+      "kind": "http",
+      "target": "https://www.cloudflare.com/cdn-cgi/trace",
+      "http": {
+        "status": [
+          200
+        ],
+        "exit_format": "trace",
+        "expected_exit": [
+          "192.0.2.1"
+        ]
+      },
+      "notes": "Replace the documentation-only expected exit IP/CIDR for this route. This trace reports the exit of this request only.",
+      "path": "via-mihomo",
+      "disabled": true
+    },
+    {
+      "observer": "desktop",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "id": "core-dns",
+      "name": "Mihomo DNS answer",
+      "kind": "dns",
+      "target": "127.0.0.1:1053",
+      "dns": {
+        "transport": "udp",
+        "name": "app.example.invalid",
+        "type": "A",
+        "expected_ips": [
+          "192.0.2.10"
+        ]
+      },
+      "notes": "Replace the DNS listener, application hostname and expected IPs. In fake-IP mode declare the configured fake-IP range if supported, or use a dedicated non-fake test hostname; do not confuse a fake answer with an origin IP.",
+      "disabled": true
+    }
+  ]
+}
