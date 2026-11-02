@@ -14,3 +14,6 @@ The following records boundary issues identified and resolved during implementat
 - When process and PTY acceptance tests shut down child processes, the test harness must continuously drain the PTY master buffer to prevent test scripts from imposing kernel backpressure. The test runner was adjusted accordingly rather than suppressing child exit timeouts.
 
 External security audits are not claimed. Areas requiring manual hardware verification (such as Windows ACLs, production TUN interfaces, and live tunnels) are documented in [ACCEPTANCE.md](ACCEPTANCE.md).
+
+Historical Windows CI failures, their corrective commits, and recurring portability
+mistakes are recorded in [WINDOWS-CI-HISTORY.md](WINDOWS-CI-HISTORY.md).

@@ -44,20 +44,24 @@ func dnsFixture(t *testing.T, tcpFallback bool, answer func([]byte) []byte) stri
 	var udp net.PacketConn
 	var tcp net.Listener
 	var e error
-	// The kernel picks a free UDP port; the same TCP port may be taken by a
-	// parallel test, so retry with a fresh port instead of failing.
+	// Pick TCP first: Windows can assign UDP ephemeral ports from ranges that
+	// are excluded for TCP, so retrying adjacent UDP ports can keep failing.
+	// Keep the TCP listener open while binding UDP to the same port; retry if
+	// another UDP socket already owns it.
 	for attempt := 0; attempt < 20; attempt++ {
-		udp, e = net.ListenPacket("udp", "127.0.0.1:0")
+		address := "127.0.0.1:0"
+		if !tcpFallback {
+			udp, e = net.ListenPacket("udp", address)
+			break
+		}
+		tcp, e = net.Listen("tcp", address)
 		if e != nil {
 			t.Fatal(e)
 		}
-		if !tcpFallback {
+		if udp, e = net.ListenPacket("udp", tcp.Addr().String()); e == nil {
 			break
 		}
-		if tcp, e = net.Listen("tcp", udp.LocalAddr().String()); e == nil {
-			break
-		}
-		udp.Close()
+		tcp.Close()
 	}
 	if e != nil {
 		t.Fatal(e)
