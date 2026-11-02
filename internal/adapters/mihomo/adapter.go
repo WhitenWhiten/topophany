@@ -64,7 +64,7 @@ func Collect(ctx context.Context, deps Dependencies, x model.Check, target strin
 		return adapters.Local("setup", "adapter_secret_missing")
 	}
 	// A reference must surround a fresh runtime read, never a reused one.
-	if deps.Cache != nil && options.ProviderReference == nil {
+	if deps.Cache != nil && options.ProviderReference == nil && x.MaxDurationMS == 0 {
 		snapshot, release, acquireErr := deps.Cache.acquire(ctx, deps.Scope+"\x00"+target+"\x00"+token)
 		if acquireErr != nil {
 			return adapters.Local("adapter_api", "sampling_canceled")

@@ -24,6 +24,9 @@ type coreSnapshot struct {
 type snapshotContextKey struct{}
 
 func (c *SnapshotCache) acquire(ctx context.Context, key string) (*coreSnapshot, func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
 	digest := sha256.Sum256([]byte(key))
 	c.mu.Lock()
 	if c.entries == nil {

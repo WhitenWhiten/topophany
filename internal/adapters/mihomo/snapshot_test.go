@@ -53,6 +53,14 @@ func TestSnapshotPoliciesIsolationAndExpiry(t *testing.T) {
 	if hits.Load() != 2 || first.Outcome != "ok" || second.Outcome != "policy" || !first.SampledAt.Equal(second.SampledAt) {
 		t.Fatalf("hits=%d first=%+v second=%+v", hits.Load(), first, second)
 	}
+	x.MaxDurationMS = 1
+	if _, err = collect(); err != nil {
+		t.Fatal(err)
+	}
+	if hits.Load() != 4 {
+		t.Fatal("latency assertion used cached transport")
+	}
+	x.MaxDurationMS = 0
 	token = "rotated"
 	if _, err = collect(); err != nil {
 		t.Fatal(err)
@@ -61,7 +69,7 @@ func TestSnapshotPoliciesIsolationAndExpiry(t *testing.T) {
 	if _, err = collect(); err != nil {
 		t.Fatal(err)
 	}
-	if hits.Load() != 6 {
+	if hits.Load() != 8 {
 		t.Fatal("credential/route isolation", hits.Load())
 	}
 	// Expire without sleeping. No collection is concurrently active.
@@ -76,7 +84,7 @@ func TestSnapshotPoliciesIsolationAndExpiry(t *testing.T) {
 	if _, err = collect(); err != nil {
 		t.Fatal(err)
 	}
-	if hits.Load() != 9 {
+	if hits.Load() != 11 {
 		t.Fatal("failed collection was reused", hits.Load())
 	}
 }

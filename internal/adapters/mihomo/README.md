@@ -203,7 +203,8 @@ decoded objects. Reuse preserves the earliest sample timestamp and never renews
 old evidence. The reads remain non-atomic. Four snapshots, each capped at 8 MiB,
 bound retained private response memory; excess controllers collect normally.
 Failures invalidate the snapshot and are never reused. Reload replaces the
-runner and its cache. Dynamic provider references bypass sharing so their two
+runner and its cache. Checks with a duration budget bypass sharing so cache hits cannot mask transport
+latency violations. Dynamic provider references bypass sharing so their two
 publication reads still bracket a fresh provider read.
 
 The independent reference now accepts up to 4096 members per provider within

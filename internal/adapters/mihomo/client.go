@@ -33,6 +33,9 @@ type coreProxy struct {
 }
 
 func readCore(ctx context.Context, c *http.Client, base, path, token string, v any) error {
+	if err := ctx.Err(); err != nil {
+		return adapters.Fail("adapter_api", err)
+	}
 	if !mihomoReads[path] {
 		return adapters.Local("adapter", "api_path_not_allowed")
 	}
