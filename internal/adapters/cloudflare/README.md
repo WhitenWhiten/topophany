@@ -247,8 +247,13 @@ not call the dedicated endpoint: one GET per check is the rule. Configure a
 separate `tunnel_connections` read for the dedicated endpoint. The connection's `origin_ip`, its `id`, `client_id`
 and `uuid`, and the tunnel's name and account tag are never read into a fact.
 Connector versions are not exported because they are free-form strings that
-can carry fragments of a bearer token. `tunnel_colos` keeps only three uppercase
-letters, sorts them and keeps the first eight. If any listed connection lacks a
+can carry fragments of a bearer token. Reported Tunnel locations consisting
+of three ASCII letters and an optional numeric suffix, at most eight bytes
+total, are normalized to their uppercase three-letter city code (`lax12` →
+`LAX`). Both tunnel reads compare these city codes with `expected_colos`.
+The session count still includes every connection; only the city fact is
+deduplicated. `tunnel_colos` keeps only three uppercase letters per city,
+sorts them and keeps the first eight. If any listed connection lacks a
 valid colo, a configured colo policy is `unverified` unless a known violation
 has already been found. The colo policy compares every distinct reported colo, not only the eight the fact
 shows: a ninth colo is still a connection outside a declared list.
@@ -322,7 +327,13 @@ not connectors. It reports the existing connection facts and policies but
 never invents `tunnel_status`. Keep a separate `tunnel` check for that status.
 An explicit empty inventory is zero sessions; absent session lists and partial
 pages are monitor errors. Identifiers, addresses and versions remain withheld.
-This endpoint is covered by synthetic tests, not real-account acceptance.
+The [2026-11-02 real-account run](../../../docs/acceptance/CLOUDFLARE_LIVE_2026-11-02.md)
+verified the nested session counts. Its initial run found that real
+`colo_name` tokens such as `lax12` were discarded. Both tunnel reads now
+normalize these locations as described above. The captured responses seed
+regression tests for matching/outside policies, session counts and token
+redaction; the record keeps the original failure and post-fix verification
+separate.
 
 ### Shared quota and cooldown
 

@@ -11,6 +11,13 @@ families below and skips every other line, so an exporter that adds families
 keeps working; a release that renames one of these loses that fact rather
 than the check.
 
+A subsequent [real-account acceptance on 2026-11-02](../../../docs/acceptance/CLOUDFLARE_LIVE_2026-11-02.md)
+used registered cloudflared **2026.10.5** with two ready sessions. HTTP/2 and
+QUIC carried application requests observed from another host. Readiness,
+connection locations, stop versus zero-session classification, recovery and
+counter reset were verified. Sanitized connected responses accompany the
+record; missing optional metric families are still not zero-valued readings.
+
 ## Reads
 
 Both reads happen under the check's one timeout, in this order, each with its

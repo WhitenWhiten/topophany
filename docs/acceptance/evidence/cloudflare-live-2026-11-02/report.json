@@ -1,0 +1,621 @@
+{
+  "schema": 1,
+  "kind": "real Cloudflare account + macOS origin/worker/collector + isolated Linux s2 worker",
+  "verdict": "partial_pass",
+  "started_at": "2026-11-02T07:42:39.607176+00:00",
+  "last_capture_at": "2026-11-02T08:06:32.394740+00:00",
+  "cleanup_completed_at": "2026-11-02T08:07:55.666272+00:00",
+  "source": {
+    "commit": "70c92b67c61d6e7956e6826e067eb4052d477a85",
+    "clean_at_build": true,
+    "build_flags": "-ldflags=-s -w",
+    "binary_sha256": {
+      "topo": "54fc74b675190cfab553ff19e4756a52ec0a14f735710b1f50cd75fb2bd687cf",
+      "topo-linux-amd64": "0a6eb00b769a12395250c7fb19d84da987c936b0822f4e24060bd99300763c1b"
+    }
+  },
+  "environment": {
+    "mac": "darwin/arm64",
+    "s2": "linux/amd64",
+    "s2_existing_topophany_version": "1.5.1",
+    "s2_existing_topophany_sha256": "71f9cf57eef491b055d54acfb57838f9e521c79d45bc734060a8445847b33a49",
+    "cloudflared_version": "2026.10.5",
+    "tunnel_transports": [
+      "http2",
+      "quic"
+    ],
+    "ready_sessions": 2,
+    "observers_have_distinct_trace_exit_ips": true,
+    "trace_exit_sha256_prefixes": {
+      "trace-mac": "3c7ddf3295242fcd",
+      "trace-s2": "62eff5721886145d"
+    }
+  },
+  "online_check_count": 35,
+  "assertion_counts_including_setup_repeats_and_cleanup": {
+    "pass": 71,
+    "fail": 2
+  },
+  "results": [
+    {
+      "name": "least-privilege account token created",
+      "status": "pass",
+      "at": "2026-11-02T07:42:41.945478+00:00",
+      "permissions": [
+        "Cloudflare Tunnel Read",
+        "DNS Read"
+      ],
+      "expires_hours": 4
+    },
+    {
+      "name": "dedicated registered tunnel created",
+      "status": "pass",
+      "at": "2026-11-02T07:42:45.321430+00:00"
+    },
+    {
+      "name": "dedicated test DNS and ingress created",
+      "status": "pass",
+      "at": "2026-11-02T07:42:52.691830+00:00"
+    },
+    {
+      "name": "collector and both isolated workers launched",
+      "status": "pass",
+      "at": "2026-11-02T07:45:21.146704+00:00"
+    },
+    {
+      "name": "dedicated Access application and service token created",
+      "status": "pass",
+      "at": "2026-11-02T07:47:31.915394+00:00"
+    },
+    {
+      "name": "expanded real-account and policy matrix enabled",
+      "status": "pass",
+      "at": "2026-11-02T07:51:15.787477+00:00",
+      "checks": 31
+    },
+    {
+      "name": "normal origin-local",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.895724+00:00"
+    },
+    {
+      "name": "normal public-mac",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.895839+00:00"
+    },
+    {
+      "name": "normal public-s2",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.895991+00:00"
+    },
+    {
+      "name": "normal connector",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.896109+00:00"
+    },
+    {
+      "name": "normal api-tunnel",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.896217+00:00"
+    },
+    {
+      "name": "normal api-connections",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.896271+00:00"
+    },
+    {
+      "name": "normal api-dns",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.896361+00:00"
+    },
+    {
+      "name": "normal trace-mac",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.896452+00:00"
+    },
+    {
+      "name": "normal dot-mac",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.896532+00:00"
+    },
+    {
+      "name": "normal doh-mac",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.896643+00:00"
+    },
+    {
+      "name": "normal trace-s2",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.896754+00:00"
+    },
+    {
+      "name": "normal dot-s2",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.896847+00:00"
+    },
+    {
+      "name": "normal doh-s2",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.896967+00:00"
+    },
+    {
+      "name": "normal access-valid",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.897097+00:00"
+    },
+    {
+      "name": "normal scope-tunnel-allowed",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.897205+00:00"
+    },
+    {
+      "name": "access-invalid",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.905976+00:00",
+      "expected": {
+        "outcome": "fail",
+        "code": "unexpected_status"
+      },
+      "actual": {
+        "outcome": "fail",
+        "code": "unexpected_status"
+      }
+    },
+    {
+      "name": "access-anonymous",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.906150+00:00",
+      "expected": {
+        "outcome": "fail",
+        "code": "unexpected_status"
+      },
+      "actual": {
+        "outcome": "fail",
+        "code": "unexpected_status"
+      }
+    },
+    {
+      "name": "access-missing-env",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.906291+00:00",
+      "expected": {
+        "outcome": "error",
+        "code": "http_secret_missing"
+      },
+      "actual": {
+        "outcome": "error",
+        "code": "http_secret_missing"
+      }
+    },
+    {
+      "name": "api-missing-token",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.906450+00:00",
+      "expected": {
+        "outcome": "error",
+        "code": "cloudflare_token_missing"
+      },
+      "actual": {
+        "outcome": "error",
+        "code": "cloudflare_token_missing"
+      }
+    },
+    {
+      "name": "api-invalid-token",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.906650+00:00",
+      "expected": {
+        "outcome": "error",
+        "code": "authentication_failed"
+      },
+      "actual": {
+        "outcome": "error",
+        "code": "authentication_failed"
+      }
+    },
+    {
+      "name": "scope-dns-denied",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.906741+00:00",
+      "expected": {
+        "outcome": "error",
+        "code": "authentication_failed"
+      },
+      "actual": {
+        "outcome": "error",
+        "code": "authentication_failed"
+      }
+    },
+    {
+      "name": "dns-proxy-policy",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.906868+00:00",
+      "expected": {
+        "outcome": "policy",
+        "code": "record_proxied_unexpectedly"
+      },
+      "actual": {
+        "outcome": "policy",
+        "code": "record_proxied_unexpectedly"
+      }
+    },
+    {
+      "name": "dns-content-policy",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.907017+00:00",
+      "expected": {
+        "outcome": "policy",
+        "code": "record_content_mismatch"
+      },
+      "actual": {
+        "outcome": "policy",
+        "code": "record_content_mismatch"
+      }
+    },
+    {
+      "name": "dns-record-missing",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.907156+00:00",
+      "expected": {
+        "outcome": "policy",
+        "code": "record_missing"
+      },
+      "actual": {
+        "outcome": "policy",
+        "code": "record_missing"
+      }
+    },
+    {
+      "name": "api-redundancy-policy",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.907284+00:00",
+      "expected": {
+        "outcome": "policy",
+        "code": "connections_below_expected"
+      },
+      "actual": {
+        "outcome": "policy",
+        "code": "connections_below_expected"
+      }
+    },
+    {
+      "name": "connector-redundancy-policy",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.907426+00:00",
+      "expected": {
+        "outcome": "policy",
+        "code": "connections_below_expected"
+      },
+      "actual": {
+        "outcome": "policy",
+        "code": "connections_below_expected"
+      }
+    },
+    {
+      "name": "connector-colo-policy",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.907530+00:00",
+      "expected": {
+        "outcome": "policy",
+        "code": "colo_outside_expected"
+      },
+      "actual": {
+        "outcome": "policy",
+        "code": "colo_outside_expected"
+      }
+    },
+    {
+      "name": "http-colo-policy",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.907657+00:00",
+      "expected": {
+        "outcome": "policy",
+        "code": "pop_mismatch"
+      },
+      "actual": {
+        "outcome": "policy",
+        "code": "pop_mismatch"
+      }
+    },
+    {
+      "name": "trace-policy",
+      "status": "pass",
+      "at": "2026-11-02T07:52:48.907774+00:00",
+      "expected": {
+        "outcome": "policy",
+        "code": "warp_mismatch"
+      },
+      "actual": {
+        "outcome": "policy",
+        "code": "warp_mismatch"
+      }
+    },
+    {
+      "name": "api-colo-match",
+      "status": "fail",
+      "at": "2026-11-02T07:52:48.907918+00:00",
+      "expected": {
+        "outcome": "ok",
+        "code": null
+      },
+      "actual": {
+        "outcome": "unknown",
+        "code": "connection_colo_unreported"
+      }
+    },
+    {
+      "name": "api-colo-outside",
+      "status": "fail",
+      "at": "2026-11-02T07:52:48.908038+00:00",
+      "expected": {
+        "outcome": "policy",
+        "code": "colo_outside_expected"
+      },
+      "actual": {
+        "outcome": "unknown",
+        "code": "connection_colo_unreported"
+      }
+    },
+    {
+      "name": "application failure retained while connector and API remain healthy",
+      "status": "pass",
+      "at": "2026-11-02T07:53:07.086173+00:00",
+      "started_at": "2026-11-02T07:52:48.956583+00:00"
+    },
+    {
+      "name": "application recovery confirmed from both observers",
+      "status": "pass",
+      "at": "2026-11-02T07:53:28.276141+00:00",
+      "started_at": "2026-11-02T07:53:07.118600+00:00"
+    },
+    {
+      "name": "stopped connector is monitor error; origin remains available",
+      "status": "pass",
+      "at": "2026-11-02T07:54:04.586791+00:00",
+      "started_at": "2026-11-02T07:53:43.421158+00:00"
+    },
+    {
+      "name": "live connector with no edge sessions takes tunnel link down",
+      "status": "pass",
+      "at": "2026-11-02T07:54:28.785365+00:00",
+      "started_at": "2026-11-02T07:54:04.621312+00:00"
+    },
+    {
+      "name": "tunnel restart recovery confirmed with public application response",
+      "status": "pass",
+      "at": "2026-11-02T07:55:25.132184+00:00",
+      "started_at": "2026-11-02T07:54:28.816517+00:00"
+    },
+    {
+      "name": "temporary real Worker deployed",
+      "status": "pass",
+      "at": "2026-11-02T07:56:27.259229+00:00"
+    },
+    {
+      "name": "temporary real Pages deployment uploaded",
+      "status": "pass",
+      "at": "2026-11-02T07:56:35.000688+00:00"
+    },
+    {
+      "name": "challenge rule limited to test hostname and path created",
+      "status": "pass",
+      "at": "2026-11-02T07:56:38.017246+00:00"
+    },
+    {
+      "name": "Workers Pages and challenge checks enabled",
+      "status": "pass",
+      "at": "2026-11-02T07:56:46.762958+00:00"
+    },
+    {
+      "name": "real Workers runtime verified from s2 with unique JSON body",
+      "status": "pass",
+      "at": "2026-11-02T07:58:05.969613+00:00"
+    },
+    {
+      "name": "real Pages deployment verified from s2 with unique JSON body",
+      "status": "pass",
+      "at": "2026-11-02T07:58:05.969884+00:00"
+    },
+    {
+      "name": "real managed challenge recognized from cf-mitigated header",
+      "status": "pass",
+      "at": "2026-11-02T07:58:05.970082+00:00"
+    },
+    {
+      "name": "real DNS filtered list returns two records with consistent proxy status",
+      "status": "pass",
+      "at": "2026-11-02T07:58:31.604227+00:00"
+    },
+    {
+      "name": "healthy local connector decides link despite failed and unknown API policies",
+      "status": "pass",
+      "at": "2026-11-02T07:58:31.604482+00:00"
+    },
+    {
+      "name": "worker silence expires evidence without declaring application outage",
+      "status": "pass",
+      "at": "2026-11-02T07:59:32.034020+00:00",
+      "started_at": "2026-11-02T07:59:07.514509+00:00"
+    },
+    {
+      "name": "worker restarted and fresh evidence restored",
+      "status": "pass",
+      "at": "2026-11-02T07:59:35.516893+00:00",
+      "started_at": "2026-11-02T07:59:32.086878+00:00"
+    },
+    {
+      "name": "s2 delivery partition expires remote evidence while local observer continues",
+      "status": "pass",
+      "at": "2026-11-02T08:00:08.779774+00:00",
+      "started_at": "2026-11-02T07:59:35.558075+00:00"
+    },
+    {
+      "name": "s2 reconnect restores current evidence",
+      "status": "pass",
+      "at": "2026-11-02T08:00:20.905255+00:00",
+      "started_at": "2026-11-02T08:00:08.816704+00:00"
+    },
+    {
+      "name": "delayed samples preserve original timestamps and unique observation IDs",
+      "status": "pass",
+      "at": "2026-11-02T08:00:20.908892+00:00",
+      "samples": 62,
+      "max_delivery_delay_seconds": 35.632
+    },
+    {
+      "name": "application failure retained while connector and API remain healthy",
+      "status": "pass",
+      "at": "2026-11-02T08:01:56.402493+00:00",
+      "started_at": "2026-11-02T08:01:23.292958+00:00"
+    },
+    {
+      "name": "application recovery confirmed from both observers",
+      "status": "pass",
+      "at": "2026-11-02T08:02:17.515238+00:00",
+      "started_at": "2026-11-02T08:01:56.447839+00:00"
+    },
+    {
+      "name": "registered tunnel and application work over QUIC as well as HTTP2",
+      "status": "pass",
+      "at": "2026-11-02T08:02:58.754189+00:00",
+      "started_at": "2026-11-02T08:02:17.558886+00:00"
+    },
+    {
+      "name": "revoked real token becomes monitor authentication error without application outage",
+      "status": "pass",
+      "at": "2026-11-02T08:03:49.088469+00:00",
+      "started_at": "2026-11-02T08:02:58.789933+00:00"
+    },
+    {
+      "name": "all active check histories exported",
+      "status": "pass",
+      "at": "2026-11-02T08:06:24.044403+00:00",
+      "checks": 35
+    },
+    {
+      "name": "live API tunnel status transitions recorded",
+      "status": "pass",
+      "at": "2026-11-02T08:06:24.051169+00:00",
+      "statuses": [
+        "degraded",
+        "down",
+        "healthy"
+      ]
+    },
+    {
+      "name": "connector identity and cumulative counters reset across restart",
+      "status": "pass",
+      "at": "2026-11-02T08:06:24.051884+00:00",
+      "requests_before": 77,
+      "requests_after": 16
+    },
+    {
+      "name": "live monitor stream renders link check and service cards",
+      "status": "pass",
+      "at": "2026-11-02T08:06:24.052496+00:00",
+      "rows": 5
+    },
+    {
+      "name": "CLI server service map check incident and observer views exported",
+      "status": "pass",
+      "at": "2026-11-02T08:06:24.052696+00:00"
+    },
+    {
+      "name": "API Access Tunnel and Topophany credential values absent from exported evidence",
+      "status": "pass",
+      "at": "2026-11-02T08:06:24.091856+00:00",
+      "files_scanned": 59
+    },
+    {
+      "name": "access-valid withholds status and colo labels",
+      "status": "pass",
+      "at": "2026-11-02T08:06:24.092070+00:00"
+    },
+    {
+      "name": "access-invalid withholds status and colo labels",
+      "status": "pass",
+      "at": "2026-11-02T08:06:24.092169+00:00"
+    },
+    {
+      "name": "stable connected API and cloudflared response captures saved privately",
+      "status": "pass",
+      "at": "2026-11-02T08:06:32.400486+00:00"
+    },
+    {
+      "name": "s2 original binary preserved",
+      "status": "pass",
+      "at": "2026-11-02T08:07:25.936886+00:00"
+    },
+    {
+      "name": "temporary local processes remote worker and remote files removed",
+      "status": "pass",
+      "at": "2026-11-02T08:07:33.725389+00:00"
+    },
+    {
+      "name": "existing Cloudflare tunnels remain healthy",
+      "status": "pass",
+      "at": "2026-11-02T08:07:55.665458+00:00",
+      "count": 3
+    },
+    {
+      "name": "all temporary Cloudflare resources deleted and credentials revoked",
+      "status": "pass",
+      "at": "2026-11-02T08:07:55.666711+00:00",
+      "resource_count": 13
+    }
+  ],
+  "findings": [
+    {
+      "id": "CF-LIVE-001",
+      "severity": "medium",
+      "summary": "API Tunnel colo_name values such as lax12/lax13 are discarded by the uppercase three-letter parser",
+      "affected_reads": [
+        "tunnel",
+        "tunnel_connections"
+      ],
+      "code": "internal/adapters/cloudflare/tunnel.go:99",
+      "failed_assertions": [
+        "api-colo-match",
+        "api-colo-outside"
+      ],
+      "impact": "tunnel_colos omitted; expected_colos cannot verify either matching or outside locations",
+      "fix_applied": false
+    }
+  ],
+  "redaction_audit": {
+    "at": "2026-11-02T08:06:24.081313+00:00",
+    "files_scanned": 59,
+    "findings": []
+  },
+  "targeted_go_tests": {
+    "status": "pass",
+    "packages": [
+      "internal/adapters/cloudflare",
+      "internal/adapters/cloudflared",
+      "internal/probe",
+      "internal/engine",
+      "internal/api",
+      "internal/config",
+      "internal/view",
+      "internal/tui"
+    ]
+  },
+  "cleanup": {
+    "temporary_cloudflare_resources_deleted": 13,
+    "all_resources_deleted": true,
+    "temporary_processes_stopped": true,
+    "s2_temporary_directory_removed": true,
+    "s2_original_binary_unchanged": true,
+    "existing_cloudflare_tunnels_healthy": 3
+  },
+  "not_live_verified": [
+    "Load Balancer pool health: no existing pool; no paid subscription enabled",
+    "Cloudflare upstream 429/5xx and Retry-After: no deliberate quota exhaustion; local regression tests only",
+    "Large inventory pagination/truncation: real DNS lists with one and two results only",
+    "WARP/Gateway on state: observed off and checked mismatch; no routing changes",
+    "Optional cfL4 connection metrics and cache HIT/MISS classes",
+    "Multiple independent tunnel connectors and failover between hosts",
+    "cloudflared versions other than 2026.10.5",
+    "Native menu bar and browser viewer UI; CLI JSON views and monitor stream were exercised"
+  ]
+}

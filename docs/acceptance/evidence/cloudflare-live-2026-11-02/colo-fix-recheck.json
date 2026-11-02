@@ -1,0 +1,121 @@
+{
+  "schema": 1,
+  "kind": "post-fix real registered Tunnel API recheck",
+  "started_at": "2026-11-02T08:47:53.463041+00:00",
+  "source_base_commit": "70c92b67c61d6e7956e6826e067eb4052d477a85",
+  "production_source_sha256": {
+    "internal/adapters/cloudflare/tunnel.go": "733694ad0160831234d19ba826b859be731634b92ea980eab4d54e78897c962f"
+  },
+  "binary_sha256": {
+    "topo": "00152f736c20c30c3088d078184ed106f1835427d48a41b654f1a66716b16863",
+    "topo-linux-amd64": "40849b831a8250d826116119e1ac42244fc72b4b504663603b85e389c62ce3de"
+  },
+  "checks": [
+    {
+      "id": "tunnel-match",
+      "status": "pass",
+      "sampled_at": "2026-11-02T08:48:09.437362Z",
+      "expected": {
+        "outcome": "ok",
+        "code": null
+      },
+      "actual": {
+        "outcome": "ok",
+        "code": null
+      },
+      "facts": {
+        "oldest_connection_at": "2026-11-02T08:48:04Z",
+        "peer_text": "withheld_secret_request",
+        "tunnel_colos": "LAX",
+        "tunnel_connections": "2",
+        "tunnel_pending_reconnect": "0",
+        "tunnel_status": "healthy"
+      }
+    },
+    {
+      "id": "tunnel-outside",
+      "status": "pass",
+      "sampled_at": "2026-11-02T08:48:10.433866Z",
+      "expected": {
+        "outcome": "policy",
+        "code": "colo_outside_expected"
+      },
+      "actual": {
+        "outcome": "policy",
+        "code": "colo_outside_expected"
+      },
+      "facts": {
+        "oldest_connection_at": "2026-11-02T08:48:04Z",
+        "peer_text": "withheld_secret_request",
+        "tunnel_colos": "LAX",
+        "tunnel_connections": "2",
+        "tunnel_pending_reconnect": "0",
+        "tunnel_status": "healthy"
+      }
+    },
+    {
+      "id": "tunnel_connections-match",
+      "status": "pass",
+      "sampled_at": "2026-11-02T08:48:11.442885Z",
+      "expected": {
+        "outcome": "ok",
+        "code": null
+      },
+      "actual": {
+        "outcome": "ok",
+        "code": null
+      },
+      "facts": {
+        "oldest_connection_at": "2026-11-02T08:48:04Z",
+        "peer_text": "withheld_secret_request",
+        "tunnel_colos": "LAX",
+        "tunnel_connections": "2",
+        "tunnel_pending_reconnect": "0"
+      }
+    },
+    {
+      "id": "tunnel_connections-outside",
+      "status": "pass",
+      "sampled_at": "2026-11-02T08:48:12.478376Z",
+      "expected": {
+        "outcome": "policy",
+        "code": "colo_outside_expected"
+      },
+      "actual": {
+        "outcome": "policy",
+        "code": "colo_outside_expected"
+      },
+      "facts": {
+        "oldest_connection_at": "2026-11-02T08:48:04Z",
+        "peer_text": "withheld_secret_request",
+        "tunnel_colos": "LAX",
+        "tunnel_connections": "2",
+        "tunnel_pending_reconnect": "0"
+      }
+    }
+  ],
+  "cleanup": {
+    "processes_stopped": true,
+    "temporary_tunnel_deleted": true,
+    "read_only_token_revoked": true
+  },
+  "status": "pass",
+  "raw_colos": [
+    "lax09",
+    "lax13"
+  ],
+  "normalized_colos": [
+    "LAX"
+  ],
+  "ready_connections": 2,
+  "credential_scan": "pass",
+  "completed_at": "2026-11-02T08:48:19.553297+00:00",
+  "local_validation": {
+    "go_test_all": "pass",
+    "darwin_arm64_build": "pass",
+    "linux_amd64_build": "pass",
+    "fuzz_target": "FuzzParseTunnel",
+    "fuzz_executions": 151457,
+    "fuzz_result": "pass"
+  }
+}

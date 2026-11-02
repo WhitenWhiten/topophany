@@ -96,8 +96,8 @@ func collectConnections(list []tunnelConnection, options model.CloudflareOptions
 		if c.IsPendingReconnect {
 			pending++
 		}
-		if model.IsColo(c.ColoName) {
-			colos[c.ColoName] = true
+		if colo := tunnelColo(c.ColoName); colo != "" {
+			colos[colo] = true
 		} else {
 			missingColo = true
 		}
@@ -134,6 +134,28 @@ func collectConnections(list []tunnelConnection, options model.CloudflareOptions
 		o.Detail = "Cloudflare API did not provide complete tunnel connection colo evidence"
 	}
 	return nil
+}
+
+// tunnelColo maps a reported location such as lax12 to the three-letter city
+// code used by expected_colos and public colo facts. Accept only three ASCII
+// letters and an optional numeric suffix, within the local connector's
+// eight-byte location bound. Never truncate arbitrary peer text or export the
+// suffix: credential-bearing facts retain their three-uppercase-letter bound.
+func tunnelColo(location string) string {
+	if len(location) < 3 || len(location) > 8 {
+		return ""
+	}
+	for i := 0; i < 3; i++ {
+		if b := location[i]; !(b >= 'A' && b <= 'Z' || b >= 'a' && b <= 'z') {
+			return ""
+		}
+	}
+	for i := 3; i < len(location); i++ {
+		if location[i] < '0' || location[i] > '9' {
+			return ""
+		}
+	}
+	return strings.ToUpper(location[:3])
 }
 
 // sortedTokens returns the distinct tokens in sorted order. The fact caps the

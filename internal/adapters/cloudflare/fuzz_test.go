@@ -29,6 +29,9 @@ func FuzzParseTunnel(f *testing.F) {
 	if body, err := os.ReadFile(filepath.Join(fixtureDir, "tunnel-healthy.json")); err == nil {
 		f.Add(body)
 	}
+	if body, err := os.ReadFile(filepath.Join(liveFixtureDir, "tunnel.json")); err == nil {
+		f.Add(body)
+	}
 	f.Fuzz(func(t *testing.T, data []byte) {
 		o := observation()
 		_ = collectTunnel(data, tunnelOptions(), o)

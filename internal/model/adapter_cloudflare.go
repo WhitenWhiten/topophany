@@ -35,7 +35,8 @@ type CloudflareOptions struct {
 	// ExpectedConnections is the number of live tunnel connections the
 	// deployment declares. Below it is policy, not a failed request.
 	ExpectedConnections *int `json:"expected_connections,omitempty"`
-	// ExpectedColos lists the colos the tunnel's connections may name.
+	// ExpectedColos lists uppercase three-letter city codes. Numbered API
+	// locations such as lax12 are compared as LAX without merging sessions.
 	ExpectedColos []string `json:"expected_colos,omitempty"`
 }
 

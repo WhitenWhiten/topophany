@@ -1,0 +1,7 @@
+build_info{goversion="go1.27.3",revision="2026-10-27-13:25 UTC",type="",version="2026.10.5"} 1
+cloudflared_tunnel_concurrent_requests_per_tunnel 0
+cloudflared_tunnel_ha_connections 2
+cloudflared_tunnel_request_errors 0
+cloudflared_tunnel_server_locations{connection_id="0",edge_location="lax08"} 1
+cloudflared_tunnel_server_locations{connection_id="1",edge_location="lax13"} 1
+cloudflared_tunnel_total_requests 93

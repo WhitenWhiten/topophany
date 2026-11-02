@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "result": [
+    {
+      "name": "accept.example.invalid",
+      "type": "CNAME",
+      "proxied": true,
+      "ttl": 1,
+      "content": "00000000-0000-4000-8000-000000000000.cfargotunnel.com"
+    }
+  ],
+  "result_info": {
+    "page": 1,
+    "per_page": 100,
+    "count": 1,
+    "total_count": 1,
+    "total_pages": 1
+  }
+}

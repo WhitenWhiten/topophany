@@ -228,6 +228,8 @@ func TestCollectTunnelMissingColoEvidence(t *testing.T) {
 		{"invalid", `[{"colo_name":"invalid"}]`, "unknown", "connection_colo_unreported"},
 		{"known violation wins", `[{"colo_name":"LAX"},{}]`, "policy", "colo_outside_expected"},
 		{"all allowed", `[{"colo_name":"HKG"}]`, "ok", ""},
+		{"numbered with missing evidence", `[{"colo_name":"hkg12"},{}]`, "unknown", "connection_colo_unreported"},
+		{"numbered violation wins", `[{"colo_name":"lax13"},{}]`, "policy", "colo_outside_expected"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			options := tunnelOptions()

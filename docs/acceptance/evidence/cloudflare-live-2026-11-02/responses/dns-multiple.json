@@ -1,0 +1,26 @@
+{
+  "success": true,
+  "result": [
+    {
+      "name": "multi.example.invalid",
+      "type": "A",
+      "proxied": false,
+      "ttl": 120,
+      "content": "203.0.113.11"
+    },
+    {
+      "name": "multi.example.invalid",
+      "type": "A",
+      "proxied": false,
+      "ttl": 120,
+      "content": "203.0.113.10"
+    }
+  ],
+  "result_info": {
+    "page": 1,
+    "per_page": 100,
+    "count": 2,
+    "total_count": 2,
+    "total_pages": 1
+  }
+}

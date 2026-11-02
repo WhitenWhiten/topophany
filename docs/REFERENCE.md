@@ -1248,6 +1248,13 @@ refused rather than ignored.
 | `dns_record` | `GET /zones/{zone_id}/dns_records?name={record_name}&type={record_type}` | `record_count`, `record_proxied` (`true`/`false` when every record agrees), `record_ttl` (same), `record_content_matches` (`true`, `false` or `not_declared`) | `record_missing`, `record_not_proxied`, `record_proxied_unexpectedly`, `record_content_mismatch` |
 | `pool` | `GET /accounts/{account_id}/load_balancers/pools/{pool_id}/health` | `pool_healthy` (when a region reports it), `origins_healthy`, `origins_total`, `regions_reporting`, `origin.<declared>` (`healthy`/`unhealthy`) | `origins_below_expected` |
 
+For both tunnel API reads, a reported location of three ASCII letters with an
+optional numeric suffix (at most eight bytes total) is normalized to its
+uppercase three-letter city code. For example, `lax08` and `lax13` produce
+`tunnel_colos: "LAX"` but still count as two sessions. API `expected_colos`
+compares these city codes; local `cloudflared` policies compare their full
+connector location tokens instead. Invalid or missing names remain unreported.
+
 The DNS query is the only query and carries exactly one `name` and one closed
 `type`. A path outside the four exact forms, a dot segment and an extra query
 parameter are refused with `api_path_not_allowed` before a request exists. The

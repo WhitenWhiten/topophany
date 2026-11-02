@@ -1,0 +1,18 @@
+{
+  "success": true,
+  "result": {
+    "status": "healthy",
+    "connections": [
+      {
+        "colo_name": "lax08",
+        "is_pending_reconnect": false,
+        "opened_at": "2026-11-02T08:02:20.195910Z"
+      },
+      {
+        "colo_name": "lax13",
+        "is_pending_reconnect": false,
+        "opened_at": "2026-11-02T08:02:20.908036Z"
+      }
+    ]
+  }
+}

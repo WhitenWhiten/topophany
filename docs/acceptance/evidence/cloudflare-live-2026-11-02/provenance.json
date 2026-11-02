@@ -1,0 +1,34 @@
+{
+  "captured_at": "2026-11-02T08:06:32.394740+00:00",
+  "source_commit": "70c92b67c61d6e7956e6826e067eb4052d477a85",
+  "source": "real Cloudflare GET responses and registered cloudflared 2026.10.5 metrics listener",
+  "sanitization": {
+    "removed": [
+      "API account and zone IDs",
+      "tunnel and connection IDs",
+      "client identifiers and versions from API payloads",
+      "origin IP addresses",
+      "real record names and content",
+      "free-form API metadata and errors"
+    ],
+    "replaced": [
+      "DNS names with example.invalid",
+      "Tunnel CNAME destination and connector UUID with documentation placeholders"
+    ],
+    "preserved": [
+      "actual result cardinality and pagination",
+      "status and readiness counts",
+      "actual colo_name and edge_location tokens",
+      "actual opened_at timestamps",
+      "allowed connector counters"
+    ]
+  },
+  "files": {
+    "responses/cloudflared-metrics.prom": "28765b3566302a1aac4afd62a5bef149beb28de8a405504dbda1c44839f657f3",
+    "responses/cloudflared-ready.json": "ede8bbdd225f3dc5bc79fc8e2ce03e0dd4aaa0865c21b2a357a292847df4f17e",
+    "responses/connections.json": "19a192f3ce5514e5852a1944acdfc8357620300c955ca285a0334f7fcb64cdf5",
+    "responses/dns-multiple.json": "bf4f73cd7b09a7f1fd4be97680e124bc1b5cc2b7573aafabc3fa89c0fa93bc62",
+    "responses/dns-single.json": "382055fd144dbfb83e0067ecac4fd7ea62e06647997b0b9935a8d0f5e87023c0",
+    "responses/tunnel.json": "70c2357e94864a56815480432fe25e1a99f378083d2a40a3c212d0aaf6923b66"
+  }
+}

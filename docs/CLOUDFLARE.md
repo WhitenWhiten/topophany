@@ -212,13 +212,18 @@ workers before enabling the checks. Older versions reject the new measurement
 contracts. Validate your edited topology before reloading each role.
 
 `topo preview` offers `edge-challenge`, `edge-rerouted` and `tunnel-down`
-scenarios through its `x` menu. They use synthetic evidence. API fixtures in
-this release are documentation-based and have not been verified against a live
-account. Local connector acceptance used cloudflared 2026.10.0 with a fake,
-unregistered tunnel; connected-success fixtures are synthetic. See the
+scenarios through its `x` menu. They use synthetic evidence. The initial
+2026-10-19 API fixtures were documentation-based; connector acceptance then
+used cloudflared 2026.10.0 with a fake, unregistered tunnel. See the
 [API acceptance record](acceptance/CLOUDFLARE_API_2026-10-19.md) and
 [connector acceptance record](acceptance/CLOUDFLARED_2026-10-19.md) for the exact
-boundaries and remaining live checks.
+historical boundaries. A subsequent [real-account run on 2026-11-02](acceptance/CLOUDFLARE_LIVE_2026-11-02.md)
+covered registered cloudflared 2026.10.5, two observer hosts, API reads, DNS,
+Access, Workers, Pages and fault/recovery scenarios. It found that numbered
+API colo names such as `lax12` were discarded. The adapter now normalizes
+these names to three-letter city codes such as `LAX`; the record preserves
+the original failure and the separate post-fix verification. Pool health and
+other listed gaps remain open.
 
 ## Dedicated tunnel connections
 
@@ -231,7 +236,13 @@ not connectors. It reports the existing connection facts and policies but
 never invents `tunnel_status`. Keep a separate `tunnel` check for that status.
 An explicit empty inventory is zero sessions; absent session lists and partial
 pages are monitor errors. Identifiers, addresses and versions remain withheld.
-This endpoint is covered by synthetic tests, not real-account acceptance.
+The real-account run above verified session counts from this endpoint. Both
+tunnel API reads normalize a reported location made of three ASCII letters
+and an optional numeric suffix (at most eight bytes total) to its uppercase
+three-letter city code. Use `expected_colos: ["LAX"]` for API locations such as
+`lax08` and `lax13`; they count as two sessions at one reported city. Local
+`cloudflared` colo policies continue to compare the full connector location
+tokens, such as `lax08`, rather than these API city codes.
 
 Cloudflare checks now share a per-observer request budget allocated from 900
 requests per five minutes across the topology. Retry-After and exhausted
