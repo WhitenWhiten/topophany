@@ -53,12 +53,17 @@ The adapter maps the following values. [Upstream API](https://github.com/huilang
 | `cpu`, `cpu_cores` | CPU percent and optional logical core count |
 | `ram_total`, `ram_used` | Memory bytes and percent when both counters are usable |
 | `disk_total`, `disk_used` | Disk bytes and percent for the `aggregate` disk |
+| `net_in_speed`, `net_out_speed` | Receive and transmit rates in bytes per second |
+| `swap_total`, `swap_used` | Swap capacity and usage converted from MiB to bytes |
+| `load_avg` | Three space-separated load averages for 1, 5 and 15 minutes |
 | `last_updated` | Upstream sample time in Unix milliseconds |
 
 The upstream Agent uses MiB for the API's MB fields. Conversion rounds to
 the nearest byte. Missing or invalid counters stay unavailable. The adapter
 preserves a reported CPU value of zero. Zero total capacity means no usable
-capacity. A server with an unset or zero `last_updated` provides source contact
+RAM or disk capacity. A zero swap total and zero usage describe a host with
+zero swap capacity as reported by the Worker. The Worker uses zero defaults
+for some metrics, including rates and swap. A server with an unset or zero `last_updated` provides source contact
 only. The sample ID is stable for a UUID and `last_updated` so repeated reads
 retain the original deadline. A `401`, `403`, `404` or other read error records
 a source collection failure. Host resources are reported evidence, independent

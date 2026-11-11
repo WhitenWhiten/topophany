@@ -113,3 +113,35 @@ func TestPanelAggregateBudgetAndCallerOwnership(t *testing.T) {
 		t.Fatal(len(raw), err)
 	}
 }
+
+func TestServerListWithResourceMetricsFitsFrame(t *testing.T) {
+	now := time.Now().UTC()
+	servers := make([]ServerListEntry, 256)
+	for i := range servers {
+		servers[i] = ServerListEntry{
+			ID: fmt.Sprintf("host-%03d", i), Name: "Example Server", Kind: "host", Health: "up",
+			Metrics: &ServerResourceMetrics{
+				SampledAt: now, ValidUntil: now.Add(15 * time.Second),
+				ResourceMetrics: model.ResourceMetrics{
+					Network: model.NetworkReport{RXBytesPerSecond: new(1024.0), TXBytesPerSecond: new(256.0)},
+					Swap:    model.SwapReport{TotalBytes: new(uint64(1 << 30)), UsedBytes: new(uint64(1 << 26))},
+					Load:    model.LoadReport{Avg1m: new(1.0), Avg5m: new(2.0), Avg15m: new(3.0)},
+				},
+			},
+		}
+	}
+	p := Panel{Rows: []Value{{Row: Row{Metric: "servers.list"}, Value: servers}}}
+	raw, err := MarshalPanel(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire struct {
+		Rows []struct{ Value []ServerListEntry }
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if rows := wire.Rows[0].Value; len(rows) != len(servers) || rows[len(rows)-1].Metrics == nil {
+		t.Fatal("server list was withheld or truncated")
+	}
+}

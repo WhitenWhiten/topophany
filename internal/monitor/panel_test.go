@@ -33,6 +33,30 @@ func TestEvidenceExpiresWithoutNewSample(t *testing.T) {
 		t.Fatal("rewrote evidence timestamp")
 	}
 }
+
+func TestNativeHostOptionalScalars(t *testing.T) {
+	now := time.Now()
+	c := testConfig()
+	c.Template.Rows = []Row{
+		{ID: "rx", Metric: "host.network.rx_bytes_per_second", Visual: "text", Select: Selector{Check: "host"}},
+		{ID: "swap", Metric: "host.swap.used_bytes", Visual: "text", Select: Selector{Check: "host"}},
+		{ID: "load", Metric: "host.load.avg_5m", Visual: "text", Select: Selector{Check: "host"}},
+	}
+	c.Template.Bar.Row = "rx"
+	if err := c.Template.Validate("worker"); err != nil {
+		t.Fatal(err)
+	}
+	in := hostInput(now)
+	facts := in.Snapshot.Checks[0].Last.Facts
+	facts["network_rx_bytes_per_second"] = "4096.5"
+	facts["swap_used_bytes"] = "9007199254740993"
+	facts["load_avg_5m"] = "0"
+	rows := Build(c, in, now).Rows
+	if rows[0].Value != 4096.5 || rows[0].Unit != "bytes_per_second" ||
+		rows[1].Value != uint64(9007199254740993) || rows[2].Value != 0.0 {
+		t.Fatal("host scalar output lost a metric", rows)
+	}
+}
 func TestAmbiguityInvalidValuesAndMissingSource(t *testing.T) {
 	now := time.Now()
 	c := testConfig()

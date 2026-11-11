@@ -100,7 +100,7 @@ func Build(c Config, in Input, now time.Time) Panel {
 			value, ok = cache[key]
 			if !ok {
 				value = resolve(r, in, now, projection)
-				rowBudget := maxRowValueBytes
+				rowBudget := rowValueBudget(r.Metric)
 				value = boundedValue(value, &rowBudget)
 			}
 			value.Row = r
@@ -139,7 +139,7 @@ func resolve(r Row, in Input, now time.Time, projection *projection) Value {
 		return deliveryValue(v, in.Delivery, now)
 	}
 	if strings.HasPrefix(r.Metric, "resource.") {
-		return projection.resourceMetric(v, r)
+		return projection.resourceMetric(v, m)
 	}
 	if s.GeneratedAt.IsZero() || s.GeneratedAt.After(now.Add(model.SampleClockAhead)) || view.Expired(s, now) {
 		v.Freshness = "stale"
@@ -245,11 +245,10 @@ func resolve(r Row, in Input, now time.Time, projection *projection) Value {
 	if !ok || resource.Facts == nil {
 		return missing(v, "sample_unreadable")
 	}
-	n, e := strconv.ParseFloat(resource.Facts[m.Fact], 64)
-	if e != nil || math.IsNaN(n) || math.IsInf(n, 0) || n < 0 || n > 100 {
-		return missing(v, "invalid_value")
+	v = resourceNumber(v, m, resource.Facts)
+	if v.Value == nil {
+		return v
 	}
-	v.Value = n
 	switch r.Metric {
 	case "host.cpu.used_percent":
 		v.Basis = "host_normalized_0_100"
@@ -259,18 +258,17 @@ func resolve(r Row, in Input, now time.Time, projection *projection) Value {
 	case "host.disk.used_percent":
 		v.Basis = resource.Facts["disk_basis"]
 	}
-	v.Text = fmt.Sprintf("%.1f%%", n)
 	return v
 }
 
 // resourceMetric reads the one node-selected resource, never a different
 // source and never host.* semantics from a non-host check. The frame's one
 // selection is shared with server.card.
-func (p *projection) resourceMetric(v Value, r Row) Value {
-	if r.Select.Node == "" {
+func (p *projection) resourceMetric(v Value, m Metric) Value {
+	if v.Select.Node == "" {
 		return missing(v, "selector_required")
 	}
-	n, ok := p.resourceSelection()[r.Select.Node]
+	n, ok := p.resourceSelection()[v.Select.Node]
 	if !ok || n.Selected.Check == "" {
 		return missing(v, "entity_missing")
 	}
@@ -278,13 +276,10 @@ func (p *projection) resourceMetric(v Value, r Row) Value {
 	if !card.Current || card.Facts == nil {
 		return missing(v, "sample_unreadable")
 	}
-	m, _ := metric(r.Metric)
-	value, err := strconv.ParseFloat(card.Facts[m.Fact], 64)
-	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || value > 100 {
-		return missing(v, "invalid_value")
+	v = resourceNumber(v, m, card.Facts)
+	if v.Value == nil {
+		return v
 	}
-	v.Value = value
-	v.Text = fmt.Sprintf("%.1f%%", value)
 	v.Health = card.Health
 	v.Freshness = card.Freshness
 	v.Check = card.Check
@@ -292,7 +287,7 @@ func (p *projection) resourceMetric(v Value, r Row) Value {
 	v.SampledAt = card.SampledAt
 	v.ValidUntil = card.ValidUntil
 	switch {
-	case strings.HasPrefix(r.Metric, "resource.cpu."):
+	case strings.HasPrefix(v.Metric, "resource.cpu."):
 		v.Basis = card.Facts["cpu_basis"]
 		if v.Basis == "" {
 			if card.Native {
@@ -302,10 +297,47 @@ func (p *projection) resourceMetric(v Value, r Row) Value {
 			}
 		}
 		v.SampleWindowMS, _ = strconv.ParseInt(card.Facts["cpu_sample_ms"], 10, 64)
-	case strings.HasPrefix(r.Metric, "resource.memory."):
+	case strings.HasPrefix(v.Metric, "resource.memory."):
 		v.Basis = card.Facts["memory_basis"]
-	case strings.HasPrefix(r.Metric, "resource.disk."):
+	case strings.HasPrefix(v.Metric, "resource.disk."):
 		v.Basis = card.Facts["disk_basis"]
+	}
+	return v
+}
+
+func resourceNumber(v Value, m Metric, facts map[string]string) Value {
+	raw := facts[m.Fact]
+	if raw == "" && m.Unit != "percent" {
+		return missing(v, "field_missing")
+	}
+	if m.Unit == "bytes" {
+		n := number(facts, m.Fact)
+		if n == nil {
+			return missing(v, "invalid_value")
+		}
+		if m.Fact == "swap_used_bytes" {
+			if total := number(facts, "swap_total_bytes"); total != nil && *n > *total {
+				return missing(v, "invalid_value")
+			}
+		}
+		v.Value, v.Text = *n, raw+" B"
+		return v
+	}
+	n, err := strconv.ParseFloat(raw, 64)
+	if err != nil || math.IsNaN(n) || math.IsInf(n, 0) || n < 0 {
+		return missing(v, "invalid_value")
+	}
+	if m.Unit == "percent" && n > 100 || m.Unit != "percent" && math.Signbit(n) {
+		return missing(v, "invalid_value")
+	}
+	v.Value = n
+	switch m.Unit {
+	case "percent":
+		v.Text = fmt.Sprintf("%.1f%%", n)
+	case "bytes_per_second":
+		v.Text = fmt.Sprintf("%.1f B/s", n)
+	default:
+		v.Text = fmt.Sprintf("%.2f", n)
 	}
 	return v
 }

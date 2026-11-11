@@ -14,6 +14,8 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/monitor"
 	"github.com/WhitenWhiten/topophany/internal/probe"
 	"github.com/WhitenWhiten/topophany/internal/testkit"
+	"github.com/WhitenWhiten/topophany/internal/tui"
+	"github.com/WhitenWhiten/topophany/internal/view"
 )
 
 func TestCFServerMonitorThroughWorkerCollectorAndMonitor(t *testing.T) {
@@ -40,6 +42,7 @@ func TestCFServerMonitorThroughWorkerCollectorAndMonitor(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id": object, "name": token, "cpu": 12.5, "ram_total": 8192, "ram_used": 3072,
 			"disk_total": 102400, "disk_used": 20480, "last_updated": at.UnixMilli(),
+			"net_in_speed": "4096", "net_out_speed": 0, "swap_total": 2048, "swap_used": "512", "load_avg": "0.35 1.20 2.30",
 		})
 	}))
 	t.Cleanup(upstream.Close)
@@ -87,6 +90,23 @@ func TestCFServerMonitorThroughWorkerCollectorAndMonitor(t *testing.T) {
 	if r.CPU.Percent == nil || *r.CPU.Percent != 12.5 || r.Memory.Percent == nil || *r.Memory.Percent != 37.5 ||
 		r.Disk.Percent == nil || *r.Disk.Percent != 20 || r.Origin == nil || r.Origin.Adapter != "cf-server-monitor" {
 		t.Fatalf("monitor resource = %+v", r)
+	}
+	if r.Network.RXBytesPerSecond == nil || *r.Network.RXBytesPerSecond != 4096 ||
+		r.Network.TXBytesPerSecond == nil || *r.Network.TXBytesPerSecond != 0 ||
+		r.Swap.TotalBytes == nil || *r.Swap.TotalBytes != 2048<<20 ||
+		r.Swap.UsedBytes == nil || *r.Swap.UsedBytes != 512<<20 ||
+		r.Load.Avg1m == nil || *r.Load.Avg1m != 0.35 ||
+		r.Load.Avg5m == nil || *r.Load.Avg5m != 1.20 ||
+		r.Load.Avg15m == nil || *r.Load.Avg15m != 2.30 {
+		t.Fatalf("monitor lost host readings: %s", raw)
+	}
+	now := time.Now().UTC()
+	tuiModel := tui.Model{Snapshot: ch.snapshot(now), Tab: view.Servers, Now: now, Width: 140, Height: 60, NoColor: true}
+	rendered := strings.Join(tuiModel.Render(), "\n")
+	for _, reading := range []string{"↓ 4.0KiB/s", "↑ 0.0B/s", "512.0MiB / 2.0GiB", "0.35 / 1.20 / 2.30"} {
+		if !strings.Contains(rendered, reading) {
+			t.Errorf("Servers view omitted %q\n%s", reading, rendered)
+		}
 	}
 
 	reject.Store(true)

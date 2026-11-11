@@ -48,6 +48,11 @@ func TestDarwinNativeCountersAgainstSystemTools(t *testing.T) {
 	if s.CPUSampleMS != 200 || s.CPUPercent < 0 || s.CPUPercent > 100 {
 		t.Fatal(s.HostSample)
 	}
+	if s.Swap.TotalBytes == nil || s.Swap.UsedBytes == nil ||
+		s.Load.Avg1m == nil || s.Load.Avg5m == nil || s.Load.Avg15m == nil ||
+		s.network.interfaces == nil {
+		t.Fatal("native swap, load or network counters unavailable", s.HostSample, s.network)
+	}
 	vm, err := exec.CommandContext(ctx, "/usr/bin/vm_stat").Output()
 	if err != nil {
 		t.Fatal(err)

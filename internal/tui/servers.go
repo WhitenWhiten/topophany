@@ -52,7 +52,7 @@ func (m *Model) card(f fleet, r Row, w int, selected bool) []cardRow {
 	c := f.Card(r.ID)
 	rows, hue := m.cardHead(f, r, c, selected)
 	if len(c.Resources) > 0 {
-		head := heading("LOCAL RESOURCES", len(c.Resources))
+		head := heading(resourceTitle(c.Resources), len(c.Resources))
 		head.right = m.resourceAside(c.Resources)
 		rows = append(rows, cardRow{}, head)
 		rows = append(rows, m.resourceRows(c.Resources, w)...)

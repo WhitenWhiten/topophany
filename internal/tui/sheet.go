@@ -256,11 +256,7 @@ func sheetColumns(out []sheetLine, sections [][]cardRow, two bool) []sheetLine {
 // much there is and its peak and limit over a chart of the samples kept,
 // then what runs.
 func (m *Model) sheetResources(rs []view.CardResource, w int) []cardRow {
-	title := "LOCAL RESOURCES"
-	if len(rs) == 1 && rs[0].External {
-		title = "REPORTED RESOURCES"
-	}
-	head := heading(title, len(rs))
+	head := heading(resourceTitle(rs), len(rs))
 	head.right = m.resourceAside(rs)
 	rows := []cardRow{head}
 	well := Mix(cPanelBG, cLine, .4)
@@ -317,6 +313,7 @@ func (m *Model) sheetResources(rs []view.CardResource, w int) []cardRow {
 				rows = append(rows, cardRow{})
 			}
 		}
+		rows = appendResourceMetricRows(rows, r.Facts, hit)
 		if current {
 			named, total := processes(r.Facts, h)
 			if named == nil {

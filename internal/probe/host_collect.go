@@ -38,6 +38,7 @@ type processUsage struct {
 
 type hostRuntime struct {
 	HostSample
+	network hostNetworkSample
 	// Retain aggregates only for explicitly configured names, never an inventory.
 	matches map[string]processUsage
 }
@@ -108,8 +109,10 @@ func (c *hostCollector) runtime(ctx context.Context) (hostRuntime, error) {
 		return hostRuntime{}, local("host", "host_sampling_canceled")
 	}
 	if err != nil {
+		c.cached.network = hostNetworkSample{}
 		return hostRuntime{}, err
 	}
+	s.Network = hostNetworkRates(c.cached.network, s.network)
 	c.cached, c.expires = s, c.now().Add(hostReuse)
 	return s, nil
 }

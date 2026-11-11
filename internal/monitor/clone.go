@@ -40,6 +40,11 @@ func clone(p Panel) Panel {
 			v = slices.Clone(v)
 			for i := range v {
 				v[i].Origin = copyPointer(v[i].Origin)
+				if m := v[i].Metrics; m != nil {
+					metrics := *m
+					metrics.ResourceMetrics = metrics.ResourceMetrics.Clone()
+					v[i].Metrics = &metrics
+				}
 			}
 			r.Value = v
 		case []ServiceListEntry:
@@ -99,6 +104,7 @@ func clone(p Panel) Panel {
 				x.Disk.Limit = copyPointer(x.Disk.Limit)
 				x.Disk.Used = copyPointer(x.Disk.Used)
 				x.Disk.Total = copyPointer(x.Disk.Total)
+				x.ResourceMetrics = x.ResourceMetrics.Clone()
 				x.Process = copyPointer(x.Process)
 				if x.Process != nil {
 					x.Process.Matching = copyPointer(x.Process.Matching)

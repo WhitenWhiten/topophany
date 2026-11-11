@@ -129,6 +129,9 @@ end-to-end availability. Keep an application probe for that purpose.
 | `d`, `du` | `disk.root.total_bytes`, `disk.root.used_bytes` | Legacy GiB conversion with range checks. |
 | `dp` | `disk.root.percent` | Preserve the independent upstream percentage, including filesystem reserved-block semantics. |
 | `efs[key].d`, `efs[key].du` | Additional disk capacity and usage | Convert GiB values; the percentage uses the original GiB ratio, matching Beszel's extra-filesystem presentation. |
+| `b[1]`, `b[0]` | `network.rx_bytes_per_second`, `network.tx_bytes_per_second` | Receive and transmit bytes per second. Legacy `nr` and `ns` are MiB/s and are used when `b` is absent. |
+| `s`, `su` or `swap[0]`, `swap[1]` | `swap.total_bytes`, `swap.used_bytes` | Legacy values are rounded GiB. The newer two-integer array takes precedence and preserves byte counts. |
+| `la[0..2]` | `load.avg_1m`, `load.avg_5m`, `load.avg_15m` | Host load averages in upstream order. |
 
 Legacy agent capacities are already rounded upstream. Converting them back
 to bytes cannot recover the original byte counters. Newer Hubs can also
@@ -158,9 +161,10 @@ not a reliable mount point. Its raw text is never exposed as a report ID,
 path or diagnostic. To select an extra disk, use its emitted hashed ID as
 `primary_disk`.
 
-Network counters, swap, containers, GPU, temperatures and process metrics
-are outside Topophany's current external resource report schema. They are
-not silently reinterpreted as CPU, memory or disk fields.
+An omitted rate is unavailable, including when the Hub omits an all-zero
+`b` array. Legacy `s` with omitted `su` reports zero swap usage. Explicit
+null stays unavailable. The adapter reports rates for the Agent's selected
+interfaces and leaves out cumulative interface counters.
 
 ## Failure, transport and resource boundaries
 

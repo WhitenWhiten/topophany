@@ -95,6 +95,18 @@ func TestLinuxMemoryAccounting(t *testing.T) {
 	}
 }
 
+func TestLinuxSwapAndNetworkCounters(t *testing.T) {
+	swap := parseLinuxSwap("MemTotal: 10000 kB\nSwapTotal: 4096 kB\nSwapFree: 1024 kB\n")
+	if swap.TotalBytes == nil || *swap.TotalBytes != 4<<20 || swap.UsedBytes == nil || *swap.UsedBytes != 3<<20 {
+		t.Fatal("incorrect swap usage", swap)
+	}
+	const counters = "18446744073709551614 0 0 0 0 0 0 0 1024 0 0 0 0 0 0 0\n"
+	nics := parseLinuxNetwork("Inter-|   Receive | Transmit\n face |bytes |bytes\n  lo: " + counters + " eth0: " + counters)
+	if got := nics["eth0"]; len(nics) != 1 || got.rx != ^uint64(0)-1 || got.tx != 1024 {
+		t.Fatal("incorrect network counters", nics)
+	}
+}
+
 func processStat(pid int, name, state string, rss int) string {
 	return fmt.Sprintf("%d (%s) %s %s %d 0\n", pid, name, state, strings.Repeat("0 ", 20), rss)
 }
@@ -140,6 +152,11 @@ func TestLinuxHostNativeSampling(t *testing.T) {
 	s, err := sampleLinuxRuntime(context.Background(), nil, "/proc")
 	if err != nil || s.MemoryTotal == 0 || s.Processes < 1 || s.CPUPercent < 0 || s.CPUPercent > 100 || s.CPUSampleMS < 200 {
 		t.Fatal(s, err)
+	}
+	if s.Swap.TotalBytes == nil || s.Swap.UsedBytes == nil ||
+		s.Load.Avg1m == nil || s.Load.Avg5m == nil || s.Load.Avg15m == nil ||
+		s.network.interfaces == nil {
+		t.Fatal("native swap, load or network counters unavailable", s.HostSample, s.network)
 	}
 	if _, err := sampleLinuxRuntime(context.Background(), nil, t.TempDir()); err == nil {
 		t.Fatal("missing procfs accepted")

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/WhitenWhiten/topophany/internal/model"
 )
 
 func sampleHostRuntime(ctx context.Context, names []string) (hostRuntime, error) {
@@ -68,6 +70,16 @@ func sampleLinuxRuntime(ctx context.Context, names []string, proc string) (hostR
 	s.MemoryBasis = "linux_MemAvailable"
 	if ctx.Err() != nil {
 		return s, local("host", "host_sampling_canceled")
+	}
+	s.Swap = parseLinuxSwap(string(mem))
+	if load, readErr := readHostFile(filepath.Join(proc, "loadavg"), 256); readErr == nil {
+		values := strings.Fields(string(load))
+		if len(values) >= 3 {
+			s.Load = model.ParseLoadAverages(values[:3])
+		}
+	}
+	if dev, readErr := readHostFile(filepath.Join(proc, "net", "dev"), 1<<20); readErr == nil {
+		s.network = hostNetworkSample{at: time.Now(), interfaces: parseLinuxNetwork(string(dev))}
 	}
 	err = linuxProcesses(ctx, proc, &s)
 	return s, err
@@ -148,6 +160,68 @@ func parseLinuxMemory(raw string) (total, available uint64, err error) {
 		return 0, 0, local("host", "invalid_memory_counters")
 	}
 	return total, available, nil
+}
+
+func parseLinuxSwap(raw string) model.SwapReport {
+	var total, free *uint64
+	for line := range strings.SplitSeq(raw, "\n") {
+		f := strings.Fields(line)
+		if len(f) == 0 || f[0] != "SwapTotal:" && f[0] != "SwapFree:" {
+			continue
+		}
+		if len(f) != 3 || f[2] != "kB" {
+			return model.SwapReport{}
+		}
+		n, err := counter(f[1])
+		if err != nil {
+			return model.SwapReport{}
+		}
+		value, err := bytesFromUnits(n, 1024)
+		if err != nil {
+			return model.SwapReport{}
+		}
+		if f[0] == "SwapTotal:" && total == nil {
+			total = &value
+		} else if f[0] == "SwapFree:" && free == nil {
+			free = &value
+		} else {
+			return model.SwapReport{}
+		}
+	}
+	if total == nil || free == nil || *free > *total {
+		return model.SwapReport{}
+	}
+	used := *total - *free
+	return model.SwapReport{TotalBytes: total, UsedBytes: &used}
+}
+
+func parseLinuxNetwork(raw string) map[string]hostInterfaceCounters {
+	lines := strings.SplitN(raw, "\n", 3)
+	if len(lines) != 3 {
+		return nil
+	}
+	interfaces := map[string]hostInterfaceCounters{}
+	for line := range strings.SplitSeq(strings.TrimSpace(lines[2]), "\n") {
+		name, values, found := strings.Cut(line, ":")
+		name = strings.TrimSpace(name)
+		if name == "lo" {
+			continue
+		}
+		fields := strings.Fields(values)
+		if !found || name == "" || len(fields) != 16 || len(interfaces) >= maxHostInterfaces {
+			return nil
+		}
+		if _, exists := interfaces[name]; exists {
+			return nil
+		}
+		rx, rxErr := counter(fields[0])
+		tx, txErr := counter(fields[8])
+		if rxErr != nil || txErr != nil {
+			return nil
+		}
+		interfaces[name] = hostInterfaceCounters{rx: rx, tx: tx}
+	}
+	return interfaces
 }
 
 func linuxProcesses(ctx context.Context, proc string, s *hostRuntime) error {

@@ -11,6 +11,14 @@ const MaxPanelBytes = 1 << 20
 const maxRowValueBytes = 64 << 10
 const panelValueBudget = MaxPanelBytes / 2
 
+func rowValueBudget(metric string) int {
+	if metric == "servers.list" {
+		// A list can carry readings and deadlines for 256 servers.
+		return 256 << 10
+	}
+	return maxRowValueBytes
+}
+
 // Limit values before cloning, hashing or serializing a whole panel. The other
 // half of the budget is reserved for template metadata, deadlines and scalars.
 func boundedValue(v Value, remaining *int) Value {
@@ -18,7 +26,7 @@ func boundedValue(v Value, remaining *int) Value {
 		return v
 	}
 	b, err := json.Marshal(v.Value)
-	if err != nil || len(b) > maxRowValueBytes || len(b) > *remaining {
+	if err != nil || len(b) > rowValueBudget(v.Metric) || len(b) > *remaining {
 		v = missing(v, "frame_budget_exceeded")
 		v.Freshness = "unavailable"
 		return v

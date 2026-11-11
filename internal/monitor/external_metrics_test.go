@@ -123,3 +123,66 @@ func TestExternalCardMetadataSurvivesCloneAndJSON(t *testing.T) {
 		t.Fatalf("JSON resource = %+v", generic.Value.Resources)
 	}
 }
+
+func TestOptionalResourceMetricsInListCardAndScalarRows(t *testing.T) {
+	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	cfg := Config{Source: "direct", Template: Template{Schema: 1, Title: "Topophany", Rows: []Row{
+		{ID: "servers", Metric: "servers.list", Visual: "list"},
+		{ID: "card", Metric: "server.card", Visual: "card", Select: Selector{Node: "dmit"}},
+		{ID: "rx", Metric: "resource.network.rx_bytes_per_second", Visual: "text", Select: Selector{Node: "dmit"}},
+		{ID: "swap", Metric: "resource.swap.used_bytes", Visual: "text", Select: Selector{Node: "dmit"}},
+		{ID: "load", Metric: "resource.load.avg_1m", Visual: "text", Select: Selector{Node: "dmit"}},
+	}}}
+	cfg.Template.Bar.Row = "load"
+	if err := cfg.Template.Validate("direct"); err != nil {
+		t.Fatal(err)
+	}
+	input := externalPanelInput(now)
+	input.Snapshot.Topology.Nodes[0].Kind = "host"
+	old := Build(cfg, input, now)
+	oldCard := old.Rows[1].Value.(ServerCard)
+	if oldCard.Resources[0].CPU.Percent == nil || oldCard.Resources[0].ResourceMetrics != (model.ResourceMetrics{}) ||
+		old.Rows[0].Value.([]ServerListEntry)[0].Metrics != nil || old.Rows[2].Reason != "field_missing" {
+		t.Fatal("legacy sample produced new readings or lost its CPU sample", old)
+	}
+	binding := &input.Snapshot.External[0]
+	binding.ValidUntil = now.Add(12 * time.Second)
+	binding.Report.Resource.ResourceMetrics = model.ResourceMetrics{
+		Network: model.NetworkReport{RXBytesPerSecond: new(4096.0), TXBytesPerSecond: new(0.0)},
+		Swap:    model.SwapReport{TotalBytes: new(uint64(8192)), UsedBytes: new(uint64(0))},
+		Load:    model.LoadReport{Avg1m: new(110.5)},
+	}
+	p := Build(cfg, input, now)
+	p.PublisherExpiresAt = now.Add(15 * time.Second)
+	entry := p.Rows[0].Value.([]ServerListEntry)[0]
+	if entry.Metrics == nil || entry.Metrics.Network.RXBytesPerSecond == nil || *entry.Metrics.Network.RXBytesPerSecond != 4096 ||
+		!entry.Metrics.ValidUntil.Equal(binding.ValidUntil) || p.Rows[2].Value != 4096.0 || p.Rows[3].Value != uint64(0) || p.Rows[4].Value != 110.5 {
+		t.Fatal("incorrect new monitor readings", p)
+	}
+	owned := p.Clone()
+	*owned.Rows[0].Value.([]ServerListEntry)[0].Metrics.Network.RXBytesPerSecond = 1
+	*owned.Rows[1].Value.(ServerCard).Resources[0].Swap.UsedBytes = 1
+	if *entry.Metrics.Network.RXBytesPerSecond != 4096 || *p.Rows[1].Value.(ServerCard).Resources[0].Swap.UsedBytes != 0 {
+		t.Fatal("clone aliased resource values")
+	}
+	// Keep the list and card alive after their nested metrics expire.
+	p.Rows[0].ValidUntil, p.Rows[1].ValidUntil = p.PublisherExpiresAt, p.PublisherExpiresAt
+	raw, err := MarshalPanel(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var read Panel
+	if err := json.Unmarshal(raw, &read); err != nil {
+		t.Fatal(err)
+	}
+	fresh := Current(read, now.Add(time.Second))
+	if fresh.Rows[0].Value.([]ServerListEntry)[0].Metrics == nil {
+		t.Fatal("a current resource was withheld before its deadline", fresh)
+	}
+	late := Current(read, now.Add(13*time.Second))
+	if late.Rows[0].Value.([]ServerListEntry)[0].Metrics != nil ||
+		late.Rows[1].Value.(ServerCard).Resources[0].ResourceMetrics != (model.ResourceMetrics{}) ||
+		late.Rows[2].Value != nil {
+		t.Fatal("expired data survived monitor read", late)
+	}
+}

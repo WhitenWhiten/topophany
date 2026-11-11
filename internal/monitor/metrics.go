@@ -115,21 +115,28 @@ type ResourceValue struct {
 		Basis   string   `json:"basis,omitempty"`
 	} `json:"disk"`
 	Process *ProcessValue `json:"process"`
+	model.ResourceMetrics
 }
 type ProcessValue struct {
 	Name     string  `json:"name"`
 	Matching *uint64 `json:"matching"`
 }
 type ServerListEntry struct {
-	Origin   *model.Origin `json:"origin,omitempty"`
-	ID       string        `json:"id"`
-	Name     string        `json:"name"`
-	Kind     string        `json:"kind"`
-	Provider string        `json:"provider"`
-	Group    string        `json:"group"`
-	Where    string        `json:"where"`
-	Health   string        `json:"health"`
-	Note     string        `json:"note"`
+	Origin   *model.Origin          `json:"origin,omitempty"`
+	ID       string                 `json:"id"`
+	Name     string                 `json:"name"`
+	Kind     string                 `json:"kind"`
+	Provider string                 `json:"provider"`
+	Group    string                 `json:"group"`
+	Where    string                 `json:"where"`
+	Health   string                 `json:"health"`
+	Note     string                 `json:"note"`
+	Metrics  *ServerResourceMetrics `json:"resource_metrics,omitempty"`
+}
+type ServerResourceMetrics struct {
+	model.ResourceMetrics
+	SampledAt  time.Time `json:"sampled_at"`
+	ValidUntil time.Time `json:"valid_until"`
 }
 type ServerCard struct {
 	Origin    *model.Origin     `json:"origin,omitempty"`
@@ -389,6 +396,7 @@ func resource(v view.View, r view.CardResource) ResourceValue {
 		return out
 	}
 	f := r.Facts
+	out.ResourceMetrics = model.ResourceMetricsFromFacts(f)
 	out.CPU.Percent, out.CPU.Logical, out.CPU.Limit = percent(f, "cpu_used_percent"), number(f, "cpu_logical_count"), threshold(h.MaxCPUPercent)
 	out.CPU.Basis = f["cpu_basis"]
 	out.Memory.Percent, out.Memory.Limit = percent(f, "memory_used_percent"), threshold(h.MaxMemoryPercent)
@@ -433,6 +441,12 @@ func (p *projection) servers() ([]ServerListEntry, time.Time, time.Time) {
 			entry := serverEntry(fleet, n.ID, fleet.Card(n.ID))
 			selected := p.resourceSelection()[n.ID].Selected
 			entry.Origin = p.v.ResourceOrigin(selected.Source, selected.Object)
+			if selected.Current && p.v.Now.Before(selected.ValidUntil) {
+				metrics := model.ResourceMetricsFromFacts(selected.Facts)
+				if metrics != (model.ResourceMetrics{}) {
+					entry.Metrics = &ServerResourceMetrics{ResourceMetrics: metrics, SampledAt: selected.SampledAt, ValidUntil: selected.ValidUntil}
+				}
+			}
 			p.serverList = append(p.serverList, entry)
 			for _, id := range p.nodeChecks[n.ID] {
 				ids[id] = true

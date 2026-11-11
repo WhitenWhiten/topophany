@@ -124,6 +124,7 @@ type ResourceReport struct {
 	CPU    *CPUReport    `json:"cpu,omitempty"`
 	Memory *MemoryReport `json:"memory,omitempty"`
 	Disks  []DiskReport  `json:"disks,omitempty"`
+	ResourceMetrics
 }
 
 type CPUReport struct {
@@ -205,6 +206,7 @@ func CloneExternalReport(r ExternalReport) ExternalReport {
 	}
 	if r.Resource != nil {
 		res := *r.Resource
+		res.ResourceMetrics = res.ResourceMetrics.Clone()
 		if r.Resource.CPU != nil {
 			cpu := *r.Resource.CPU
 			if cpu.Percent != nil {

@@ -115,6 +115,7 @@ func (m *Model) resourceRows(rs []view.CardResource, w int) []cardRow {
 			continue
 		}
 		rows = append(rows, panel...)
+		rows = appendResourceMetricRows(rows, r.Facts, hit)
 		if !r.External {
 			named, total := processes(r.Facts, h)
 			if named == nil {
@@ -124,6 +125,23 @@ func (m *Model) resourceRows(rs []view.CardResource, w int) []cardRow {
 		}
 	}
 	return rows
+}
+
+func appendResourceMetricRows(rows []cardRow, facts map[string]string, hit string) []cardRow {
+	for _, pair := range view.ResourceMetricValues(facts) {
+		rows = append(rows, cardRow{
+			left: []span{{fit(pair[0], 9), fg(cMuted)}, {pair[1], fg(cText)}},
+			hit:  hit,
+		})
+	}
+	return rows
+}
+
+func resourceTitle(rs []view.CardResource) string {
+	if len(rs) == 1 && rs[0].External {
+		return "REPORTED RESOURCES"
+	}
+	return "LOCAL RESOURCES"
 }
 
 // resourcePanel is four rows across w with a panel each for CPU, memory
@@ -329,6 +347,9 @@ func (m *Model) nodeResources(r view.CardResource, w int) []vline {
 	}
 	use = append(pad, use...)
 	out = append(out, m.resourceCharts(h, use, r.Facts, time.Duration(n*max(1, x.IntervalSeconds))*time.Second)...)
+	for _, pair := range view.ResourceMetricValues(r.Facts) {
+		out = append(out, vline{{fit(pair[0], 10), fg(cMuted)}, {pair[1], fg(cText)}})
+	}
 	if r.External {
 		return out
 	}

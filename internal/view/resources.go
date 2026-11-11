@@ -292,6 +292,7 @@ func diskPresent(r *model.ExternalReport, id string) bool {
 func externalFacts(x model.Check, r *model.ExternalReport) (map[string]string, string) {
 	facts := map[string]string{"resource_scope": "external_reported"}
 	res := r.Resource
+	res.ResourceMetrics.SetFacts(facts)
 	if res.CPU != nil {
 		if res.CPU.Percent != nil {
 			facts["cpu_used_percent"] = strconv.FormatFloat(*res.CPU.Percent, 'f', 2, 64)
@@ -522,7 +523,50 @@ func ResourceValues(r CardResource) [][2]string {
 		}
 		values = append(values, [2]string{"Processes", processes})
 	}
+	return append(values, ResourceMetricValues(f)...)
+}
+
+// ResourceMetricValues formats only the optional groups present in a sample.
+func ResourceMetricValues(facts map[string]string) [][2]string {
+	m := model.ResourceMetricsFromFacts(facts)
+	var values [][2]string
+	if m.Network != (model.NetworkReport{}) {
+		values = append(values, [2]string{"Network", "↓ " + resourceRate(m.Network.RXBytesPerSecond) + " · ↑ " + resourceRate(m.Network.TXBytesPerSecond)})
+	}
+	if m.Swap != (model.SwapReport{}) {
+		used, total := "—", "—"
+		if m.Swap.UsedBytes != nil {
+			used = resourceBytes(*m.Swap.UsedBytes)
+		}
+		if m.Swap.TotalBytes != nil {
+			total = resourceBytes(*m.Swap.TotalBytes)
+		}
+		values = append(values, [2]string{"Swap", used + " / " + total})
+	}
+	if m.Load != (model.LoadReport{}) {
+		load := func(value *float64) string {
+			if value == nil {
+				return "—"
+			}
+			return strconv.FormatFloat(*value, 'f', 2, 64)
+		}
+		values = append(values, [2]string{"Load", "1/5/15m  " + load(m.Load.Avg1m) + " / " + load(m.Load.Avg5m) + " / " + load(m.Load.Avg15m)})
+	}
 	return values
+}
+
+func resourceRate(rate *float64) string {
+	if rate == nil {
+		return "—"
+	}
+	n := *rate
+	units := [...]string{"B/s", "KiB/s", "MiB/s", "GiB/s", "TiB/s", "PiB/s", "EiB/s"}
+	unit := 0
+	for n >= 1024 && unit < len(units)-1 {
+		n /= 1024
+		unit++
+	}
+	return strconv.FormatFloat(n, 'f', 1, 64) + units[unit]
 }
 
 func resourceBytes(n uint64) string {

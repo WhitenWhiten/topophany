@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"math"
 	"regexp"
 	"time"
 
@@ -165,14 +164,11 @@ func availability(fields map[string]string, key, state string) {
 }
 
 func percent(raw json.RawMessage) (*float64, string) {
-	if missing(raw) {
-		return nil, model.FieldMissing
-	}
-	var value float64
-	if json.Unmarshal(raw, &value) != nil || math.IsNaN(value) || math.IsInf(value, 0) || math.Signbit(value) || value > 100 {
+	value, state := sourceutil.ResourceNumber(raw)
+	if value != nil && *value > 100 {
 		return nil, model.FieldInvalid
 	}
-	return &value, model.FieldKnown
+	return value, state
 }
 
 func byteNumber(raw json.RawMessage, capacity bool) (*uint64, string) {
@@ -224,7 +220,8 @@ func decodeStats(record object) (*model.ResourceReport, map[string]string, error
 	if err != nil {
 		return nil, nil, err
 	}
-	if cpu == nil && ram == nil && disk == nil {
+	extraMetrics := resourceMetrics(record)
+	if cpu == nil && ram == nil && disk == nil && extraMetrics == (model.ResourceMetrics{}) {
 		return nil, nil, failure("komari_empty_stats")
 	}
 	fields := map[string]string{
@@ -253,7 +250,7 @@ func decodeStats(record object) (*model.ResourceReport, map[string]string, error
 	availability(fields, "cpu.logical_cores", state)
 	m := &model.MemoryReport{Basis: "komari_bytes"}
 	m.TotalBytes, m.UsedBytes, m.Percent = capacity(ram, fields, "memory.")
-	res := &model.ResourceReport{CPU: c, Memory: m}
+	res := &model.ResourceReport{CPU: c, Memory: m, ResourceMetrics: extraMetrics}
 	if disk != nil {
 		d := model.DiskReport{ID: "aggregate", Basis: "komari_aggregate_bytes"}
 		d.TotalBytes, d.UsedBytes, d.Percent = capacity(disk, fields, "disk.aggregate.")
@@ -261,4 +258,22 @@ func decodeStats(record object) (*model.ResourceReport, map[string]string, error
 		res.Disks = []model.DiskReport{d}
 	}
 	return res, fields, nil
+}
+
+func resourceMetrics(record object) model.ResourceMetrics {
+	network, _ := optionalObject(record["network"])
+	load, _ := optionalObject(record["load"])
+	swap, _ := optionalObject(record["swap"])
+	var m model.ResourceMetrics
+	m.Network.RXBytesPerSecond, _ = sourceutil.ResourceNumber(network["down"])
+	m.Network.TXBytesPerSecond, _ = sourceutil.ResourceNumber(network["up"])
+	m.Load.Avg1m, _ = sourceutil.ResourceNumber(load["load1"])
+	m.Load.Avg5m, _ = sourceutil.ResourceNumber(load["load5"])
+	m.Load.Avg15m, _ = sourceutil.ResourceNumber(load["load15"])
+	m.Swap.TotalBytes, _ = byteNumber(swap["total"], false)
+	m.Swap.UsedBytes, _ = byteNumber(swap["used"], false)
+	if m.Swap.TotalBytes != nil && m.Swap.UsedBytes != nil && *m.Swap.UsedBytes > *m.Swap.TotalBytes {
+		m.Swap.UsedBytes = nil
+	}
+	return m
 }

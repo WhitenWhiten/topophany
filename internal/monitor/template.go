@@ -82,6 +82,20 @@ func Catalog() []Metric {
 		{Name: "storage.sync.count", Type: "number", Unit: "count", Sources: []string{"collector", "worker"}},
 		{Name: "storage.sync.duration_ms", Type: "number", Unit: "milliseconds", Sources: []string{"collector", "worker"}},
 	}
+	for _, m := range []struct{ name, unit, fact string }{
+		{"network.rx_bytes_per_second", "bytes_per_second", "network_rx_bytes_per_second"},
+		{"network.tx_bytes_per_second", "bytes_per_second", "network_tx_bytes_per_second"},
+		{"swap.total_bytes", "bytes", "swap_total_bytes"},
+		{"swap.used_bytes", "bytes", "swap_used_bytes"},
+		{"load.avg_1m", "", "load_avg_1m"},
+		{"load.avg_5m", "", "load_avg_5m"},
+		{"load.avg_15m", "", "load_avg_15m"},
+	} {
+		catalog = append(catalog,
+			Metric{Name: "host." + m.name, Type: "number", Unit: m.unit, Sources: all, Selector: "check", Fact: m.fact},
+			Metric{Name: "resource." + m.name, Type: "number", Unit: m.unit, Sources: all, Selector: "node", Fact: m.fact},
+		)
+	}
 	for i := range catalog {
 		if slices.Contains(catalog[i].Sources, "client") {
 			catalog[i].Sources = append(catalog[i].Sources, "preview")

@@ -102,6 +102,15 @@ Filesystem queries respect the check's deadline without delaying shutdown or rel
 
 The observation's `facts` contain `cpu_used_percent`, `cpu_logical_count` (CPUs available to the worker process), `cpu_sample_ms`; `memory_total_bytes`, `memory_available_bytes`, `memory_used_bytes`, `memory_used_percent`, `memory_basis`; `disk_path`, `disk_total_bytes`, `disk_used_bytes`, `disk_available_bytes`, `disk_used_percent`, `disk_inodes_total`, `disk_inodes_free`; `process_count`, `process_zombie_count`, and, when selected, `process_name`, `process_matching_count`, `process_matching_rss_bytes`. `violations` lists any failed resource assertions. Matching RSS sums resident memory and may count shared pages more than once.
 
+Optional facts include `network_rx_bytes_per_second`, `network_tx_bytes_per_second`,
+`swap_total_bytes`, `swap_used_bytes` and `load_avg_1m`, `load_avg_5m`,
+`load_avg_15m`. Rates use two consecutive counter samples from the visible
+non-loopback interfaces, which can include virtual interfaces. Rates are
+unavailable until a baseline exists, and an interface change or counter reset
+starts a new baseline. Linux and macOS report swap and load averages. Windows
+reports paging-file capacity and usage, and leaves load averages unavailable.
+The Servers page shows these groups when the current reading contains them.
+
 Evidence is `reported`, with `path_evidence: local_host_runtime_reported`; collecting resources never proves a remote response or path connectivity. Process counts describe a non-atomic snapshot of **visible** processes: namespaces and OS permissions may restrict visibility. CPU and memory describe the OS view, not cgroup quotas; deploy the worker on the host for host measurements. No command arguments, environments, user names or complete process list are retained or uploaded.
 
 See [`examples/host-resources.json`](../examples/host-resources.json). Inspect current metrics with `topo show checks host-resources`, or raw samples with `topo history host-resources --json`. Existing long-term rollups summarize check outcomes and probe duration; they do not aggregate CPU/RAM/disk values into metric time series. The TUI's charts read up to 120 raw samples of each host check's history once, then add each newer sample a snapshot carries; it keeps at most 240 per check in memory, only under the check's current contract, and stores nothing.
@@ -168,6 +177,14 @@ sample window and basis; memory reports total/used/available bytes, percent and
 basis; disks carry a stable ID, optional display path, total/used/free bytes,
 percent and basis. `primary_disk` selects one disk; there is no cross-source
 stitching, averaging or automatic root-disk fallback.
+
+Optional `network` fields are `rx_bytes_per_second` and `tx_bytes_per_second`.
+`swap` reports `total_bytes` and `used_bytes`. `load` reports `avg_1m`,
+`avg_5m` and `avg_15m`. Each group shares the report's sample time and
+freshness. The adapter uses the interfaces measured by its upstream Agent.
+Upgrade the collector before workers that submit external resource reports
+with these fields. Collector ingestion validates report keys against the
+schema it knows. Stored reports with the older fields remain readable.
 
 Report identity prefers `sample_id`, then `epoch` + `sequence`, then a known
 `observed_at`. `time_basis` is `upstream_sample`, `live_read` or `unknown`.
@@ -923,14 +940,17 @@ The metric catalog includes:
 - `server.card` (`card`): a required `select: {"node":"ID"}` names the server.
   Its card carries the node state, place, local resources (primary disk first),
   up to 32 services in trouble-first order, and observers with their verdicts.
-  Stale, cached and unreadable resource numbers are null; original sample
-  timestamps remain. An unknown node yields `entity_missing`.
+  Stale, cached and unreadable CPU, memory and disk numbers are null. Optional
+  `network`, `swap` and `load` groups are present when readings are current.
+  Original sample timestamps remain. An unknown node yields `entity_missing`.
 - `servers.list` (`list`): up to 256 nodes with cards in the Servers tab, in that
   tab's topology order. External nodes and containers belonging to a declared
   parent are omitted; edges, platforms and unowned containers remain eligible.
   Each entry has `id`, `name` (ID when unnamed), `kind`, `provider`, `group`,
   `where`, `health` and `note`, matching its `server.card`. Use its ID as that
-  card's `select.node`. Cached entries have unknown health. The row health is
+  card's `select.node`. When available, `resource_metrics` carries the
+  selected report's network, swap and load readings with their own
+  `sampled_at` and `valid_until`. Cached entries have unknown health. The row health is
   the worst listed health, and its text is, for example, `14 servers`. Its
   deadline is the earliest source-envelope or listed-node judgment deadline;
   unrelated service, resource and observer evidence does not expire the list.
@@ -999,6 +1019,12 @@ The metric catalog includes:
   window. Output includes `sample_window_ms` when available, and `basis` for
   CPU/memory/disk accounting; memory and disk retain the native sampler's
   platform-specific definitions rather than silently normalizing unlike metrics.
+- `resource.network.rx_bytes_per_second`, `resource.network.tx_bytes_per_second`,
+  `resource.swap.total_bytes`, `resource.swap.used_bytes`, `resource.load.avg_1m`,
+  `resource.load.avg_5m` and `resource.load.avg_15m` read the node's selected
+  resource with `select.node`. Their `host.*` counterparts use `select.check`
+  for a native host check. Use `visual: "text"` for these scalars. A missing
+  reading produces null with `reason: "field_missing"` on a current resource.
 - `delivery.status`, `delivery.pending_records`, `delivery.pending_bytes`:
   worker transport reports, selected by optional collector identity digest.
   `ready` means no currently reported transport error, not proof all samples
@@ -1011,7 +1037,7 @@ The metric catalog includes:
 The eight structured metrics above support client and collector sources; preview
 uses the client capabilities. Each requires its listed visual. Existing metrics
 keep `text` and percent metrics also accept `bar`. `limit` belongs only to
-`attention.list`; `select.node` belongs only to `server.card` and
+`attention.list`; `select.node` belongs to `server.card` and `resource.*`, and
 `select.service` only to `service.card`. Validation errors identify the row.
 
 Check metrics accept `select: {"check":"ID"}`. Delivery metrics accept
@@ -1057,7 +1083,7 @@ validity because the publisher renewed its lease. Implausibly future timestamps
 are treated as unavailable. `monitor preview` applies this reader policy.
 
 File snapshots and stream frames share a 1 MiB serialized limit. Rich row
-values have a 64 KiB individual limit and share a 512 KiB aggregate budget,
+values have a 64 KiB individual limit (256 KiB for `servers.list`) and share a 512 KiB aggregate budget,
 leaving room for template metadata and scalar rows. Repeated structured
 projections are computed once per panel. Oversized values become unavailable
 with `reason: "frame_budget_exceeded"` before retention or file serialization.

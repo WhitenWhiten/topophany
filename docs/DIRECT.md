@@ -1,8 +1,9 @@
 # Direct resource reads
 
 Direct connects the `topo` process to a Beszel Hub, Komari server or
-CF-Server-Monitor Worker. It runs without a Topophany collector. CPU, memory
-and disk are resource telemetry from the configured upstream.
+CF-Server-Monitor Worker. It runs without a Topophany collector. The Servers
+page shows CPU, memory and disk, plus the upstream's network rates, swap and
+1/5/15-minute load averages when present.
 
 The supported resource mapping is Beszel v0.21.0 plus the four-integer `mem`
 schema documented in the [adapter guide](../internal/adapters/beszel/README.md).
@@ -194,7 +195,7 @@ credential.
 Discovery reads `GET /api/servers`, with an additional `GET /api/config` to
 verify a configured JWT. It returns up to 1,000 IDs and sanitized names within
 a 1 MiB response budget. Each poll reads `GET /api/server?id=<uuid>` for the
-selected servers. CPU, memory and aggregate disk retain the Worker's original
+selected servers. Resource readings retain the Worker's original
 `last_updated`. [Worker adapter guide](../internal/adapters/cfservermonitor/README.md)
 
 ## Read current resources
@@ -228,9 +229,10 @@ topo monitor configure desktop --source direct --profile desktop --output /absol
 topo monitor run desktop
 ```
 
-The default direct template uses sources.status as its bar and servers.list.
-Custom templates can request server.card and resource.cpu.used_percent,
-resource.memory.used_percent, resource.disk.used_percent. File operations
+The default direct template uses `sources.status` as its bar and
+`servers.list` with each server's current `resource_metrics` when available.
+Custom templates can request `server.card` and the node-scoped
+`resource.*` scalars in the [monitor reference](REFERENCE.md#persistent-monitor-panels). File operations
 show/preview/path/export keep their previous meanings. File output cannot overlap
 the private direct root. An explicit --direct-root on configure is retained in
 that local monitor configuration; run can override it for integration tests.

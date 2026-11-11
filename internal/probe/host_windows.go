@@ -50,6 +50,8 @@ func sampleHostRuntime(ctx context.Context, names []string) (hostRuntime, error)
 		return s, hostReadError("memory")
 	}
 	s.MemoryTotal, s.MemoryAvailable, s.MemoryBasis = memory.TotalPhys, memory.AvailPhys, "windows_AvailPhys"
+	s.Swap = windowsSwapUsage()
+	s.network = windowsNetwork()
 	if e = windowsProcesses(ctx, &s); e != nil {
 		return s, e
 	}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/adapters/sourceutil"
@@ -85,10 +86,11 @@ func metrics(record map[string]json.RawMessage) (*model.ResourceReport, map[stri
 		disk.TotalBytes, disk.UsedBytes, disk.Percent = capacity(record["disk_total"], record["disk_used"], "disk.aggregate.", fields)
 		fields["disk.aggregate.free_bytes"] = model.FieldUnsupported
 	}
-	if cpu == nil && cores == nil && memory.TotalBytes == nil && memory.UsedBytes == nil && disk.TotalBytes == nil && disk.UsedBytes == nil {
+	extraMetrics := resourceMetrics(record)
+	if cpu == nil && cores == nil && memory.TotalBytes == nil && memory.UsedBytes == nil && disk.TotalBytes == nil && disk.UsedBytes == nil && extraMetrics == (model.ResourceMetrics{}) {
 		return nil, fields
 	}
-	res := &model.ResourceReport{}
+	res := &model.ResourceReport{ResourceMetrics: extraMetrics}
 	if cpu != nil || cores != nil {
 		res.CPU = &model.CPUReport{Percent: cpu, LogicalCores: cores, Basis: "cfsm_agent_percent"}
 	}
@@ -99,6 +101,33 @@ func metrics(record map[string]json.RawMessage) (*model.ResourceReport, map[stri
 		res.Disks = []model.DiskReport{disk}
 	}
 	return res, fields
+}
+
+func resourceMetrics(record map[string]json.RawMessage) model.ResourceMetrics {
+	var m model.ResourceMetrics
+	m.Network.RXBytesPerSecond, _ = sourceutil.ResourceNumber(metricJSONNumber(record["net_in_speed"]))
+	m.Network.TXBytesPerSecond, _ = sourceutil.ResourceNumber(metricJSONNumber(record["net_out_speed"]))
+	m.Swap.TotalBytes, _ = mibBytes(metricJSONNumber(record["swap_total"]))
+	m.Swap.UsedBytes, _ = mibBytes(metricJSONNumber(record["swap_used"]))
+	if m.Swap.TotalBytes != nil && m.Swap.UsedBytes != nil && *m.Swap.UsedBytes > *m.Swap.TotalBytes {
+		m.Swap.UsedBytes = nil
+	}
+	var load string
+	if json.Unmarshal(record["load_avg"], &load) == nil {
+		m.Load = model.ParseLoadAverages(strings.Fields(load))
+	}
+	return m
+}
+
+// Some Worker deployments return the decimal strings sent by the Agent.
+func metricJSONNumber(raw json.RawMessage) json.RawMessage {
+	if len(raw) > 0 && raw[0] == '"' {
+		var value string
+		if json.Unmarshal(raw, &value) == nil {
+			return json.RawMessage(value)
+		}
+	}
+	return raw
 }
 
 func logicalCores(raw json.RawMessage) (*int, string) {

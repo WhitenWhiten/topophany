@@ -176,6 +176,13 @@ func TestKomariReadOnlyProtocolAndAuthoritativeMapping(t *testing.T) {
 	wantValue(t, "disk total", disk.TotalBytes, uint64(107374182400))
 	wantValue(t, "disk used", disk.UsedBytes, uint64(21474836480))
 	wantValue(t, "disk percent", disk.Percent, 20.0)
+	wantValue(t, "rx rate", r.Resource.Network.RXBytesPerSecond, 5678.0)
+	wantValue(t, "tx rate", r.Resource.Network.TXBytesPerSecond, 1234.0)
+	wantValue(t, "swap total", r.Resource.Swap.TotalBytes, uint64(2147483648))
+	wantValue(t, "swap used", r.Resource.Swap.UsedBytes, uint64(0))
+	wantValue(t, "load 1m", r.Resource.Load.Avg1m, 0.5)
+	wantValue(t, "load 5m", r.Resource.Load.Avg5m, 0.75)
+	wantValue(t, "load 15m", r.Resource.Load.Avg15m, 1.0)
 	if disk.ID != "aggregate" || disk.Path != "" {
 		t.Fatalf("aggregate disk was mislabeled as a mount: %+v", disk)
 	}

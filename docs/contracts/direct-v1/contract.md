@@ -92,8 +92,11 @@ history_unsupported_in_direct_mode. Unknown codes require generic presentation.
 Capabilities retain protocol:1 and add sources=[client,preview,direct] and
 `direct:{schema:1,config_api:1,adapters:[beszel,komari,cf-server-monitor],allow_insecure:true,retry:true,limits:{sources_per_profile:64,objects_per_source:20,objects_per_profile:256,template_rows:128}}`.
 Discovery does no I/O to config, credentials or network. Metrics advertise exact
-supported sources. Direct supports sources.status, servers.list, server.card,
-resource.cpu.used_percent, resource.memory.used_percent, resource.disk.used_percent.
+supported sources. Direct supports `sources.status`, `servers.list`,
+`server.card` and the node-scoped `resource.*` metrics. Server cards may
+include `network`, `swap` and `load` in their resources. List entries may
+include `resource_metrics` with those readings and their own sample time and
+deadline. Absent readings omit their optional fields.
 
 Direct requests require profile; credentials/scenario/lang cannot carry meaningful
 client/preview values. Each request reloads public config and optionally checks

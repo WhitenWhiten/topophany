@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/model"
+	"github.com/WhitenWhiten/topophany/internal/monitor"
 	"github.com/WhitenWhiten/topophany/internal/tui"
+	"github.com/WhitenWhiten/topophany/internal/view"
 )
 
 func TestCFServerMonitorDirectSetupAndViewer(t *testing.T) {
@@ -28,7 +30,7 @@ func TestCFServerMonitorDirectSetupAndViewer(t *testing.T) {
 		case "/api/servers":
 			fmt.Fprintf(w, `{"servers":[{"id":%q,"name":"Worker fixture"}]}`, id)
 		case "/api/server?id=" + id:
-			fmt.Fprintf(w, `{"id":%q,"last_updated":%d,"cpu":25,"ram_total":1024,"ram_used":512,"disk_total":1000,"disk_used":250}`, id, at.UnixMilli())
+			fmt.Fprintf(w, `{"id":%q,"last_updated":%d,"cpu":25,"ram_total":1024,"ram_used":512,"disk_total":1000,"disk_used":250,"net_in_speed":5120,"net_out_speed":2048,"swap_total":1024,"swap_used":128,"load_avg":"0.75 0.50 0.25"}`, id, at.UnixMilli())
 		default:
 			t.Error("unexpected endpoint", r.URL.RequestURI())
 			w.WriteHeader(404)
@@ -50,9 +52,23 @@ func TestCFServerMonitorDirectSetupAndViewer(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &snap); err != nil || len(snap.External) != 1 || snap.External[0].Freshness != "fresh" {
 		t.Fatal("viewer has no Worker resource sample", err)
 	}
-	m := tui.Model{Snapshot: snap, Direct: true, Now: time.Now(), Width: 140, Height: 40, NoColor: true}
-	if rendered := strings.Join(m.Render(), "\n"); !strings.Contains(rendered, "CF-Server-Monitor direct") ||
-		!strings.Contains(rendered, "RESOURCE DATA CURRENT") {
-		t.Fatal("TUI did not show current CF-Server-Monitor resources")
+	now := time.Now()
+	m := tui.Model{Snapshot: snap, Direct: true, Tab: view.Servers, Now: now, Width: 140, Height: 40, NoColor: true}
+	rendered := strings.Join(m.Render(), "\n")
+	for _, reading := range []string{"CF-Server-Monitor direct", "REPORTED RESOURCES", "↓ 5.0KiB/s", "↑ 2.0KiB/s", "128.0MiB / 1.0GiB", "0.75 / 0.50 / 0.25"} {
+		if !strings.Contains(rendered, reading) {
+			t.Errorf("direct Servers view omitted %q\n%s", reading, rendered)
+		}
+	}
+	p := monitor.Build(monitor.Config{Source: "direct", Template: monitor.DefaultDirectTemplate()}, monitor.Input{Snapshot: snap}, now)
+	servers, ok := p.Rows[1].Value.([]monitor.ServerListEntry)
+	if !ok || len(servers) != 1 || servers[0].Metrics == nil {
+		t.Fatalf("default monitor output has no direct resource metrics: %+v", p.Rows[1])
+	}
+	r := servers[0].Metrics
+	if r.Network.RXBytesPerSecond == nil || *r.Network.RXBytesPerSecond != 5120 ||
+		r.Swap.UsedBytes == nil || *r.Swap.UsedBytes != 128<<20 ||
+		r.Load.Avg15m == nil || *r.Load.Avg15m != 0.25 || !r.SampledAt.Equal(at) {
+		t.Fatalf("monitor did not preserve the direct reading: %+v", r)
 	}
 }

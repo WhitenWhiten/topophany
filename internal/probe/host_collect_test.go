@@ -73,6 +73,63 @@ func TestHostChecksShareRuntimeButKeepDiskPolicyAndTimestamp(t *testing.T) {
 	}
 }
 
+func TestHostNetworkRatesAcrossCollections(t *testing.T) {
+	now := time.Now()
+	c := newHostCollector(nil)
+	c.now = func() time.Time { return now }
+	c.disk = func(context.Context, string) (HostDisk, error) { return hostFixture().Disk, nil }
+	counters := map[string]hostInterfaceCounters{
+		"nic0": {rx: 100, tx: 0},
+		"nic1": {rx: 200, tx: 100},
+	}
+	c.read = func(context.Context, []string) (hostRuntime, error) {
+		s := hostRuntime{HostSample: hostFixture()}
+		s.SampledAt = now
+		s.Swap = model.SwapReport{TotalBytes: new(uint64(2048)), UsedBytes: new(uint64(512))}
+		s.Load = model.ParseLoadAverages([]string{"1.25", "0.5", "0"})
+		s.network = hostNetworkSample{at: now, interfaces: counters}
+		return s, nil
+	}
+	r := Runner{HostSample: c.sample}
+	x := model.Check{ID: "host", Observer: "home", Kind: "host", TimeoutSeconds: 8}
+	collect := func() model.Observation {
+		t.Helper()
+		o := r.Run(t.Context(), testkit.Config(), x)
+		if o.Outcome != "ok" || o.Facts["swap_used_bytes"] != "512" || o.Facts["load_avg_15m"] != "0" {
+			t.Fatal("host resource facts missing", o)
+		}
+		return o
+	}
+	first := collect()
+	if first.Facts["network_rx_bytes_per_second"] != "" {
+		t.Fatal("first sample fabricated a rate", first)
+	}
+	now = now.Add(2 * time.Second)
+	counters = map[string]hostInterfaceCounters{"nic0": {rx: 300, tx: 0}, "nic1": {rx: 400, tx: 100}}
+	second := collect()
+	if second.Facts["network_rx_bytes_per_second"] != "200" || second.Facts["network_tx_bytes_per_second"] != "0" {
+		t.Fatal("incorrect network rates", second)
+	}
+	if shared := collect(); shared.Facts["network_rx_bytes_per_second"] != "200" || !shared.SampledAt.Equal(second.SampledAt) {
+		t.Fatal("shared runtime sample lost its rate or timestamp", shared)
+	}
+	now = now.Add(2 * time.Second)
+	counters = map[string]hostInterfaceCounters{"nic0": {rx: 0, tx: 0}, "nic1": {rx: 5000, tx: 100}}
+	if got := collect(); got.Facts["network_rx_bytes_per_second"] != "" || got.Facts["network_tx_bytes_per_second"] != "" {
+		t.Fatal("reset was hidden by a different interface's traffic", got)
+	}
+	now = now.Add(2 * time.Second)
+	counters = map[string]hostInterfaceCounters{"nic0": {rx: 400, tx: 0}, "nic2": {rx: 5000, tx: 100}}
+	if got := collect(); got.Facts["network_rx_bytes_per_second"] != "" {
+		t.Fatal("changed interface set produced a rate", got)
+	}
+	now = now.Add(2 * time.Second)
+	counters = map[string]hostInterfaceCounters{"nic0": {rx: 600, tx: 0}, "nic2": {rx: 5000, tx: 300}}
+	if got := collect(); got.Facts["network_rx_bytes_per_second"] != "100" || got.Facts["network_tx_bytes_per_second"] != "100" {
+		t.Fatal("new interface set did not establish a baseline", got)
+	}
+}
+
 func TestHostConcurrentChecksCollectOnce(t *testing.T) {
 	c := newHostCollector([]string{"topo"})
 	var reads atomic.Int32

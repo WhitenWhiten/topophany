@@ -3,9 +3,13 @@ package probe
 import (
 	"context"
 	"encoding/binary"
+	"strconv"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
+
+	"github.com/WhitenWhiten/topophany/internal/model"
 )
 
 // Use the syscall package's libc entry point, including its stack switching
@@ -77,6 +81,8 @@ func sampleHostRuntime(ctx context.Context, names []string) (hostRuntime, error)
 		return s, err
 	}
 	s.MemoryBasis = "macos_estimated_free_inactive_speculative"
+	s.Swap, s.Load = darwinSwapUsage(), darwinLoadAverages()
+	s.network = darwinNetwork(ctx)
 	raw, err := darwinProcesses(ctx)
 	if err != nil {
 		return s, err
@@ -93,6 +99,96 @@ func sampleHostRuntime(ctx context.Context, names []string) (hostRuntime, error)
 		return task[1], nil
 	})
 	return s, err
+}
+
+func darwinSwapUsage() model.SwapReport {
+	raw, err := syscall.Sysctl("vm.swapusage")
+	// xsw_usage stores total, available and used as uint64 bytes.
+	if err != nil || len(raw) < 24 {
+		return model.SwapReport{}
+	}
+	total, used := binary.LittleEndian.Uint64([]byte(raw[:8])), binary.LittleEndian.Uint64([]byte(raw[16:24]))
+	if used > total {
+		return model.SwapReport{}
+	}
+	return model.SwapReport{TotalBytes: &total, UsedBytes: &used}
+}
+
+func darwinLoadAverages() model.LoadReport {
+	raw, err := syscall.Sysctl("vm.loadavg")
+	// On 64-bit Darwin the three fixpt_t values precede a padded long
+	// scale. Sysctl may trim the final zero byte.
+	var data [24]byte
+	if err != nil || len(raw) < len(data)-1 || len(raw) > len(data) {
+		return model.LoadReport{}
+	}
+	copy(data[:], raw)
+	scale := int64(binary.LittleEndian.Uint64(data[16:24]))
+	if scale <= 0 {
+		return model.LoadReport{}
+	}
+	one := float64(binary.LittleEndian.Uint32(data[0:4])) / float64(scale)
+	five := float64(binary.LittleEndian.Uint32(data[4:8])) / float64(scale)
+	fifteen := float64(binary.LittleEndian.Uint32(data[8:12])) / float64(scale)
+	return model.LoadReport{Avg1m: &one, Avg5m: &five, Avg15m: &fifteen}
+}
+
+func darwinNetwork(ctx context.Context) hostNetworkSample {
+	mib := [6]int32{syscall.CTL_NET, syscall.AF_ROUTE, 0, 0, syscall.NET_RT_IFLIST2, 0}
+	for range 3 {
+		if ctx.Err() != nil {
+			break
+		}
+		var size uintptr
+		_, _, err := darwinCall6(hostSysctlPC(), uintptr(unsafe.Pointer(&mib)), uintptr(len(mib)), 0, uintptr(unsafe.Pointer(&size)), 0, 0)
+		if err != 0 || size == 0 || size > 1<<20 {
+			break
+		}
+		data := make([]byte, size)
+		_, _, err = darwinCall6(hostSysctlPC(), uintptr(unsafe.Pointer(&mib)), uintptr(len(mib)), uintptr(unsafe.Pointer(&data[0])), uintptr(unsafe.Pointer(&size)), 0, 0)
+		if err == syscall.ENOMEM {
+			continue
+		}
+		if err == 0 && size <= uintptr(len(data)) {
+			return hostNetworkSample{at: time.Now(), interfaces: parseDarwinNetwork(data[:size])}
+		}
+		break
+	}
+	return hostNetworkSample{}
+}
+
+func parseDarwinNetwork(data []byte) map[string]hostInterfaceCounters {
+	interfaces := map[string]hostInterfaceCounters{}
+	for len(data) > 0 {
+		if len(data) < 4 {
+			return nil
+		}
+		size := int(binary.LittleEndian.Uint16(data[:2]))
+		if size < 4 || size > len(data) || data[2] != syscall.RTM_VERSION {
+			return nil
+		}
+		msg := data[:size]
+		data = data[size:]
+		if msg[3] != syscall.RTM_IFINFO2 {
+			continue
+		}
+		// if_msghdr2 and if_data64 offsets from <net/if.h> and <net/if_var.h>.
+		if len(msg) < 160 || len(interfaces) >= maxHostInterfaces {
+			return nil
+		}
+		if binary.LittleEndian.Uint32(msg[8:12])&syscall.IFF_LOOPBACK != 0 {
+			continue
+		}
+		id := strconv.FormatUint(uint64(binary.LittleEndian.Uint16(msg[12:14])), 10)
+		if _, exists := interfaces[id]; exists {
+			return nil
+		}
+		interfaces[id] = hostInterfaceCounters{
+			rx: binary.LittleEndian.Uint64(msg[96:104]),
+			tx: binary.LittleEndian.Uint64(msg[104:112]),
+		}
+	}
+	return interfaces
 }
 
 func darwinProcesses(ctx context.Context) ([]byte, error) {

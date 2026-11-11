@@ -136,6 +136,38 @@ func wantField(t testing.TB, fields map[string]string, key, want string) {
 	}
 }
 
+func TestBeszelOptionalResourceMetrics(t *testing.T) {
+	r, _, err := decodeStats([]byte(`{"cpu":12,"b":[2048,4096],"la":[0,0.25,1.5],"s":2,"su":0.5}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantValue(t, "rx rate", r.Network.RXBytesPerSecond, 4096.0)
+	wantValue(t, "tx rate", r.Network.TXBytesPerSecond, 2048.0)
+	wantValue(t, "swap total", r.Swap.TotalBytes, uint64(2<<30))
+	wantValue(t, "swap used", r.Swap.UsedBytes, uint64(1<<29))
+	wantValue(t, "load 1m", r.Load.Avg1m, 0.0)
+	wantValue(t, "load 5m", r.Load.Avg5m, 0.25)
+	wantValue(t, "load 15m", r.Load.Avg15m, 1.5)
+
+	r, _, err = decodeStats([]byte(`{"cpu":12,"nr":0.5,"ns":1.5,"s":2}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantValue(t, "legacy rx rate", r.Network.RXBytesPerSecond, float64(1<<19))
+	wantValue(t, "legacy tx rate", r.Network.TXBytesPerSecond, 1.5*(1<<20))
+	wantValue(t, "omitted zero swap usage", r.Swap.UsedBytes, uint64(0))
+
+	r, _, err = decodeStats([]byte(`{"cpu":12,"b":[0,-1],"nr":3,"la":[1,-1,null],"s":10,"swap":[9007199254740993,1]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantValue(t, "idle tx rate", r.Network.TXBytesPerSecond, 0.0)
+	wantValue(t, "exact swap total", r.Swap.TotalBytes, uint64(9007199254740993))
+	if r.Network.RXBytesPerSecond != nil || r.Load.Avg5m != nil || r.Load.Avg15m != nil {
+		t.Fatal("invalid or missing fields acquired values", r.ResourceMetrics)
+	}
+}
+
 func TestResourceProtocolQueryAndAuthoritativeValues(t *testing.T) {
 	f := &fixtureIO{token: testToken, responses: []source.Response{jsonResponse(readFixture(t))}}
 	s := testSource()

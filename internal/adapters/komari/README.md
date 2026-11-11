@@ -90,9 +90,8 @@ Only `"report":"resource"` is supported. Komari's separate online-presence
 state is exposed by WebSocket/RPC, not by this endpoint. A `status` binding
 is refused before credentials or network access; neither a populated nor
 an empty recent array is interpreted as `up` or `down`. Keep ordinary probes
-for application availability. Network rates, cumulative traffic, swap, load,
-uptime, GPU and process counts are outside the current external resource
-schema and are not reinterpreted as another metric.
+for application availability. Network rates, swap and load are optional
+resource fields from the same recent report.
 
 ## Sample identity and freshness
 
@@ -130,6 +129,9 @@ outages or new resource evidence.
 | `ram.used / ram.total` | `memory.percent` | Derived only when both byte counters are valid. |
 | `disk.total`, `disk.used` | `disk.aggregate.total_bytes`, `disk.aggregate.used_bytes` | Same exact-byte validation; no mount path is invented. |
 | `disk.used / disk.total` | `disk.aggregate.percent` | Derived only from a valid pair. |
+| `network.down`, `network.up` | `network.rx_bytes_per_second`, `network.tx_bytes_per_second` | Agent-reported bytes per second. |
+| `swap.total`, `swap.used` | `swap.total_bytes`, `swap.used_bytes` | Exact byte counts. Zero capacity and zero usage are valid readings. |
+| `load.load1`, `load.load5`, `load.load15` | `load.avg_1m`, `load.avg_5m`, `load.avg_15m` | Host load averages. |
 
 Missing/null CPU objects and explicit `usage:null` remain missing, distinct
 from the documented omitted-zero encoding `cpu:{}`. Missing/null numeric

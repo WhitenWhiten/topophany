@@ -8,6 +8,7 @@ import (
 	"math"
 	"sort"
 
+	"github.com/WhitenWhiten/topophany/internal/adapters/sourceutil"
 	"github.com/WhitenWhiten/topophany/internal/model"
 )
 
@@ -27,19 +28,8 @@ func missing(raw json.RawMessage) bool {
 	return len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null"))
 }
 
-func number(raw json.RawMessage) (*float64, string) {
-	if missing(raw) {
-		return nil, model.FieldMissing
-	}
-	var v float64
-	if json.Unmarshal(raw, &v) != nil || math.IsNaN(v) || math.IsInf(v, 0) || math.Signbit(v) {
-		return nil, model.FieldInvalid
-	}
-	return &v, model.FieldKnown
-}
-
 func percent(raw json.RawMessage) (*float64, string) {
-	v, state := number(raw)
+	v, state := sourceutil.ResourceNumber(raw)
 	if v != nil && *v > 100 {
 		return nil, model.FieldInvalid
 	}
@@ -88,7 +78,8 @@ func decodeStatsValidated(raw json.RawMessage) (*model.ResourceReport, map[strin
 	}
 	// Do not let an empty/foreign object become a successful resource report
 	// merely because the adapter can attach basis strings to it.
-	recognized := false
+	extraMetrics := resourceMetrics(s)
+	recognized := extraMetrics != (model.ResourceMetrics{})
 	for _, key := range []string{"cpu", "m", "mu", "mp", "mem", "d", "du", "dp", "efs"} {
 		if _, ok := s[key]; ok {
 			recognized = true
@@ -105,7 +96,7 @@ func decodeStatsValidated(raw json.RawMessage) (*model.ResourceReport, map[strin
 	}
 	cpu, state := percent(s["cpu"])
 	availability(fields, "cpu.percent", state)
-	res := &model.ResourceReport{CPU: &model.CPUReport{Percent: cpu, Basis: "beszel_agent_percent"}}
+	res := &model.ResourceReport{CPU: &model.CPUReport{Percent: cpu, Basis: "beszel_agent_percent"}, ResourceMetrics: extraMetrics}
 	res.Memory = memory(s, fields)
 	if has(s, "d") || has(s, "du") || has(s, "dp") {
 		res.Disks = append(res.Disks, disk("root", s, fields, false))
@@ -147,6 +138,61 @@ func decodeStatsValidated(raw json.RawMessage) (*model.ResourceReport, map[strin
 
 func has(s stats, key string) bool { _, ok := s[key]; return ok }
 
+func resourceMetrics(s stats) model.ResourceMetrics {
+	var m model.ResourceMetrics
+	if values := metricArray(s["b"], 2); values != nil {
+		m.Network.TXBytesPerSecond, _ = sourceutil.ResourceNumber(values[0])
+		m.Network.RXBytesPerSecond, _ = sourceutil.ResourceNumber(values[1])
+	} else if !has(s, "b") {
+		// The Hub migrates legacy MiB/s fields to b for current Agents.
+		m.Network.TXBytesPerSecond = legacyRate(s["ns"])
+		m.Network.RXBytesPerSecond = legacyRate(s["nr"])
+	}
+	if values := metricArray(s["la"], 3); values != nil {
+		m.Load.Avg1m, _ = sourceutil.ResourceNumber(values[0])
+		m.Load.Avg5m, _ = sourceutil.ResourceNumber(values[1])
+		m.Load.Avg15m, _ = sourceutil.ResourceNumber(values[2])
+	}
+	if values := metricArray(s["swap"], 2); values != nil {
+		m.Swap.TotalBytes, _ = byteNumber(values[0], false)
+		m.Swap.UsedBytes, _ = byteNumber(values[1], false)
+	} else if !has(s, "swap") {
+		total, totalState := sourceutil.ResourceNumber(s["s"])
+		used, usedState := sourceutil.ResourceNumber(s["su"])
+		m.Swap.TotalBytes, _ = gibValue(total, totalState, false)
+		if total == nil || used == nil || *used <= *total {
+			m.Swap.UsedBytes, _ = gibValue(used, usedState, false)
+		}
+		if m.Swap.TotalBytes != nil && !has(s, "su") {
+			// The legacy agent omits a zero used value.
+			m.Swap.UsedBytes = new(uint64)
+		}
+	}
+	if m.Swap.TotalBytes != nil && m.Swap.UsedBytes != nil && *m.Swap.UsedBytes > *m.Swap.TotalBytes {
+		m.Swap.UsedBytes = nil
+	}
+	return m
+}
+
+func metricArray(raw json.RawMessage, length int) []json.RawMessage {
+	var values []json.RawMessage
+	if len(raw) == 0 || json.Unmarshal(raw, &values) != nil || len(values) != length {
+		return nil
+	}
+	return values
+}
+
+func legacyRate(raw json.RawMessage) *float64 {
+	value, _ := sourceutil.ResourceNumber(raw)
+	if value != nil {
+		*value *= 1 << 20
+		if math.IsInf(*value, 0) {
+			return nil
+		}
+	}
+	return value
+}
+
 func memory(s stats, fields map[string]string) *model.MemoryReport {
 	m := &model.MemoryReport{Basis: "beszel_gib_rounded"}
 	var totalState, usedState string
@@ -170,8 +216,8 @@ func memory(s stats, fields map[string]string) *model.MemoryReport {
 			}
 		}
 	} else {
-		totalGiB, totalNumberState := number(s["m"])
-		usedGiB, usedNumberState := number(s["mu"])
+		totalGiB, totalNumberState := sourceutil.ResourceNumber(s["m"])
+		usedGiB, usedNumberState := sourceutil.ResourceNumber(s["mu"])
 		m.TotalBytes, totalState = gibValue(totalGiB, totalNumberState, true)
 		m.UsedBytes, usedState = gibValue(usedGiB, usedNumberState, false)
 		// Compare the upstream values before byte rounding as well. A tiny
@@ -200,8 +246,8 @@ func memory(s stats, fields map[string]string) *model.MemoryReport {
 func disk(id string, s stats, fields map[string]string, extra bool) model.DiskReport {
 	d := model.DiskReport{ID: id, Basis: "beszel_filesystem_gib_rounded"}
 	prefix := "disk." + id + "."
-	totalGiB, totalNumberState := number(s["d"])
-	usedGiB, usedNumberState := number(s["du"])
+	totalGiB, totalNumberState := sourceutil.ResourceNumber(s["d"])
+	usedGiB, usedNumberState := sourceutil.ResourceNumber(s["du"])
 	total, totalState := gibValue(totalGiB, totalNumberState, true)
 	used, usedState := gibValue(usedGiB, usedNumberState, false)
 	if totalGiB != nil && usedGiB != nil && *usedGiB > *totalGiB {

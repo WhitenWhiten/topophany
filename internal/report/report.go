@@ -132,7 +132,18 @@ func Normalize(r model.ExternalReport, maxBytes int) (model.ExternalReport, erro
 }
 
 func normalizeResource(r *model.ResourceReport) error {
-	empty := true
+	empty := r.ResourceMetrics == (model.ResourceMetrics{})
+	for _, n := range []*float64{
+		r.Network.RXBytesPerSecond, r.Network.TXBytesPerSecond,
+		r.Load.Avg1m, r.Load.Avg5m, r.Load.Avg15m,
+	} {
+		if n != nil && (!finite(*n) || math.Signbit(*n)) {
+			return refuse("invalid_resource_number", "network rates and load averages must be finite and nonnegative")
+		}
+	}
+	if s := r.Swap; s.TotalBytes != nil && s.UsedBytes != nil && *s.UsedBytes > *s.TotalBytes {
+		return refuse("invalid_capacity", "swap.used_bytes exceeds total_bytes")
+	}
 	if c := r.CPU; c != nil {
 		if c.Percent != nil {
 			empty = false
@@ -291,6 +302,13 @@ func fieldPresence(r model.ExternalReport) map[string]bool {
 			p["memory.percent"] = m.Percent != nil
 			p["memory.basis"] = m.Basis != ""
 		}
+		p["network.rx_bytes_per_second"] = res.Network.RXBytesPerSecond != nil
+		p["network.tx_bytes_per_second"] = res.Network.TXBytesPerSecond != nil
+		p["swap.total_bytes"] = res.Swap.TotalBytes != nil
+		p["swap.used_bytes"] = res.Swap.UsedBytes != nil
+		p["load.avg_1m"] = res.Load.Avg1m != nil
+		p["load.avg_5m"] = res.Load.Avg5m != nil
+		p["load.avg_15m"] = res.Load.Avg15m != nil
 		for _, d := range res.Disks {
 			prefix := "disk." + d.ID + "."
 			p[prefix+"total_bytes"] = d.TotalBytes != nil
@@ -324,7 +342,9 @@ func knownFieldKey(key string, r model.ExternalReport) bool {
 	case r.Resource != nil:
 		switch key {
 		case "cpu.percent", "cpu.logical_cores", "cpu.sample_window_ms", "cpu.basis",
-			"memory.total_bytes", "memory.used_bytes", "memory.available_bytes", "memory.percent", "memory.basis":
+			"memory.total_bytes", "memory.used_bytes", "memory.available_bytes", "memory.percent", "memory.basis",
+			"network.rx_bytes_per_second", "network.tx_bytes_per_second", "swap.total_bytes", "swap.used_bytes",
+			"load.avg_1m", "load.avg_5m", "load.avg_15m":
 			return true
 		}
 		if !strings.HasPrefix(key, "disk.") {

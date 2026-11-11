@@ -3,6 +3,8 @@ package monitor
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/WhitenWhiten/topophany/internal/model"
 )
 
 // Current is the reader-side freshness policy. A producer cannot update its
@@ -37,6 +39,21 @@ func Current(p Panel, now time.Time) Panel {
 			}
 			ageCard(&card, now)
 			p.Rows[i].Value = card
+		} else if r.Metric == "servers.list" && r.Value != nil {
+			servers, ok := r.Value.([]ServerListEntry)
+			if !ok {
+				raw, err := json.Marshal(r.Value)
+				if err != nil || json.Unmarshal(raw, &servers) != nil {
+					p.Rows[i] = missing(r, "invalid_value")
+					continue
+				}
+			}
+			for i := range servers {
+				if m := servers[i].Metrics; m != nil && (!now.Before(m.ValidUntil) || m.ValidUntil.After(now.Add(5*time.Minute)) || m.SampledAt.After(now.Add(5*time.Minute))) {
+					servers[i].Metrics = nil
+				}
+			}
+			p.Rows[i].Value = servers
 		} else if r.Metric == "link.card" && r.Value != nil {
 			card, ok := r.Value.(LinkCard)
 			if !ok {
@@ -124,6 +141,7 @@ func ageCard(card *ServerCard, now time.Time) {
 		r.CPU.Percent, r.CPU.Limit, r.CPU.Logical = nil, nil, nil
 		r.Memory.Percent, r.Memory.Limit, r.Memory.Used, r.Memory.Total = nil, nil, nil, nil
 		r.Disk.Percent, r.Disk.Limit, r.Disk.Used, r.Disk.Total = nil, nil, nil, nil
+		r.ResourceMetrics = model.ResourceMetrics{}
 		if r.Process != nil {
 			r.Process.Matching = nil
 		}

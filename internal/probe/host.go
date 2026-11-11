@@ -26,6 +26,7 @@ type HostSample struct {
 	Disk                         HostDisk
 	Processes, Zombies, Matching int
 	MatchingRSS                  uint64
+	model.ResourceMetrics
 }
 
 type HostDisk struct {
@@ -112,6 +113,7 @@ func ApplyHostSample(o *model.Observation, h model.HostOptions, s HostSample) er
 		o.Facts["process_matching_count"] = strconv.Itoa(s.Matching)
 		put("process_matching_rss_bytes", s.MatchingRSS)
 	}
+	s.ResourceMetrics.SetFacts(o.Facts)
 	violations := []string{}
 	for _, v := range []struct {
 		name       string
