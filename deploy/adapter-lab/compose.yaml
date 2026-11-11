@@ -1,0 +1,70 @@
+# All runtime networking stays inside OrbStack. Nothing listens on macOS.
+# LAB_ROOT is a disposable directory prepared by scripts/accept_orbstack.py.
+services:
+  runner:
+    build:
+      context: .
+      dockerfile: Runner.Dockerfile
+    image: topophany-adapter-lab:local
+    cap_add: [NET_ADMIN, NET_RAW]
+    devices: [/dev/net/tun:/dev/net/tun]
+    volumes:
+      - ${LAB_ROOT:?Run scripts/accept_orbstack.py}:/lab
+      - ../../scripts:/scripts:ro
+    networks: [lab]
+  peer:
+    image: topophany-adapter-lab:local
+    cap_add: [NET_ADMIN, NET_RAW]
+    devices: [/dev/net/tun:/dev/net/tun]
+    volumes:
+      - ${LAB_ROOT}:/lab
+      - ../../scripts:/scripts:ro
+    networks: [lab]
+  tun:
+    image: topophany-adapter-lab:local
+    # Separate network namespace, with /proc/1 referring to the runner's
+    # different namespace. This satisfies the existing TUN harness's guard.
+    network_mode: none
+    pid: service:runner
+    cap_add: [NET_ADMIN]
+    devices: [/dev/net/tun:/dev/net/tun]
+    volumes:
+      - ${LAB_ROOT}:/lab
+      - ../../scripts:/scripts:ro
+  beszel:
+    image: henrygd/beszel:0.21.0
+    environment:
+      CHECK_UPDATES: 'false'
+    volumes:
+      - beszel:/beszel_data
+    network_mode: service:runner
+  komari:
+    image: ghcr.io/komari-monitor/komari:1.6.0
+    volumes:
+      - komari:/app/data
+    network_mode: service:runner
+  cfsm:
+    build:
+      context: ${LAB_ROOT}/upstream/cfsm
+      dockerfile: ${LAB_DEPLOY}/Worker.Dockerfile
+    image: topophany-cfsm-lab:local
+    env_file: ${LAB_ROOT}/worker.env
+    volumes:
+      - ${LAB_DEPLOY}/worker.mjs:/lab/worker.mjs:ro
+      - cfsm:/data
+    network_mode: service:runner
+  headscale:
+    image: headscale/headscale:0.29.7
+    command: [serve]
+    volumes:
+      - ${LAB_ROOT}/headscale:/etc/headscale:ro
+      - headscale:/var/lib/headscale
+    networks: [lab]
+networks:
+  lab:
+    internal: true
+volumes:
+  beszel:
+  komari:
+  cfsm:
+  headscale:

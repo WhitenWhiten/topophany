@@ -761,6 +761,8 @@ func TestJSONComplexityUTF8AndFilesystemKeyBoundaries(t *testing.T) {
 }
 
 func FuzzBeszelResourceDecode(f *testing.F) {
+	f.Add([]byte(`{"b":[0,4096],"swap":[9007199254740993,0],"la":[0,1,2]}`))
+	f.Add([]byte(`{"cpu":0,"b":[0,-1],"swap":[0,1],"la":[0,-1,null]}`))
 	for _, seed := range []string{`{"cpu":12.5,"m":8,"mu":3,"mp":37.5,"d":100,"du":20,"dp":23.25}`, `{"cpu":0,"mem":[9007199254740993,9007199254740991,0,0]}`, `{"m":1.00000000001,"mu":1.00000000002,"mp":100}`, `{"efs":{"storage":{"d":1,"du":0}}}`, `{"cpu":null,"mem":null,"dp":null}`, `{"cpu":1,"cpu":2}`, `null`, `[]`, `{}`} {
 		f.Add([]byte(seed))
 	}

@@ -220,13 +220,16 @@ func decodeStats(record object) (*model.ResourceReport, map[string]string, error
 	if err != nil {
 		return nil, nil, err
 	}
-	extraMetrics := resourceMetrics(record)
-	if cpu == nil && ram == nil && disk == nil && extraMetrics == (model.ResourceMetrics{}) {
-		return nil, nil, failure("komari_empty_stats")
-	}
 	fields := map[string]string{
 		"cpu.sample_window_ms":   model.FieldUnsupported,
 		"memory.available_bytes": model.FieldUnsupported,
+	}
+	extraMetrics, err := resourceMetrics(record, fields)
+	if err != nil {
+		return nil, nil, err
+	}
+	if cpu == nil && ram == nil && disk == nil && extraMetrics == (model.ResourceMetrics{}) {
+		return nil, nil, failure("komari_empty_stats")
 	}
 	usage, state := percent(cpu["usage"])
 	if _, present := cpu["usage"]; cpu != nil && !present {
@@ -260,20 +263,44 @@ func decodeStats(record object) (*model.ResourceReport, map[string]string, error
 	return res, fields, nil
 }
 
-func resourceMetrics(record object) model.ResourceMetrics {
-	network, _ := optionalObject(record["network"])
-	load, _ := optionalObject(record["load"])
-	swap, _ := optionalObject(record["swap"])
+func resourceMetrics(record object, fields map[string]string) (model.ResourceMetrics, error) {
 	var m model.ResourceMetrics
-	m.Network.RXBytesPerSecond, _ = sourceutil.ResourceNumber(network["down"])
-	m.Network.TXBytesPerSecond, _ = sourceutil.ResourceNumber(network["up"])
-	m.Load.Avg1m, _ = sourceutil.ResourceNumber(load["load1"])
-	m.Load.Avg5m, _ = sourceutil.ResourceNumber(load["load5"])
-	m.Load.Avg15m, _ = sourceutil.ResourceNumber(load["load15"])
-	m.Swap.TotalBytes, _ = byteNumber(swap["total"], false)
-	m.Swap.UsedBytes, _ = byteNumber(swap["used"], false)
-	if m.Swap.TotalBytes != nil && m.Swap.UsedBytes != nil && *m.Swap.UsedBytes > *m.Swap.TotalBytes {
-		m.Swap.UsedBytes = nil
+	network, err := optionalObject(record["network"])
+	if err != nil {
+		return m, err
 	}
-	return m
+	load, err := optionalObject(record["load"])
+	if err != nil {
+		return m, err
+	}
+	swap, err := optionalObject(record["swap"])
+	if err != nil {
+		return m, err
+	}
+	// The upstream rates are signed int64 integers, like its byte counters.
+	rate := func(raw json.RawMessage, key string) *float64 {
+		value, state := byteNumber(raw, false)
+		availability(fields, key, state)
+		if value == nil {
+			return nil
+		}
+		return new(float64(*value))
+	}
+	m.Network.RXBytesPerSecond = rate(network["down"], "network.rx_bytes_per_second")
+	m.Network.TXBytesPerSecond = rate(network["up"], "network.tx_bytes_per_second")
+	var state string
+	m.Load.Avg1m, state = sourceutil.ResourceNumber(load["load1"])
+	availability(fields, "load.avg_1m", state)
+	m.Load.Avg5m, state = sourceutil.ResourceNumber(load["load5"])
+	availability(fields, "load.avg_5m", state)
+	m.Load.Avg15m, state = sourceutil.ResourceNumber(load["load15"])
+	availability(fields, "load.avg_15m", state)
+	m.Swap.TotalBytes, state = byteNumber(swap["total"], false)
+	availability(fields, "swap.total_bytes", state)
+	m.Swap.UsedBytes, state = byteNumber(swap["used"], false)
+	if m.Swap.TotalBytes != nil && m.Swap.UsedBytes != nil && *m.Swap.UsedBytes > *m.Swap.TotalBytes {
+		m.Swap.UsedBytes, state = nil, model.FieldInvalid
+	}
+	availability(fields, "swap.used_bytes", state)
+	return m, nil
 }

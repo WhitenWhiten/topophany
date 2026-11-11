@@ -1,6 +1,7 @@
 package cfservermonitor
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -86,7 +87,7 @@ func metrics(record map[string]json.RawMessage) (*model.ResourceReport, map[stri
 		disk.TotalBytes, disk.UsedBytes, disk.Percent = capacity(record["disk_total"], record["disk_used"], "disk.aggregate.", fields)
 		fields["disk.aggregate.free_bytes"] = model.FieldUnsupported
 	}
-	extraMetrics := resourceMetrics(record)
+	extraMetrics := resourceMetrics(record, fields)
 	if cpu == nil && cores == nil && memory.TotalBytes == nil && memory.UsedBytes == nil && disk.TotalBytes == nil && disk.UsedBytes == nil && extraMetrics == (model.ResourceMetrics{}) {
 		return nil, fields
 	}
@@ -103,28 +104,53 @@ func metrics(record map[string]json.RawMessage) (*model.ResourceReport, map[stri
 	return res, fields
 }
 
-func resourceMetrics(record map[string]json.RawMessage) model.ResourceMetrics {
+func resourceMetrics(record map[string]json.RawMessage, fields map[string]string) model.ResourceMetrics {
 	var m model.ResourceMetrics
-	m.Network.RXBytesPerSecond, _ = sourceutil.ResourceNumber(metricJSONNumber(record["net_in_speed"]))
-	m.Network.TXBytesPerSecond, _ = sourceutil.ResourceNumber(metricJSONNumber(record["net_out_speed"]))
-	m.Swap.TotalBytes, _ = mibBytes(metricJSONNumber(record["swap_total"]))
-	m.Swap.UsedBytes, _ = mibBytes(metricJSONNumber(record["swap_used"]))
-	if m.Swap.TotalBytes != nil && m.Swap.UsedBytes != nil && *m.Swap.UsedBytes > *m.Swap.TotalBytes {
-		m.Swap.UsedBytes = nil
+	m.Network.RXBytesPerSecond, fields["network.rx_bytes_per_second"] = sourceutil.ResourceNumber(metricJSONNumber(record["net_in_speed"]))
+	m.Network.TXBytesPerSecond, fields["network.tx_bytes_per_second"] = sourceutil.ResourceNumber(metricJSONNumber(record["net_out_speed"]))
+	totalRaw, usedRaw := metricJSONNumber(record["swap_total"]), metricJSONNumber(record["swap_used"])
+	m.Swap.TotalBytes, fields["swap.total_bytes"] = mibBytes(totalRaw)
+	m.Swap.UsedBytes, fields["swap.used_bytes"] = mibBytes(usedRaw)
+	// Compare before rounding too, so sub-byte overruns cannot become valid.
+	total, _ := nonnegativeNumber(totalRaw)
+	used, _ := nonnegativeNumber(usedRaw)
+	if total != nil && used != nil && *used > *total {
+		m.Swap.UsedBytes, fields["swap.used_bytes"] = nil, model.FieldInvalid
 	}
-	var load string
-	if json.Unmarshal(record["load_avg"], &load) == nil {
-		m.Load = model.ParseLoadAverages(strings.Fields(load))
+	loadState := model.FieldMissing
+	raw := bytes.TrimSpace(record["load_avg"])
+	if len(raw) > 0 && !bytes.Equal(raw, []byte("null")) {
+		loadState = model.FieldInvalid
+		var load string
+		if json.Unmarshal(raw, &load) == nil {
+			m.Load = model.ParseLoadAverages(strings.Fields(load))
+		}
+	}
+	for _, field := range []struct {
+		key   string
+		value *float64
+	}{
+		{"load.avg_1m", m.Load.Avg1m}, {"load.avg_5m", m.Load.Avg5m}, {"load.avg_15m", m.Load.Avg15m},
+	} {
+		state := loadState
+		if field.value != nil {
+			state = model.FieldKnown
+		}
+		fields[field.key] = state
 	}
 	return m
 }
 
 // Some Worker deployments return the decimal strings sent by the Agent.
 func metricJSONNumber(raw json.RawMessage) json.RawMessage {
+	raw = bytes.TrimSpace(raw)
 	if len(raw) > 0 && raw[0] == '"' {
 		var value string
 		if json.Unmarshal(raw, &value) == nil {
-			return json.RawMessage(value)
+			number := json.RawMessage(value)
+			if _, state := sourceutil.ResourceNumber(number); state == model.FieldKnown {
+				return number
+			}
 		}
 	}
 	return raw
@@ -145,17 +171,7 @@ func logicalCores(raw json.RawMessage) (*int, string) {
 }
 
 func nonnegativeNumber(raw json.RawMessage) (*float64, string) {
-	var value *float64
-	if len(raw) != 0 && json.Unmarshal(raw, &value) != nil {
-		return nil, model.FieldInvalid
-	}
-	if value == nil {
-		return nil, model.FieldMissing
-	}
-	if *value < 0 {
-		return nil, model.FieldInvalid
-	}
-	return value, model.FieldKnown
+	return sourceutil.ResourceNumber(raw)
 }
 
 func mibBytes(raw json.RawMessage) (*uint64, string) {

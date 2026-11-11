@@ -407,7 +407,7 @@ func TestKomariCredentialsAndUnmappedTextNeverLeaveAdapter(t *testing.T) {
 		t.Fatalf("unmapped text prevented valid metrics: %v", err)
 	}
 	encoded, err := json.Marshal(got)
-	if err != nil || strings.Contains(string(encoded), testToken) || strings.Contains(string(encoded), "network") || strings.Contains(string(encoded), "message") || strings.Contains(string(encoded), "name") {
+	if err != nil || strings.Contains(string(encoded), testToken) || got[0].Report.Resource.Network != (model.NetworkReport{}) || strings.Contains(string(encoded), "message") || strings.Contains(string(encoded), "name") {
 		t.Fatalf("unmapped authenticated text escaped: %v", err)
 	}
 	// Changing an unconsumed field does not alter sample identity/content.

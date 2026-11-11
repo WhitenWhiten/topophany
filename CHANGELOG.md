@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Require Go 1.26.11 for source builds to fix the standard-library HTTP server
+  vulnerability GO-2026-6859 detected by CI's `govulncheck` gate.
+- Preserve missing/invalid availability for network, swap and load readings
+  in Beszel, Komari and CF-Server-Monitor. Validate Beszel and Komari network
+  rates against their upstream integer types, reject malformed Komari metric
+  objects, and reject negative-zero or over-capacity CF-Server-Monitor swap
+  readings before byte rounding.
+
 ### Added
 
 - The `cf-server-monitor` source reads CPU, memory and aggregate disk directly

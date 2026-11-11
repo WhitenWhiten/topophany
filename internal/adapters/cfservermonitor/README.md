@@ -59,7 +59,11 @@ The adapter maps the following values. [Upstream API](https://github.com/huilang
 | `last_updated` | Upstream sample time in Unix milliseconds |
 
 The upstream Agent uses MiB for the API's MB fields. Conversion rounds to
-the nearest byte. Missing or invalid counters stay unavailable. The adapter
+the nearest byte. Missing or invalid counters stay unavailable with explicit
+field statuses. Negative zero and swap usage above capacity, including before
+byte rounding, are invalid. A timestamped response containing only invalid
+metrics fails collection. Numeric strings are accepted for rates and swap.
+The adapter
 preserves a reported CPU value of zero. Zero total capacity means no usable
 RAM or disk capacity. A zero swap total and zero usage describe a host with
 zero swap capacity as reported by the Worker. The Worker uses zero defaults

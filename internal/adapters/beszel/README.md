@@ -129,7 +129,7 @@ end-to-end availability. Keep an application probe for that purpose.
 | `d`, `du` | `disk.root.total_bytes`, `disk.root.used_bytes` | Legacy GiB conversion with range checks. |
 | `dp` | `disk.root.percent` | Preserve the independent upstream percentage, including filesystem reserved-block semantics. |
 | `efs[key].d`, `efs[key].du` | Additional disk capacity and usage | Convert GiB values; the percentage uses the original GiB ratio, matching Beszel's extra-filesystem presentation. |
-| `b[1]`, `b[0]` | `network.rx_bytes_per_second`, `network.tx_bytes_per_second` | Receive and transmit bytes per second. Legacy `nr` and `ns` are MiB/s and are used when `b` is absent. |
+| `b[1]`, `b[0]` | `network.rx_bytes_per_second`, `network.tx_bytes_per_second` | Receive and transmit uint64 bytes per second; fractions and overflow are invalid. Legacy `nr` and `ns` are MiB/s and are used when `b` is absent. |
 | `s`, `su` or `swap[0]`, `swap[1]` | `swap.total_bytes`, `swap.used_bytes` | Legacy values are rounded GiB. The newer two-integer array takes precedence and preserves byte counts. |
 | `la[0..2]` | `load.avg_1m`, `load.avg_5m`, `load.avg_15m` | Host load averages in upstream order. |
 
@@ -151,7 +151,12 @@ negative (including negative zero or underflow), overflowing or out-of-range
 numbers are marked `invalid`. Used
 capacity greater than total is invalid, including an overrun that byte
 rounding would otherwise hide. The adapter neither clamps values nor
-replaces missing values with zero. CPU cores/window, available memory and
+replaces missing values with zero, except an omitted legacy `su` with a valid
+`s`: upstream omits zero usage, so this pair means known zero usage. Explicit
+null stays missing. Absent `b`/`swap` tuples without usable legacy fields
+remain missing; the response alone cannot distinguish omitted zeros from
+unavailable counters. Malformed tuples retain `invalid` field statuses and
+never fall back to legacy values. CPU cores/window, available memory and
 free filesystem bytes are unsupported by this mapping.
 
 Additional filesystem IDs are `fs-` plus the full SHA-256 hex digest of the

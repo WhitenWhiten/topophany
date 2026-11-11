@@ -18,6 +18,31 @@ func hostFixture() HostSample {
 		Processes: 20, Zombies: 1, Matching: 2, MatchingRSS: 4096}
 }
 
+func TestHostOptionalMetricsStayWithinObservationBounds(t *testing.T) {
+	for _, windows := range []bool{false, true} {
+		s := hostFixture()
+		s.ResourceMetrics = model.ResourceMetrics{
+			Network: model.NetworkReport{RXBytesPerSecond: new(4096.0), TXBytesPerSecond: new(0.0)},
+			Swap:    model.SwapReport{TotalBytes: new(uint64(1024)), UsedBytes: new(uint64(0))},
+			Load:    model.LoadReport{Avg1m: new(1.0), Avg5m: new(2.0), Avg15m: new(3.0)},
+		}
+		if windows {
+			s.Disk.Basis = "windows_caller_quota"
+			s.Load = model.LoadReport{} // Windows has no native load averages.
+		}
+		r := Runner{HostSample: func(context.Context, model.HostOptions) (HostSample, error) { return s, nil }}
+		x := model.Check{ID: "host", Observer: "home", Kind: "host", TimeoutSeconds: 8,
+			Host: &model.HostOptions{ProcessName: "topo", MinProcesses: 3, MaxCPUPercent: 20, MaxMemoryPercent: 70, MaxDiskPercent: 85}}
+		o := r.Run(t.Context(), testkit.Config(), x)
+		if o.Outcome != "policy" || o.Facts["network_rx_bytes_per_second"] != "4096" || o.Facts["network_tx_bytes_per_second"] != "0" || o.Facts["swap_used_bytes"] != "0" {
+			t.Fatal("optional metrics lost in host observation", o)
+		}
+		if code := config.ObservationBounds(o, 13*time.Second); code != "" {
+			t.Fatal("full host observation cannot be admitted", code, len(o.Facts), o.Facts)
+		}
+	}
+}
+
 func TestHostAssertionsAndDeliverableEvidence(t *testing.T) {
 	for _, tc := range []struct {
 		name       string

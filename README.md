@@ -45,7 +45,7 @@
 
 ## Try it in a minute
 
-Download a build from the [releases page](https://github.com/WhitenWhiten/topophany/releases) (Linux, macOS, Windows · amd64, arm64), or install it with Go 1.26.10 or newer:
+Download a build from the [releases page](https://github.com/WhitenWhiten/topophany/releases) (Linux, macOS, Windows · amd64, arm64), or install it with Go 1.26.11 or newer:
 
 ```sh
 go install github.com/WhitenWhiten/topophany/cmd/topo@latest

@@ -98,6 +98,8 @@ func detail(fields string) []byte {
 }
 
 func FuzzCFServerMonitorResource(f *testing.F) {
+	f.Add(detail(`"last_updated":1793653320123,"net_in_speed":"4096","net_out_speed":0,"swap_total":"1024","swap_used":0,"load_avg":"0 1 2"`))
+	f.Add(detail(`"last_updated":1793653320123,"cpu":0,"swap_total":-0,"net_in_speed":"null","load_avg":"0 -1 NaN"`))
 	f.Add(detail(`"last_updated":1793653320123,"cpu":0,"disk_total":100,"disk_used":0`))
 	f.Add(detail(`"timestamp":1793653200000`))
 	f.Fuzz(func(t *testing.T, body []byte) {

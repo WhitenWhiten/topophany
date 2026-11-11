@@ -78,7 +78,12 @@ func decodeStatsValidated(raw json.RawMessage) (*model.ResourceReport, map[strin
 	}
 	// Do not let an empty/foreign object become a successful resource report
 	// merely because the adapter can attach basis strings to it.
-	extraMetrics := resourceMetrics(s)
+	fields := map[string]string{
+		"cpu.logical_cores":      model.FieldUnsupported,
+		"cpu.sample_window_ms":   model.FieldUnsupported,
+		"memory.available_bytes": model.FieldUnsupported,
+	}
+	extraMetrics := resourceMetrics(s, fields)
 	recognized := extraMetrics != (model.ResourceMetrics{})
 	for _, key := range []string{"cpu", "m", "mu", "mp", "mem", "d", "du", "dp", "efs"} {
 		if _, ok := s[key]; ok {
@@ -88,11 +93,6 @@ func decodeStatsValidated(raw json.RawMessage) (*model.ResourceReport, map[strin
 	}
 	if !recognized {
 		return nil, nil, failure("beszel_empty_stats")
-	}
-	fields := map[string]string{
-		"cpu.logical_cores":      model.FieldUnsupported,
-		"cpu.sample_window_ms":   model.FieldUnsupported,
-		"memory.available_bytes": model.FieldUnsupported,
 	}
 	cpu, state := percent(s["cpu"])
 	availability(fields, "cpu.percent", state)
@@ -138,59 +138,93 @@ func decodeStatsValidated(raw json.RawMessage) (*model.ResourceReport, map[strin
 
 func has(s stats, key string) bool { _, ok := s[key]; return ok }
 
-func resourceMetrics(s stats) model.ResourceMetrics {
+func resourceMetrics(s stats, fields map[string]string) model.ResourceMetrics {
 	var m model.ResourceMetrics
-	if values := metricArray(s["b"], 2); values != nil {
-		m.Network.TXBytesPerSecond, _ = sourceutil.ResourceNumber(values[0])
-		m.Network.RXBytesPerSecond, _ = sourceutil.ResourceNumber(values[1])
-	} else if !has(s, "b") {
+	var txState, rxState, totalState, usedState string
+	if has(s, "b") {
+		values, state := metricArray(s["b"], 2)
+		txState, rxState = state, state
+		if values != nil {
+			// b is a uint64 tuple; reject fractions and integer overflow
+			// before converting the rates to the shared floating-point model.
+			rate := func(raw json.RawMessage) (*float64, string) {
+				value, state := byteNumber(raw, false)
+				if value == nil {
+					return nil, state
+				}
+				return new(float64(*value)), state
+			}
+			m.Network.TXBytesPerSecond, txState = rate(values[0])
+			m.Network.RXBytesPerSecond, rxState = rate(values[1])
+		}
+	} else {
 		// The Hub migrates legacy MiB/s fields to b for current Agents.
-		m.Network.TXBytesPerSecond = legacyRate(s["ns"])
-		m.Network.RXBytesPerSecond = legacyRate(s["nr"])
+		m.Network.TXBytesPerSecond, txState = legacyRate(s["ns"])
+		m.Network.RXBytesPerSecond, rxState = legacyRate(s["nr"])
 	}
-	if values := metricArray(s["la"], 3); values != nil {
-		m.Load.Avg1m, _ = sourceutil.ResourceNumber(values[0])
-		m.Load.Avg5m, _ = sourceutil.ResourceNumber(values[1])
-		m.Load.Avg15m, _ = sourceutil.ResourceNumber(values[2])
+	availability(fields, "network.tx_bytes_per_second", txState)
+	availability(fields, "network.rx_bytes_per_second", rxState)
+	values, state := metricArray(s["la"], 3)
+	for i, target := range []struct {
+		key   string
+		value **float64
+	}{
+		{"load.avg_1m", &m.Load.Avg1m}, {"load.avg_5m", &m.Load.Avg5m}, {"load.avg_15m", &m.Load.Avg15m},
+	} {
+		fieldState := state
+		if values != nil {
+			*target.value, fieldState = sourceutil.ResourceNumber(values[i])
+		}
+		availability(fields, target.key, fieldState)
 	}
-	if values := metricArray(s["swap"], 2); values != nil {
-		m.Swap.TotalBytes, _ = byteNumber(values[0], false)
-		m.Swap.UsedBytes, _ = byteNumber(values[1], false)
-	} else if !has(s, "swap") {
-		total, totalState := sourceutil.ResourceNumber(s["s"])
-		used, usedState := sourceutil.ResourceNumber(s["su"])
-		m.Swap.TotalBytes, _ = gibValue(total, totalState, false)
-		if total == nil || used == nil || *used <= *total {
-			m.Swap.UsedBytes, _ = gibValue(used, usedState, false)
+	if has(s, "swap") {
+		values, state := metricArray(s["swap"], 2)
+		totalState, usedState = state, state
+		if values != nil {
+			m.Swap.TotalBytes, totalState = byteNumber(values[0], false)
+			m.Swap.UsedBytes, usedState = byteNumber(values[1], false)
+		}
+	} else {
+		total, totalNumberState := sourceutil.ResourceNumber(s["s"])
+		used, usedNumberState := sourceutil.ResourceNumber(s["su"])
+		m.Swap.TotalBytes, totalState = gibValue(total, totalNumberState, false)
+		m.Swap.UsedBytes, usedState = gibValue(used, usedNumberState, false)
+		if total != nil && used != nil && *used > *total {
+			m.Swap.UsedBytes, usedState = nil, model.FieldInvalid
 		}
 		if m.Swap.TotalBytes != nil && !has(s, "su") {
 			// The legacy agent omits a zero used value.
-			m.Swap.UsedBytes = new(uint64)
+			m.Swap.UsedBytes, usedState = new(uint64), model.FieldKnown
 		}
 	}
 	if m.Swap.TotalBytes != nil && m.Swap.UsedBytes != nil && *m.Swap.UsedBytes > *m.Swap.TotalBytes {
-		m.Swap.UsedBytes = nil
+		m.Swap.UsedBytes, usedState = nil, model.FieldInvalid
 	}
+	availability(fields, "swap.total_bytes", totalState)
+	availability(fields, "swap.used_bytes", usedState)
 	return m
 }
 
-func metricArray(raw json.RawMessage, length int) []json.RawMessage {
-	var values []json.RawMessage
-	if len(raw) == 0 || json.Unmarshal(raw, &values) != nil || len(values) != length {
-		return nil
+func metricArray(raw json.RawMessage, length int) ([]json.RawMessage, string) {
+	if missing(raw) {
+		return nil, model.FieldMissing
 	}
-	return values
+	var values []json.RawMessage
+	if json.Unmarshal(raw, &values) != nil || len(values) != length {
+		return nil, model.FieldInvalid
+	}
+	return values, model.FieldKnown
 }
 
-func legacyRate(raw json.RawMessage) *float64 {
-	value, _ := sourceutil.ResourceNumber(raw)
+func legacyRate(raw json.RawMessage) (*float64, string) {
+	value, state := sourceutil.ResourceNumber(raw)
 	if value != nil {
 		*value *= 1 << 20
 		if math.IsInf(*value, 0) {
-			return nil
+			return nil, model.FieldInvalid
 		}
 	}
-	return value
+	return value, state
 }
 
 func memory(s stats, fields map[string]string) *model.MemoryReport {

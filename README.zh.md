@@ -45,7 +45,7 @@
 
 ## 一分钟上手
 
-从[发布页面](https://github.com/WhitenWhiten/topophany/releases)（Linux、macOS、Windows · amd64、arm64）下载，或者用 Go 1.26.10 及以上版本安装：
+从[发布页面](https://github.com/WhitenWhiten/topophany/releases)（Linux、macOS、Windows · amd64、arm64）下载，或者用 Go 1.26.11 及以上版本安装：
 
 ```sh
 go install github.com/WhitenWhiten/topophany/cmd/topo@latest

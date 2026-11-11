@@ -45,7 +45,7 @@
 
 ## 1 分で試す
 
-[リリースページ](https://github.com/WhitenWhiten/topophany/releases) (Linux、macOS、Windows · amd64、arm64) からダウンロードするか、Go 1.26.10 以降でインストールします。
+[リリースページ](https://github.com/WhitenWhiten/topophany/releases) (Linux、macOS、Windows · amd64、arm64) からダウンロードするか、Go 1.26.11 以降でインストールします。
 
 ```sh
 go install github.com/WhitenWhiten/topophany/cmd/topo@latest

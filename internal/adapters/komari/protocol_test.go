@@ -328,6 +328,8 @@ func TestKomariJSONRepresentationAndRecentWindowBudgets(t *testing.T) {
 }
 
 func FuzzKomariResourceDecode(f *testing.F) {
+	f.Add(resourceBody(`"network":{"up":0,"down":4096},"swap":{"total":9007199254740993,"used":0},"load":{"load1":0,"load5":1,"load15":2}`))
+	f.Add(resourceBody(`"cpu":{},"network":{"down":-1},"swap":{"total":0,"used":1},"load":{"load1":null}`))
 	f.Add(readFixture(f))
 	f.Add(resourceBody(`"cpu":{},"ram":{"total":9007199254740993,"used":0},"disk":{"total":100,"used":20}`))
 	f.Add(resourceBody(`"cpu":{"usage":null},"ram":{"total":0,"used":-0}`))

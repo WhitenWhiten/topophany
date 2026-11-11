@@ -129,13 +129,15 @@ outages or new resource evidence.
 | `ram.used / ram.total` | `memory.percent` | Derived only when both byte counters are valid. |
 | `disk.total`, `disk.used` | `disk.aggregate.total_bytes`, `disk.aggregate.used_bytes` | Same exact-byte validation; no mount path is invented. |
 | `disk.used / disk.total` | `disk.aggregate.percent` | Derived only from a valid pair. |
-| `network.down`, `network.up` | `network.rx_bytes_per_second`, `network.tx_bytes_per_second` | Agent-reported bytes per second. |
+| `network.down`, `network.up` | `network.rx_bytes_per_second`, `network.tx_bytes_per_second` | Agent-reported nonnegative signed-int64 bytes per second; fractions and overflow are invalid. |
 | `swap.total`, `swap.used` | `swap.total_bytes`, `swap.used_bytes` | Exact byte counts. Zero capacity and zero usage are valid readings. |
 | `load.load1`, `load.load5`, `load.load15` | `load.avg_1m`, `load.avg_5m`, `load.avg_15m` | Host load averages. |
 
 Missing/null CPU objects and explicit `usage:null` remain missing, distinct
 from the documented omitted-zero encoding `cpu:{}`. Missing/null numeric
-fields stay nil. Negative values, negative zero, fractions in byte/cores
+fields stay nil. Malformed network, swap or load objects fail decoding just
+like malformed CPU, RAM or disk objects. Missing and invalid optional metrics
+retain their field availability statuses. Negative values, negative zero, fractions in byte/cores
 fields, overflow, invalid types and out-of-range values are marked invalid.
 Used bytes above total invalidate usage and the derived percentage without
 discarding the independent total. No clamping or missing-to-zero conversion
