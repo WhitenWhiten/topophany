@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The `cf-server-monitor` source reads CPU, memory and aggregate disk directly
+  from a CF-Server-Monitor Worker API. It keeps the upstream sample time and
+  supports public access or a pre-issued JWT. Use `topo setup --task direct`
+  for a collector-free TUI profile, or `topo templates cf-server-monitor` for
+  a paused collector topology. [Adapter guide](internal/adapters/cfservermonitor/README.md)
+
 ## [1.5.4] - 2026-11-02
 
 This release adds a dedicated Cloudflare Tunnel connections read, tunnel status

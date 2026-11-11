@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/WhitenWhiten/topophany/internal/adapters/beszel"
+	"github.com/WhitenWhiten/topophany/internal/adapters/cfservermonitor"
 	"github.com/WhitenWhiten/topophany/internal/adapters/komari"
 	"github.com/WhitenWhiten/topophany/internal/config"
 	"github.com/WhitenWhiten/topophany/internal/model"
@@ -68,6 +69,13 @@ type SourceConfig struct {
 	MaxAge        int    `json:"max_age_seconds"`
 }
 
+// AdapterNames returns the adapters supported by direct profiles.
+func AdapterNames() []string { return []string{"beszel", "komari", cfservermonitor.Name} }
+
+func (s SourceConfig) AllowsAnonymous() bool {
+	return s.Adapter == "komari" || s.Adapter == cfservermonitor.Name
+}
+
 func (s *SourceConfig) UnmarshalJSON(b []byte) error {
 	type plain SourceConfig
 	p := plain{Interval: 60, Timeout: 8, Stale: 180, MaxAge: 180}
@@ -93,6 +101,8 @@ func (s SourceConfig) Validate() error {
 		adapter = beszel.Adapter{}
 	case "komari":
 		adapter = komari.Adapter{}
+	case cfservermonitor.Name:
+		adapter = cfservermonitor.Adapter{}
 	default:
 		return fail("invalid_request")
 	}
@@ -103,14 +113,18 @@ func (s SourceConfig) Validate() error {
 }
 
 func (s SourceConfig) validObject(id string) bool {
-	if s.Adapter == "komari" {
+	switch s.Adapter {
+	case "komari":
 		return komari.ValidObjectID(id)
+	case cfservermonitor.Name:
+		return cfservermonitor.ValidObjectID(id)
+	default:
+		return s.Adapter == "beszel" && objectID(id)
 	}
-	return s.Adapter == "beszel" && objectID(id)
 }
 
 func (s SourceConfig) primaryDisk() string {
-	if s.Adapter == "komari" {
+	if s.Adapter == "komari" || s.Adapter == cfservermonitor.Name {
 		return "aggregate"
 	}
 	return "root"
@@ -381,7 +395,11 @@ func (s *Store) credential(ref string) (Credential, error) {
 		return c, fail("credential_storage_error")
 	}
 	b, e := secure.PrivateRead(filepath.Join(s.Root, "credential-"+ref+".json"))
-	if e != nil || json.Unmarshal(b, &c) != nil || c.Version == "" || c.Subject == "" || c.Mode != "env" && c.Mode != "anonymous" && !safeToken(c.Token) || c.Mode == "anonymous" && (c.Subject != "komari:anonymous" || c.Token != "" || c.Env != "" || c.Renewable) {
+	if e != nil || json.Unmarshal(b, &c) != nil || c.Version == "" || c.Subject == "" || c.Mode != "env" && c.Mode != "anonymous" && !safeToken(c.Token) {
+		return c, fail("credential_storage_error")
+	}
+	if c.Mode == "anonymous" && (c.Subject != anonymousSubject("komari") && c.Subject != anonymousSubject(cfservermonitor.Name) ||
+		c.Token != "" || c.Env != "" || c.Renewable) {
 		return c, fail("credential_storage_error")
 	}
 	return c, nil
@@ -416,7 +434,7 @@ func (p Profile) Config() (model.Config, error) {
 		total += len(e.Selected)
 		src := e.Source.model(len(e.Selected))
 		if e.AuthMode == "anonymous" {
-			if e.Source.Adapter != "komari" || e.Subject != "komari:anonymous" {
+			if !e.Source.AllowsAnonymous() || e.Subject != anonymousSubject(e.Source.Adapter) {
 				return c, fail("selection_invalid")
 			}
 			src.CredentialEnv = ""

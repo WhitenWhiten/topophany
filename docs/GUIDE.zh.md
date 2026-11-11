@@ -5,7 +5,8 @@
 
 ## 首次接入
 
-运行 `topo setup`，选择网站、Beszel/Komari 直连，或多地部署。
+运行 `topo setup`，选择网站、资源直连，或多地部署。资源直连支持 Beszel、
+Komari 和 CF-Server-Monitor。
 网站也可以直接创建：
 
 ```sh
@@ -33,6 +34,12 @@ topo validate --config cloudflare.json
 
 模板中的检查全部暂停。先修改地址、观测点、断言和凭据环境变量，再启用
 需要的检查。模板的兼容说明针对已验证的上游格式，不代表所有未来版本。
+
+已有 CF-Server-Monitor 时，可用 `topo setup --task direct` 选择
+`cf-server-monitor`，填入 Worker 地址，选择要查看的服务器。保存后运行
+`topo --source direct --profile desktop --page servers`，将 `desktop` 换成刚保存的
+配置名称。需要通过采集器查看时，可用 `topo templates cf-server-monitor` 生成拓扑。
+[直连配置](DIRECT.md#configure-cf-server-monitor) · [适配器说明](../internal/adapters/cfservermonitor/README.md)
 
 使用 mihomo 时可从 `topo templates mihomo --output mihomo.json` 开始：工作端
 运行在 mihomo 核心所在的机器上，通过 `http://127.0.0.1:9090` 读取外部控制器，

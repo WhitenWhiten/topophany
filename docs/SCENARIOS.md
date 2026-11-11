@@ -556,6 +556,16 @@ and the [adapter guide](../internal/adapters/komari/README.md).
 | Komari inspect/save/list/remove, snapshot/status/server views, TUI source label and monitor stream work without a collector; inspect creates no files and private metadata never reaches output | `app.TestKomariDirectCommandLifecycle` |
 | Acceptance assertions reject a source error mislabeled as a target failure or fresh contact; RFC3339Nano order preserves variable fractions and single nanoseconds | `scripts.test_accept_komari.FailedCollectionTests`, `scripts.test_accept_komari.SampleInstantTests` |
 
+## CF-Server-Monitor external source
+
+| Scenario | Automated coverage |
+| --- | --- |
+| Worker detail requests stay within the configured path and UUID, with anonymous or Bearer JWT authentication. Invalid requests fail before I/O and a later failed read discards the collection. | `TestCFServerMonitorWorkerEndpointAndAuthentication`, `TestCFServerMonitorRequestPreflight`, `TestCFServerMonitorCollectionDiscardsPartialResults` |
+| CPU, memory and aggregate disk retain the persisted sample time and units. Malformed and absent metrics never become zero, while a reported zero CPU remains valid. | `TestCFServerMonitorResourceMapping`, `TestCFServerMonitorUnavailableAndInvalidMetrics`, `FuzzCFServerMonitorResource` |
+| Production collection, delivery and monitor rendering retain the sample's original deadline across repeated reads and authentication failure. | `TestCFServerMonitorThroughWorkerCollectorAndMonitor` |
+| Direct discovery verifies the JWT even on a public Worker, sanitizes the list and respects discovery limits. | `TestCFServerMonitorAuthenticatedDiscovery`, `TestCFServerMonitorDiscoveryRepresentation` |
+| An anonymous source can be configured through setup and rendered in the collector-free TUI. A private profile keeps its JWT private and polls new samples without extending their upstream deadlines. | `TestCFServerMonitorDirectSetupAndViewer`, `TestCFServerMonitorDirectPollsSavedWorker` |
+
 ## Shared external-source safety (2026-10-22)
 
 Beszel and Komari share safety mechanisms without sharing their protocol

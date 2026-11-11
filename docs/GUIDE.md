@@ -8,7 +8,7 @@ several locations, and how the code is laid out and verified. Start with the
 
 ## Choose a setup task
 
-Run `topo setup` to choose website monitoring, Beszel/Komari resource reads, or
+Run `topo setup` to choose website monitoring, direct resource reads, or
 a multi-location deployment. `--task website|direct|network` skips the first
 question. Setup never starts a background service or executes probes.
 
@@ -23,10 +23,11 @@ Network setup prepares an installation bundle from a reviewed topology.
 `topo templates list` lists task descriptions, evidence boundaries and adapter
 compatibility notes bundled with this binary. `topo templates cloudflare --output
 cloudflare.json` writes a new topology; substitute `homelab`, `host-resources`,
-`beszel`, `komari`, `mihomo`, `minimal`, `applications` or `address-registry` as
-needed. Every generated check is paused. Existing files are refused. Review the
-addresses, observer IDs, assertions and environment-variable credentials before
-enabling checks and running `topo validate`. The output identifies the relevant
+`beszel`, `komari`, `cf-server-monitor`, `mihomo`, `minimal`, `applications`
+or `address-registry` as needed. Every generated check is paused. Existing files
+are refused. Review addresses, observer IDs, assertions and credential
+environment variables before enabling checks and running `topo validate`.
+The output identifies the relevant
 guide. Templates work offline and are validated by the same configuration parser.
 
 The `mihomo` template runs its worker on the machine with the core. It reads

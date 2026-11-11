@@ -26,6 +26,7 @@ var topologyTemplates = []topologyTemplate{
 	{"cloudflare", "Edge, origin, Tunnel and API checks", "docs/CLOUDFLARE.md", "An edge response or active Tunnel does not prove origin application health."},
 	{"beszel", "Beszel resource collection through a collector", "internal/adapters/beszel/README.md", "Resource mapping targets Beszel v0.21.0; configure runtime credentials separately."},
 	{"komari", "Komari resource collection through a collector", "internal/adapters/komari/README.md", "Resource mapping targets Komari 1.6.0; disk is aggregate and does not prove application availability."},
+	{"cf-server-monitor", "Read host resources from a CF-Server-Monitor Worker", "internal/adapters/cfservermonitor/README.md", "CPU, memory and aggregate disk retain the upstream sample time."},
 	{"applications", "Group services by application and environment", "docs/GUIDE.md", "Unmonitored services remain unknown."},
 	{"address-registry", "Shared address definitions", "docs/REFERENCE.md", "Address changes can reset affected measurement contracts."},
 	{"mihomo", "Mihomo core runtime and an application check through it", "internal/adapters/mihomo/README.md", "Reported mode, TUN and selection do not prove that application traffic followed that route; keep the separate application check."},

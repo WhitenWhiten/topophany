@@ -1,10 +1,8 @@
-# Beszel and Komari direct current-state reads
+# Direct resource reads
 
-Direct connects the `topo` process to a Beszel Hub or Komari server. It needs no Topophany collector,
-daemon, metrics service, listening port or database. CPU, memory and the adapter's
-primary disk are resource telemetry; a successful Hub read does not prove machine,
-application or network reachability. The existing client and preview modes remain
-independent. `once` still emits executor observations.
+Direct connects the `topo` process to a Beszel Hub, Komari server or
+CF-Server-Monitor Worker. It runs without a Topophany collector. CPU, memory
+and disk are resource telemetry from the configured upstream.
 
 The supported resource mapping is Beszel v0.21.0 plus the four-integer `mem`
 schema documented in the [adapter guide](../internal/adapters/beszel/README.md).
@@ -14,8 +12,9 @@ The new authentication workflow has synthetic loopback coverage. It has not been
 validated by logging into a user's Hub; arbitrary Beszel/PocketBase versions,
 SSO and complete MFA flows are not promised. Recognized MFA requires a token.
 Komari supports the pinned 1.6.0 resource schema, API keys and anonymous public
-nodes. Its disk is an aggregate, not a root filesystem. A profile can mix both
-adapters; each source retains its own credentials, selected nodes and polling.
+nodes. CF-Server-Monitor supports public reads and pre-issued Worker JWTs.
+Both adapters report aggregate disk usage. A profile can mix supported
+adapters, with separate credentials, selected nodes and polling per source.
 
 ## Configure through stdin
 
@@ -164,6 +163,40 @@ reporting bursts. The shared default remains 60 seconds. Online presence,
 per-filesystem disks and history are unsupported. See the
 [Komari adapter guide](../internal/adapters/komari/README.md) for mapping limits.
 
+## Configure CF-Server-Monitor
+
+Run `topo setup --task direct` and select `cf-server-monitor`. Enter the Worker
+base URL and select the UUIDs of the servers you want to view. For a public
+Worker choose `anonymous`. For a private Worker choose `token` and enter the
+JWT issued by the Worker. Setup reads the token without echo in a terminal or
+from a private file supplied with `--credential-file`.
+
+```sh
+topo --source direct --profile desktop --page servers
+```
+
+The JSON configuration commands use the same `adapter: "cf-server-monitor"`
+and accept `anonymous`, `token`, `env` or `saved` auth. For example, with the
+JWT already in the named environment variable:
+
+```sh
+topo sources inspect --json-stdin <<'JSON'
+{"schema":1,"request_id":"cfsm-inspect","profile":"desktop","source":{"id":"cfsm-home","name":"Home Worker","adapter":"cf-server-monitor","url":"https://cfsm.example.invalid"},"auth":{"mode":"env","name":"TOPO_CFSM_JWT"}}
+JSON
+```
+
+Save with the same source and auth, the selected UUIDs in `selected_objects`,
+and the profile's `base_revision`. Use an empty revision for a new profile.
+JWTs expire. Save an updated token or repeat the explicit `env` save after
+changing the variable. Saved auth is bound to the exact Worker URL and
+credential.
+
+Discovery reads `GET /api/servers`, with an additional `GET /api/config` to
+verify a configured JWT. It returns up to 1,000 IDs and sanitized names within
+a 1 MiB response budget. Each poll reads `GET /api/server?id=<uuid>` for the
+selected servers. CPU, memory and aggregate disk retain the Worker's original
+`last_updated`. [Worker adapter guide](../internal/adapters/cfservermonitor/README.md)
+
 ## Read current resources
 
 ```sh
@@ -205,7 +238,7 @@ that local monitor configuration; run can override it for integration tests.
 ## Stream and freshness
 
 `topo monitor stream --capabilities` advertises `direct.schema=1`, config_api=1,
-adapters=[beszel,komari], retry and hard limits. Capability discovery does no filesystem,
+adapters=[beszel,komari,cf-server-monitor], retry and hard limits. Capability discovery does no filesystem,
 credential or Hub I/O. Do not use the binary version as a feature test.
 
 The [D1 specification and fixtures](contracts/direct-v1/contract.md) define exact
@@ -279,7 +312,7 @@ then use `topo setup` to prepare collector and worker bundles.
 
 Direct-only consent for non-loopback HTTP cannot be copied into topology JSON.
 Configure a verified HTTPS source before exporting such a profile. Anonymous
-Komari sources need no credential variable. Beszel renewable login tokens need
+sources need no credential variable. Beszel renewable login tokens need
 an appropriate runtime credential lifecycle; the collector adapter does not
 inherit the direct profile's login renewal session.
 

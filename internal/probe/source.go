@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/adapters/beszel"
+	"github.com/WhitenWhiten/topophany/internal/adapters/cfservermonitor"
 	"github.com/WhitenWhiten/topophany/internal/adapters/komari"
 	"github.com/WhitenWhiten/topophany/internal/config"
 	"github.com/WhitenWhiten/topophany/internal/model"
@@ -197,8 +198,9 @@ func readAtMost(r stdio.Reader, limit int64) ([]byte, error) {
 // never registered.
 func ProductionSourceAdapters() map[string]source.Adapter {
 	return map[string]source.Adapter{
-		"beszel": beszel.Adapter{},
-		"komari": komari.Adapter{},
+		"beszel":             beszel.Adapter{},
+		cfservermonitor.Name: cfservermonitor.Adapter{},
+		"komari":             komari.Adapter{},
 	}
 }
 

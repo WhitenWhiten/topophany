@@ -34,7 +34,7 @@ func (a *App) startSetup(ctx context.Context, args []string) error {
 		return strings.TrimSpace(scanner.Text()), nil
 	}
 	if *task == "" {
-		fmt.Fprintln(a.Out, "Choose what to do:\n  website — monitor an HTTP(S) application from this machine\n  direct  — read Beszel or Komari resources\n  network — prepare a reviewed multi-location deployment")
+		fmt.Fprintln(a.Out, "Choose what to do:\n  website — monitor an HTTP(S) application from this machine\n  direct  — read external resources without a collector\n  network — prepare a reviewed multi-location deployment")
 		choice, err := ask("Task")
 		if err != nil {
 			return err
@@ -102,7 +102,7 @@ func (a *App) setupDirect(ctx context.Context, root, secretFile string, ask func
 		value *string
 	}{
 		{"Profile name", &r.Profile}, {"Source ID", &r.Source.ID}, {"Source display name", &r.Source.Name},
-		{"Source type (beszel/komari)", &r.Source.Adapter}, {"Source URL", &r.Source.URL},
+		{"Source type (" + strings.Join(direct.AdapterNames(), "/") + ")", &r.Source.Adapter}, {"Source URL", &r.Source.URL},
 	} {
 		v, err := ask(field.label)
 		if err != nil {
@@ -127,7 +127,7 @@ func (a *App) setupDirect(ctx context.Context, root, secretFile string, ask func
 	switch mode {
 	case "password":
 		if r.Source.Adapter != "beszel" {
-			return errors.New("Komari requires token or anonymous authentication")
+			return errors.New("choose token or anonymous authentication for this source")
 		}
 		r.Auth.Identity, err = ask("Beszel account")
 		if err != nil {
@@ -135,8 +135,8 @@ func (a *App) setupDirect(ctx context.Context, root, secretFile string, ask func
 		}
 	case "token":
 	case "anonymous":
-		if r.Source.Adapter != "komari" {
-			return errors.New("anonymous reads require Komari")
+		if !r.Source.AllowsAnonymous() {
+			return errors.New("this source requires token or password authentication")
 		}
 	default:
 		return errors.New("choose token, password or anonymous")

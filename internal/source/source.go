@@ -76,6 +76,12 @@ func secureText(s string, limit int) string {
 // separately from the per-report and upstream-response budgets.
 const MaxResultBytes = 16 << 20
 
+// DiscoveredObject is the identity and display name offered for selection.
+type DiscoveredObject struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // Request asks for one stable upstream object's declared report types. One
 // object may need a resource report, a status report or both; an adapter
 // reads the object once and returns one Reading per requested type.

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/client"
+	"github.com/WhitenWhiten/topophany/internal/direct"
 	"github.com/WhitenWhiten/topophany/internal/local"
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/monitor"
@@ -129,7 +130,7 @@ func writeCapabilities(w io.Writer) error {
 		CardHistory   bool             `json:"card_history"`
 		Direct        any              `json:"direct"`
 		Local         any              `json:"local"`
-	}{true, 1, model.Version, []string{"client", "preview", "direct", "local"}, []string{"text", "bar", "status", "list", "card"}, monitor.Catalog(), true, true, true, true, map[string]any{"schema": 1, "config_api": 1, "adapters": []string{"beszel", "komari"}, "allow_insecure": true, "retry": true, "limits": map[string]int{"sources_per_profile": 64, "objects_per_source": 20, "objects_per_profile": 256, "template_rows": 128}},
+	}{true, 1, model.Version, []string{"client", "preview", "direct", "local"}, []string{"text", "bar", "status", "list", "card"}, monitor.Catalog(), true, true, true, true, map[string]any{"schema": 1, "config_api": 1, "adapters": direct.AdapterNames(), "allow_insecure": true, "retry": true, "limits": map[string]int{"sources_per_profile": 64, "objects_per_source": 20, "objects_per_profile": 256, "template_rows": 128}},
 		map[string]any{"schema": 1, "config_api": 1, "adapters": []string{"mihomo"}, "limits": map[string]int{"checks": local.MaxChecks}}})
 }
 

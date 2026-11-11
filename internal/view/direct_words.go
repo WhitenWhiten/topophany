@@ -30,6 +30,8 @@ func DirectConnection(status SourcesStatus) string {
 		return DirectText("connection")
 	case "komari":
 		return DirectText("connection_komari")
+	case "cf-server-monitor":
+		return DirectText("connection_cf_server_monitor")
 	default:
 		return DirectText("connection_mixed")
 	}

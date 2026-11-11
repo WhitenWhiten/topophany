@@ -83,7 +83,7 @@ small production interface from `internal/source.Adapter`: `Validate` and
 route and credential lookup; the adapter owns versions, pagination, object IDs,
 time basis and field mapping.
 
-Beszel and Komari compose the helpers in `sourceutil` for strict base URLs,
+External resource adapters compose the helpers in `sourceutil` for strict base URLs,
 explicit credential references, header credential bounds, complete object/page
 preflight, JSON representation limits, controlled reads and closed IO errors.
 The same report guard rejects raw or JSON-escaped credential reflection after
@@ -109,6 +109,11 @@ omitted zero CPU values and exact wire byte counters, and supports optional
 Bearer API keys or anonymous public reads. The GET endpoint supplies no
 online status; a status binding is explicitly refused. See
 [komari](komari/README.md) for the pinned schema and compatibility limits.
+
+`cf-server-monitor` reads the latest persisted CPU, memory and aggregate disk
+sample for each configured UUID from the Worker API. It preserves the upstream
+timestamp and supports anonymous reads or an explicit Bearer JWT.
+[CF-Server-Monitor guide](cfservermonitor/README.md)
 
 Register a real adapter only in `probe.ProductionSourceAdapters`, explicitly.
 Synthetic adapters live in `internal/testkit` and must never be added to that

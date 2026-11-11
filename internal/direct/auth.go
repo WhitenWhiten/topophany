@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/WhitenWhiten/topophany/internal/adapters/cfservermonitor"
 	"github.com/WhitenWhiten/topophany/internal/probe"
 	"github.com/WhitenWhiten/topophany/internal/secure"
 )
@@ -279,8 +280,8 @@ type Connection interface {
 }
 
 func (s *Store) Authenticate(ctx context.Context, r Request) (Credential, Connection, error) {
-	if r.Source.Adapter == "komari" {
-		return s.authenticateKomari(r)
+	if r.Source.AllowsAnonymous() {
+		return s.authenticateBearer(r)
 	}
 	if r.Auth.Mode == "anonymous" {
 		return Credential{}, nil, fail("auth_method_unsupported")
@@ -372,8 +373,12 @@ func (s *Store) Token(ctx context.Context, profile string, entry Entry, now time
 	if e != nil {
 		return "", e
 	}
-	if entry.Source.Adapter == "komari" {
-		return komariToken(c, entry.Subject)
+	if entry.Source.AllowsAnonymous() {
+		token, err := bearerToken(entry.Source.Adapter, c, entry.Subject)
+		if err == nil && entry.Source.Adapter == cfservermonitor.Name && cfsmJWTExpired(token, now) {
+			return "", fail("auth_required")
+		}
+		return token, err
 	}
 	if c.Mode == "env" {
 		v, e := secure.SecretEnv(c.Env)

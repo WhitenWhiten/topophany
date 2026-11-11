@@ -1,14 +1,17 @@
 # External source adapters and upgrades
 
 This guide describes the external-source contract and how to add an adapter.
-The production registry ships `beszel`, which reads Beszel Hub resource samples
-and optional reported system status, and `komari`, which reads Komari's recent
-CPU, memory and aggregate disk samples. Start with the
-[Beszel adapter guide](../internal/adapters/beszel/README.md) and
-[`examples/beszel.json`](../examples/beszel.json), or the
-[Komari adapter guide](../internal/adapters/komari/README.md) and
-[`examples/komari.json`](../examples/komari.json). Unknown adapter names are
-rejected before collection; synthetic adapters remain test-only.
+The production registry ships three host resource adapters.
+
+- `beszel` reads Beszel Hub resources and optional reported system status.
+  [Guide](../internal/adapters/beszel/README.md) · [Example](../examples/beszel.json)
+- `komari` reads recent CPU, memory and aggregate disk samples from Komari
+  Monitor. [Guide](../internal/adapters/komari/README.md) · [Example](../examples/komari.json)
+- `cf-server-monitor` reads CPU, memory and aggregate disk from a
+  CF-Server-Monitor Worker. [Guide](../internal/adapters/cfservermonitor/README.md) · [Example](../examples/cf-server-monitor.json)
+
+Unknown adapter names are rejected before collection. Synthetic adapters
+remain test-only.
 
 Read [MULTI-PROBE-IMPLEMENTATION.md](MULTI-PROBE-IMPLEMENTATION.md) for the
 frozen contract and delivery record. The scenario-level behavior is mapped in
@@ -113,9 +116,8 @@ new adapter and map semantic regressions in `docs/SCENARIOS.md`.
 A complete new-style topology is in
 [`examples/multi-probe.template.json`](../examples/multi-probe.template.json).
 It is schema-valid but intentionally names the placeholder `example-api`,
-which is not in the production registry. Use `examples/beszel.json` or
-`examples/komari.json` for implemented adapters. Validate the generic
-template's schema with:
+which is not in the production registry. The production examples above use
+registered adapters. Validate the generic template's schema with:
 
 ```sh
 topo validate --config examples/multi-probe.template.json
@@ -374,14 +376,13 @@ topo monitor stream  # bounded NDJSON requests on stdin
 ```
 
 In collector mode the source read is performed by the worker or collector.
-The explicit `direct` read mode also runs the controlled Beszel adapter inside
-each viewer/monitor process, using bounded memory and private credentials. It
+The explicit `direct` read mode runs the same resource adapters inside each
+viewer/monitor process, using bounded memory and private credentials. It
 needs no collector, does not mix collector data, and has no history database.
 See [Direct setup](DIRECT.md) and the [D1 contract](contracts/direct-v1/contract.md).
 
-The integration suite exercises the production Beszel adapter and test-only
-list/counter/status adapters through the real runner, outbox, HTTP API, store,
-engine, view and monitor stream:
+The integration suite exercises production and test-only adapters through
+the real runner, outbox, HTTP API, store, engine, view and monitor stream:
 
 ```sh
 go test ./internal/integration -count=1

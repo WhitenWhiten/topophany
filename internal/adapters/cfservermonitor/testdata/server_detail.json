@@ -1,0 +1,20 @@
+{
+  "id": "12345678-1234-4234-8234-123456789abc",
+  "name": "Synthetic server",
+  "timestamp": 1793653200000,
+  "last_updated": 1793653320123,
+  "cpu": 12.5,
+  "cpu_cores": 4,
+  "ram_total": 8192,
+  "ram_used": 3072.5,
+  "disk_total": 102400,
+  "disk_used": 20480,
+  "disk": {"read_bps": 4096},
+  "latestReportUpdates": [
+    {
+      "serverId": "12345678-1234-4234-8234-123456789abc",
+      "reportTs": 1793653323000,
+      "samples": [{"ts": 1793653322123, "data": {"cpu": 99}}]
+    }
+  ]
+}

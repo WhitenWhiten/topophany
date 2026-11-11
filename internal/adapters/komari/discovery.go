@@ -12,18 +12,11 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/source"
 )
 
-// Node is the only discovery metadata allowed to leave the adapter. In
-// particular, admin client records can contain agent tokens and private labels.
-type Node struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
 // Discover uses Komari 1.6.0's read-only node listings. The admin listing is
 // protected by RequireRole(RoleAdmin), so even an empty list verifies an API
 // key. Public /api/nodes and /api/me cannot prove API-key authentication.
 // Neither endpoint creates tasks, contacts agents or changes records.
-func Discover(ctx context.Context, io source.IO, s model.Source) ([]Node, error) {
+func Discover(ctx context.Context, io source.IO, s model.Source) ([]source.DiscoveredObject, error) {
 	if (Adapter{}).Validate(s) != nil {
 		return nil, failure("komari_config")
 	}
@@ -70,7 +63,7 @@ func Discover(ctx context.Context, io source.IO, s model.Source) ([]Node, error)
 	if len(records) > 1000 {
 		return nil, failure("komari_discovery_budget")
 	}
-	nodes := make([]Node, 0, len(records))
+	nodes := make([]source.DiscoveredObject, 0, len(records))
 	seen := map[string]bool{}
 	for _, raw := range records {
 		record, err := decodeObject(raw)
@@ -89,7 +82,7 @@ func Discover(ctx context.Context, io source.IO, s model.Source) ([]Node, error)
 		if name == "" || len(name) > 128 || token != "" && strings.Contains(name, token) {
 			name = "Node " + id
 		}
-		nodes = append(nodes, Node{ID: id, Name: name})
+		nodes = append(nodes, source.DiscoveredObject{ID: id, Name: name})
 	}
 	sort.Slice(nodes, func(i, j int) bool { return nodes[i].ID < nodes[j].ID })
 	return nodes, nil

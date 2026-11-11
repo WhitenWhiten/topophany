@@ -56,7 +56,7 @@ Read what the TUI shows
   topo history CHECK                a check's recent samples
   topo history CHECK --step 1h      how a check fared, hour by hour, from its rollups
   topo --json                       one authenticated snapshot as JSON
-  topo --source direct --profile ID  Beszel/Komari resource TUI without a collector
+  topo --source direct --profile ID  external resource TUI without a collector
   topo sources list --json           list direct profiles (independent of client profiles)
   topo sources inspect|save|remove --json-stdin  bounded direct configuration API
   topo local list --json             list this machine's own loopback engine checks

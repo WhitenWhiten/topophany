@@ -141,6 +141,7 @@ def main() -> int:
         run("coverage-summary", ["go", "tool", "cover", "-func=" + cov_path])
         fuzz = [
             ("adapters/beszel", "FuzzBeszelResourceDecode"),
+            ("adapters/cfservermonitor", "FuzzCFServerMonitorResource"),
             ("adapters/komari", "FuzzKomariResourceDecode"),
             ("tui", "FuzzDecoderAndRendering"),
             ("api", "FuzzValidateBatch"),
@@ -176,7 +177,7 @@ def main() -> int:
             run("build-" + goos + "-" + goarch,
                 ["go", "build", "-trimpath", "-o", str(target), "./cmd/topo"],
                 overrides={"GOOS": goos, "GOARCH": goarch, "CGO_ENABLED": "0"}, timeout=300)
-        for example in ("minimal", "homelab", "host-resources", "cloudflare", "beszel", "komari"):
+        for example in ("minimal", "homelab", "host-resources", "cloudflare", "beszel", "komari", "cf-server-monitor"):
             run("example-" + example, [str(binary), "validate", "--config", "examples/" + example + ".json"])
         for panel, source in (("desktop", "collector"), ("worker", "worker")):
             run("monitor-example-" + panel, [str(binary), "monitor", "configure", panel,

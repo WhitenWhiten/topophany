@@ -190,8 +190,8 @@ func TestKomariDirectRejectsBadKeyAndUnsupportedAuth(t *testing.T) {
 	}
 	// Even a key shaped like an expired PocketBase JWT is opaque to Komari.
 	key := jwt(time.Now().Add(-time.Hour), true)
-	cred := Credential{Mode: "token", Token: key, Subject: komariSubject(key)}
-	if got, err := komariToken(cred, cred.Subject); err != nil || got != key {
+	cred := Credential{Mode: "token", Token: key, Subject: bearerSubject("komari", key)}
+	if got, err := bearerToken("komari", cred, cred.Subject); err != nil || got != key {
 		t.Fatal("opaque API key was interpreted as a PocketBase JWT", err)
 	}
 }

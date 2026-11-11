@@ -1,6 +1,7 @@
 {
   "connection": "Beszel direct",
   "connection_komari": "Komari direct",
+  "connection_cf_server_monitor": "CF-Server-Monitor direct",
   "connection_mixed": "Direct resources",
   "loading": "LOADING RESOURCE DATA",
   "ready": "RESOURCE DATA CURRENT",

@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "project": "cfsm-resources",
+  "nodes": [
+    {"id": "collector", "name": "Collector", "kind": "host"},
+    {"id": "server-1", "name": "Monitored server", "kind": "host", "resource_checks": ["server-1-resources"]}
+  ],
+  "endpoints": [],
+  "services": [],
+  "observers": [
+    {"id": "cfsm-reader", "node": "collector", "context": "reads the CF-Server-Monitor Worker from this observer"}
+  ],
+  "paths": [],
+  "sources": [
+    {
+      "id": "cfsm-worker",
+      "name": "CF-Server-Monitor",
+      "adapter": "cf-server-monitor",
+      "observer": "cfsm-reader",
+      "target": "https://cfsm.example.invalid",
+      "interval_seconds": 60,
+      "timeout_seconds": 8,
+      "stale_seconds": 180,
+      "max_response_bytes": 1048576,
+      "max_pages": 1,
+      "max_objects": 1,
+      "max_report_bytes": 65536,
+      "notes": "Replace target with the Worker base URL and external.object with the server UUID. For a private Worker, set credential_env to the name of an environment variable containing its JWT."
+    }
+  ],
+  "checks": [
+    {
+      "id": "server-1-resources",
+      "name": "CF-Server-Monitor resources",
+      "observer": "cfsm-reader",
+      "kind": "external",
+      "external": {
+        "source": "cfsm-worker",
+        "object": "12345678-1234-4234-8234-123456789abc",
+        "report": "resource",
+        "node": "server-1",
+        "max_age_seconds": 180,
+        "primary_disk": "aggregate"
+      }
+    }
+  ]
+}

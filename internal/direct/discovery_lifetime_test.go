@@ -21,7 +21,7 @@ func TestKomariDiscoveryReleasesCanceledTLS(t *testing.T) {
 			accepted <- c
 		}
 	}()
-	h := &komariConnection{source: SourceConfig{ID: "km", Name: "test", Adapter: "komari", URL: "https://" + ln.Addr().String(), Timeout: 30}}
+	h := &bearerConnection{source: SourceConfig{ID: "km", Name: "test", Adapter: "komari", URL: "https://" + ln.Addr().String(), Timeout: 30}}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	done := make(chan error, 1)

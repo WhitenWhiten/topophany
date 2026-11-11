@@ -31,12 +31,12 @@ Old `--profiles` remains exclusively collector client profiles.
 |---|---|---|
 | profile | nonempty config.ID string | required for direct; stable configuration ID |
 | source.id | config.ID, at most 64 bytes | required; clients generate bs- + lowercase UUID hex |
-| source.name / adapter / url | strings | required; adapter is beszel or komari; detect support through capabilities |
+| source.name / adapter / url | strings | required. Detect support for beszel, komari and cf-server-monitor through capabilities |
 | source.ca_file | string | omitted = empty |
 | source.allow_insecure | boolean | omitted = false; true explicitly permits non-loopback HTTP for this source; null or a non-boolean is invalid |
 | source.interval_seconds / timeout_seconds | integers | omitted = 60 / 8; zero is invalid |
 | source.stale_seconds / max_age_seconds | integers | omitted = 180 / 180; zero is invalid |
-| object_id | adapter-specific string | Beszel: 15 lowercase ASCII alphanumeric systems.id; Komari: canonical lowercase client UUID; never a name |
+| object_id | adapter-specific string | Beszel uses a 15-character lowercase ASCII alphanumeric systems.id. Komari and CF-Server-Monitor use canonical lowercase UUIDs |
 | node.id | string | source.id + "." + object_id; object_id retained separately |
 | profile_revision | opaque string | empty on request = latest; nonempty = exact CAS installation fence |
 | dataset_id | opaque string | stable across restarts/renames/token renewals; changes on profile, Hub, subject or selected set changes |
@@ -64,12 +64,14 @@ secret. Unknown fields are ignored; known fields must have the declared type.
 | remove | profile, base_revision, source_id | profile, profile_revision, dataset_id, source_id |
 
 Auth is an exclusive union: password={mode,identity,password}, token={mode,token},
-saved={mode}, env={mode,name}, anonymous={mode}. Password is Beszel-only;
-anonymous is Komari-only. Komari token/env values are raw administrator API keys.
-Password is command-local. Saved requires an
-existing profile/source with the same adapter and exact URL. Env persists the
-reference, never the environment value. Komari keys are opaque, nonrenewable and
-bound by a local fingerprint; changing an env key requires explicit env save.
+saved={mode}, env={mode,name}, anonymous={mode}. Beszel accepts password auth.
+Komari and CF-Server-Monitor accept anonymous auth for public data. Komari
+token/env values are raw administrator API keys. CF-Server-Monitor token/env
+values are pre-issued Worker JWTs. Password is command-local. Saved requires
+an existing profile/source with the same adapter and exact URL. Env persists
+the reference. Komari keys and CF-Server-Monitor JWTs are nonrenewable and
+bound by a local fingerprint. Save with explicit env auth after changing the
+credential value.
 Save reauthenticates, discovers trusted names and upserts only one source.
 Creation uses base_revision=""; modifications require the current revision.
 A removed final source leaves an empty profile. List never contacts a Hub and
@@ -88,7 +90,7 @@ history_unsupported_in_direct_mode. Unknown codes require generic presentation.
 ## Stream and status
 
 Capabilities retain protocol:1 and add sources=[client,preview,direct] and
-`direct:{schema:1,config_api:1,adapters:[beszel,komari],allow_insecure:true,retry:true,limits:{sources_per_profile:64,objects_per_source:20,objects_per_profile:256,template_rows:128}}`.
+`direct:{schema:1,config_api:1,adapters:[beszel,komari,cf-server-monitor],allow_insecure:true,retry:true,limits:{sources_per_profile:64,objects_per_source:20,objects_per_profile:256,template_rows:128}}`.
 Discovery does no I/O to config, credentials or network. Metrics advertise exact
 supported sources. Direct supports sources.status, servers.list, server.card,
 resource.cpu.used_percent, resource.memory.used_percent, resource.disk.used_percent.
@@ -130,7 +132,7 @@ unknown. These describe data acquisition, not network availability.
 
 | Clock | Owner | May advance when |
 |---|---|---|
-| sample / data deadline | Beszel record.created or Komari updated_at / report.MergeBinding | a distinct accepted report; deadline = sample + max_age |
+| sample / data deadline | Beszel record.created, Komari updated_at or CF-Server-Monitor last_updated / report.MergeBinding | a distinct accepted report. Deadline = sample + max_age |
 | receive / contact deadline | Session admission / report.MergeSource | real receipt / successful source read; deadline = contact + stale_seconds |
 | publication | monitor.Build | projecting at now; never extends source evidence |
 | handoff write | Bar | writing its snapshot; never substitutes any evidence clock |
@@ -158,7 +160,8 @@ row/resource deadline, without the old 30m heartbeat + 15m grace extension.
 | history | unsupported in direct; no metrics journal/database/listening socket/daemon |
 
 Generated config uses a stable local executor observer without a remote node,
-resource bindings only, primary_disk=root for Beszel or aggregate for Komari,
+resource bindings only, primary_disk=root for Beszel or aggregate for Komari
+and CF-Server-Monitor,
 no active probes or default alarms.
 Non-loopback HTTP requires source.allow_insecure=true on inspect/save. This
 per-source consent is persisted and returned by inspect/list, and covers
