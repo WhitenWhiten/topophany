@@ -281,15 +281,21 @@ func TestGoldenNormalizationPreservesDeadlines(t *testing.T) {
 }
 
 func TestClientReplacementAcceptsCurrentAndUnavailableSources(t *testing.T) {
+	// Replacement acceptance is independent of evidence aging and preparation
+	// budgets. Keep one clock so a busy race runner cannot expire the fixture.
+	now := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
+	clock := func() time.Time { return now }
 	for _, available := range []bool{true, false} {
 		t.Run(fmt.Sprint(available), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
 			c := testkit.Config()
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if !available {
 					http.Error(w, "unavailable", http.StatusServiceUnavailable)
 					return
 				}
-				json.NewEncoder(w).Encode(engine.Build(c, "fixture", "", nil, nil, time.Now().UTC()))
+				json.NewEncoder(w).Encode(engine.Build(c, "fixture", "", nil, nil, now))
 			}))
 			defer server.Close()
 			path := filepath.Join(t.TempDir(), "credentials.json")
@@ -305,8 +311,11 @@ func TestClientReplacementAcceptsCurrentAndUnavailableSources(t *testing.T) {
 			lines <- line(request())
 			lines <- line(r)
 			close(lines)
+			open := func(ctx context.Context, r Request) (Source, *Error) {
+				return openSource(ctx, r, clock)
+			}
 			var first monitor.Panel
-			err := Run(context.Background(), lines, OpenSource, func(p monitor.Panel) error {
+			err := runClock(ctx, lines, open, func(p monitor.Panel) error {
 				if p.Lifecycle == "error" {
 					t.Error(p.Error)
 				}
@@ -314,7 +323,7 @@ func TestClientReplacementAcceptsCurrentAndUnavailableSources(t *testing.T) {
 					first = p
 				}
 				return nil
-			})
+			}, clock, 0)
 			if err != nil || first.Instance == "" || first.Project != c.Project || (first.Rows[0].Value != nil) != available {
 				t.Fatal(err, first)
 			}

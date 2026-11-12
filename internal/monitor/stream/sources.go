@@ -116,6 +116,7 @@ func openSource(ctx context.Context, r Request, now func() time.Time) (Source, *
 	if err != nil {
 		return Source{}, failure("credentials_unavailable", "credential profile unavailable")
 	}
+	cl.Now = now
 	sourceErrors := make(chan *Error, 1)
 	reading := monitor.CollectorRead{State: "waiting"}
 	initialReading := reading
