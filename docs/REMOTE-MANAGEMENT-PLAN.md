@@ -1,8 +1,9 @@
 # Dynamic configuration and managed software updates
 
-Status: proposed implementation plan; no remote management capability is shipped
-by this document. Baseline: `main` at `a49a0e8`, following Topophany 1.6.0.
-Prepared on November 12, 2026.
+Status: implemented initial control plane, configuration delivery and Linux
+update executor in this source tree; production publisher enrollment and release
+acceptance remain explicit gates. Design baseline: `main` at `a49a0e8`, following
+Topophany 1.6.0. Prepared November 12, 2026; implementation record November 13, 2026.
 
 Topophany will let an operator publish reviewed configuration and deploy a
 specific official release to explicitly enrolled installations. Workers must
@@ -10,12 +11,75 @@ default to rejecting both remote configuration and software update commands.
 These are independent, local opt-ins. A collector, an upgrade, an enrollment
 token, or a downloaded topology must never enable either permission implicitly.
 
-This plan specifies the authorization boundary, proposed configuration and
-protocol, failure behavior, implementation sequence, and release acceptance
-criteria. Names of new commands, fields, endpoints, and packages below are
-proposals, not commands or configuration accepted by the current binary.
-Existing commands are identified explicitly. “Must” states an implementation
-requirement; a phase is complete only when its acceptance evidence exists.
+This plan specifies the authorization boundary, original proposed configuration
+and protocol, failure behavior, implementation sequence and release acceptance
+criteria. [MANAGEMENT.md](MANAGEMENT.md) is the authoritative guide to the actual
+CLI, schemas, supported platforms and enrollment procedure. Illustrative names
+in the original design sections below are not all accepted verbatim. “Must”
+states an implementation requirement; code presence is not evidence that a
+public-release acceptance gate has been completed.
+
+## Implementation record
+
+The implementation adds `internal/management` and `internal/update`, wires their
+shared apply operations into worker/collector loops, and adds a separate
+management CLI/listener plus an explicitly installed Linux service supervisor.
+The existing observation API, local-only startup defaults and zero external Go
+runtime dependencies are retained. No real installation was enrolled and no
+production keys, GitHub release settings or published releases were modified.
+
+| Area | Implemented behavior and evidence |
+| --- | --- |
+| Local gates and authority | Independent default-off config/update/status grants; explicit local enrollment; exact schemas; owner/path checks; scoped credentials; separate Ed25519 controller/publisher trust. `management_test.go`, `app/management_test.go` |
+| Durable commands | Domain-separated exact-byte signatures, session/identity/expiry/sequence/generation binding, prepared receipts, private cache, audit and replay floors. Post-commit audit failure retains the visible new pointer and stops further mutations. `state.go`, `audit_test.go` |
+| Dynamic configuration | Observer projection, exact reviewed contracts and execution bindings, required checks/budgets, address checks at dial time, serialized apply, committed-state recovery and explicit local revert. `controller_test.go`, `network_test.go`, probe network-policy tests |
+| Contract transitions | Complete inventory/cohort, all-participant prepare, bounded scheduler pause and outbox drain, quarantine refusal, collectors before workers, lease expiry. `cohort_test.go` |
+| Release supply chain | Exact stable official GitHub resolution, immutable assets, signed manifest/catalog, threshold root transitions, constrained downloads and extraction, offline signing tools, provenance-gated draft promotion. `update_test.go`, `publisher_test.go`, workflow tests |
+| Linux replacement | Independent privileged helper, fixed local registration, peer credentials, unprivileged candidate recovery rehearsal, runtime/configuration/digest checks, binary-only recovery, persistent floors. `transaction_test.go`, `helper_linux_test.go` |
+| Fleet updates | Explicit complete inventory, collector/worker compatibility checks, one active update, controller-measured canary observation and failure pause. Private inventory/receipts; operator-driven progression |
+
+Deliberate first-delivery choices:
+
+- Configuration grants use exact locally reviewed contracts **and** execution
+  bindings, rather than a general remote policy language. Additional variants
+  must be reviewed locally. Proxy-side DNS is refused where destination policy
+  cannot be enforced. A source credential environment reference is authorization
+  even when it does not affect the public measurement contract.
+- Enrollment is a local provisioning command plus a separately delivered agent
+  credential, not a public one-time-token service. Acceptance still requires a
+  separate local enable action. There is no remote authority-root replacement.
+- The management schema separates `config`, `updates` and status, and uses an
+  adjacent persistent policy lock. Acceptance sessions rotate through the CLI.
+  Filesystem permission enforcement enables configuration on Linux/macOS only;
+  Windows management is refused pending native ACL work.
+- Update activation is serialized, with manual canary/batch progression and a
+  configurable observation interval. Every receiving collector must already run
+  the worker's target version. A collector manifest explicitly lists compatible
+  existing workers. This conservative compatibility rule is stricter than an
+  inferred cross-version schema range.
+- The recovery-data copy is a disposable rehearsal; automatic rollback restores
+  an authenticated compatible executable only, never an older monitoring-data
+  snapshot. Normal administrative backups remain necessary.
+- Runtime supply-chain authority is the project's Ed25519 signature/catalog.
+  GitHub provenance is verified by the maintainer promotion workflow, not by a
+  custom partial Sigstore implementation in every node. Neither node nor
+  controller falls back to checksum-only trust.
+
+Native evidence: a disposable Ubuntu 24.04 arm64 environment with systemd 255
+executed actual unprivileged collector service stop/start, candidate recovery
+preflight, `/proc` executable health checks, successful update and failed-health
+binary recovery. Release objects/keys were synthetic and network-independent.
+Ordinary tests also exercise restart recovery and filesystem-fault injection.
+These tests do not claim physical power-loss guarantees, official GitHub
+publication acceptance, or native macOS/Windows replacement support.
+
+Remaining public-release gates are owner-controlled publisher custody, reviewed
+public-root installation, immutable-release/environment protection, catalog
+refresh operations, a complete eligible official release and its tested prior
+version compatibility pair. The historical unsigned 1.6.0 release is not an
+eligible remote-update baseline. Phases for native macOS/Windows replacement,
+automatic management HA and interactive-client enrollment remain outside the
+initial executor. Do not advertise those as implemented.
 
 Reading paths:
 
@@ -93,9 +157,10 @@ The current Linux service uses `NoNewPrivileges=true`, `ProtectSystem=strict`,
 and a writable data directory. Keep that separation; do not make the main
 monitoring process root or grant it general write access to its installation.
 
-The current [security model](SECURITY.md) trusts reviewed local topology and
-provides no remote configuration or restart authority. The implementation must
-document the new opt-in boundary without changing the default boundary.
+At the design baseline, the security model trusted reviewed local topology and
+provided no remote configuration or restart authority. The updated
+[security model](SECURITY.md) documents the opt-in boundary while retaining the
+default local-only behavior.
 
 ## 3. Components and ownership
 
@@ -1063,7 +1128,8 @@ Insufficient information means pending or rejected, never “probably compatible
 
 Proposed operator commands are a separate management command group, for example
 `topo management config plan|publish`, `update plan|publish`,
-`deployment status|cancel`, and `nodes`. All are future interfaces. Preserve
+`deployment status|cancel`, and `nodes`. These were proposed names; use
+[MANAGEMENT.md](MANAGEMENT.md) for the implemented interfaces. Preserve
 existing `topo rollout` viewer-only semantics; richer private deployment reporting
 must require management authorization rather than quietly elevating that command.
 
@@ -1163,8 +1229,9 @@ They do not make a malicious trusted publisher or local root harmless.
 
 ## 17. Implementation sequence and code ownership
 
-Every phase is pending implementation. This document does not authorize changing
-release settings or enrolling any real installation as part of documentation work.
+The implementation record above distinguishes completed code/tests from native
+and public-release acceptance. This plan does not authorize publishing a release,
+changing GitHub protection settings or enrolling any real installation.
 
 | Phase | Deliverables | Exit gate |
 | --- | --- | --- |
@@ -1280,8 +1347,9 @@ remain disabled or unimplemented.
 Existing behavior is defined by [security boundaries](SECURITY.md),
 [operations](OPERATIONS.md), [configuration and API reference](REFERENCE.md),
 [implementation dependencies](DEPENDENCIES.md), and the source files linked above.
-The proposed behavior in this plan does not replace those current contracts until
-implementation and acceptance are complete.
+Use [MANAGEMENT.md](MANAGEMENT.md) for the implemented interfaces and explicit
+remaining acceptance limits; historical design examples are not a schema
+substitute.
 
 Official external references used for the design:
 

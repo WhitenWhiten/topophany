@@ -49,23 +49,24 @@ type itemMeta struct {
 }
 
 type Queue struct {
-	mu             sync.Mutex
-	dir            string
-	project        string
-	max            int64
-	maxRecords     int
-	used           int64
-	quarantineUsed int64
-	items          map[string]itemMeta
-	pending        map[string]*pendingIndex
-	itemSizes      map[string]int64
-	recipientBytes map[string]int64
-	unlock         func() error
-	closed         bool
-	ackFile        *os.File
-	ackBytes       int64
-	acked          map[string]bool
-	ackError       error
+	quarantineEvents uint64
+	mu               sync.Mutex
+	dir              string
+	project          string
+	max              int64
+	maxRecords       int
+	used             int64
+	quarantineUsed   int64
+	items            map[string]itemMeta
+	pending          map[string]*pendingIndex
+	itemSizes        map[string]int64
+	recipientBytes   map[string]int64
+	unlock           func() error
+	closed           bool
+	ackFile          *os.File
+	ackBytes         int64
+	acked            map[string]bool
+	ackError         error
 }
 
 func itemHash(v Item) string { v.SHA256 = ""; b, _ := json.Marshal(v); return secure.Hash(string(b)) }
@@ -511,4 +512,11 @@ func Recipient(url string) string { return secure.Hash(url)[:16] }
 func (q *Queue) String() string {
 	n, b := q.Stats()
 	return fmt.Sprintf("outbox: %d pending records, %d bytes including quarantine", n, b)
+}
+
+// ManagementDrainStats distinguishes acknowledgments from new quarantine during a pause.
+func (q *Queue) ManagementDrainStats() (int, uint64) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return len(q.items), q.quarantineEvents
 }

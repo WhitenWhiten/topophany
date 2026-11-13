@@ -147,7 +147,7 @@ func (d Dialer) DialContext(ctx context.Context, network, address string) (net.C
 		conn, e = sshDial(ctx, d.Proxies[0], target, d.BindIP)
 		start = 1
 	} else {
-		conn, e = nd.DialContext(ctx, network, first)
+		conn, e = dialContext(ctx, &nd, network, first)
 		if e != nil {
 			return nil, fail("connect", e)
 		}

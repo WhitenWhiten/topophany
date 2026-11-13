@@ -1,0 +1,32 @@
+# Install explicitly after reviewing docs/MANAGEMENT.md. This unit is never
+# installed/enabled by generated monitoring bundles. %i names one installation.
+[Unit]
+Description=Topophany update supervisor for %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/opt/topophany-updater/topo management helper --registration /etc/topophany/management/%i/helper.json
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=15min
+UMask=0077
+RuntimeDirectory=topophany-updater/%i
+RuntimeDirectoryMode=0755
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# The data parent also hosts a temporary, unprivileged recovery rehearsal.
+# Pre-create these root-controlled parents and the registered data directory.
+ReadWritePaths=/opt/topophany/%i /var/lib/topophany /var/lib/topophany-updater/%i /run/topophany-updater/%i
+
+[Install]
+WantedBy=multi-user.target

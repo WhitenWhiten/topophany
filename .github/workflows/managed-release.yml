@@ -1,0 +1,127 @@
+name: Publish managed release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact stable draft tag after uploading topophany-update.json
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.repository == 'WhitenWhiten/topophany' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      attestations: read
+    outputs:
+      artifact-id: ${{ steps.receipt.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Verify signed draft and exact build provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          # This public root is installed through a separately reviewed change;
+          # no production signing key is stored or generated in this workflow.
+          test -f .github/topophany-publisher.json
+          work=$(mktemp -d "$RUNNER_TEMP/managed-release.XXXXXXXX")
+          gh api "repos/$GH_REPO" > "$work/repository.json"
+          python3 - .github/topophany-publisher.json "$work/repository.json" <<'PY'
+          import json, sys
+          root, repo = [json.load(open(path)) for path in sys.argv[1:]]
+          assert root['repository'] == repo['full_name'] == 'WhitenWhiten/topophany'
+          assert root['repository_id'] == repo['id']
+          assert root['owner_id'] == repo['owner']['id']
+          PY
+          gh api "repos/$GH_REPO/releases/tags/$VERSION" > "$work/release.json"
+          object=$(gh api "repos/$GH_REPO/git/ref/tags/$VERSION" --jq '.object | [.type, .sha] | @tsv')
+          for depth in {1..16}; do
+            read -r kind sha <<< "$object"
+            [ "$kind" != tag ] && break
+            object=$(gh api "repos/$GH_REPO/git/tags/$sha" --jq '.object | [.type, .sha] | @tsv')
+          done
+          read -r kind sha <<< "$object"
+          [[ "$kind" == commit && "$sha" =~ ^[0-9a-f]{40,64}$ ]]
+          git merge-base --is-ancestor "$sha" "$GITHUB_SHA"
+          mkdir "$work/assets"
+          gh release download "$VERSION" --dir "$work/assets" --pattern 'topophany_*.tar.gz' --pattern 'topophany_*.zip' --pattern 'topophany-update.json'
+          for archive in "$work"/assets/topophany_*.tar.gz "$work"/assets/topophany_*.zip; do
+            gh attestation verify "$archive" --repo "$GH_REPO" --signer-workflow "$GH_REPO/.github/workflows/release.yml" --source-ref "refs/tags/$VERSION" --source-digest "$sha" --deny-self-hosted-runners
+          done
+          # Build the verifier from protected main, never execute downloaded code.
+          go build -trimpath -o "$work/verifier" ./cmd/topo
+          "$work/verifier" management release verify-local --trust-file "$GITHUB_WORKSPACE/.github/topophany-publisher.json" --release-json "$work/release.json" --artifacts-dir "$work/assets" --commit "$sha" --output "$work/receipt.json"
+          cp "$work/receipt.json" "$RUNNER_TEMP/managed-release-receipt.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: receipt
+        with:
+          name: managed-release-verification
+          path: ${{ runner.temp }}/managed-release-receipt.json
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.verify.outputs.artifact-id }}
+          path: receipt
+          merge-multiple: true
+      - name: Recheck inert receipt and publish draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          gh api "repos/$GH_REPO/releases/tags/$VERSION" > current.json
+          python3 - "$VERSION" <<'PY'
+          import json, sys
+          receipt = json.load(open('receipt/managed-release-receipt.json'))
+          current = json.load(open('current.json'))
+          assert receipt['schema'] == 1
+          assert current['draft'] and not current['prerelease']
+          assert current['tag_name'] == receipt['version'] == sys.argv[1]
+          assert current['id'] == receipt['release_id']
+          fields = ('id', 'name', 'size', 'digest', 'state')
+          def assets(rows):
+              return sorted(tuple(row[key] for key in fields) for row in rows)
+          assert assets(current['assets']) == assets(receipt['assets'])
+          PY
+          object=$(gh api "repos/$GH_REPO/git/ref/tags/$VERSION" --jq '.object | [.type, .sha] | @tsv')
+          for depth in {1..16}; do
+            read -r kind sha <<< "$object"
+            [ "$kind" != tag ] && break
+            object=$(gh api "repos/$GH_REPO/git/tags/$sha" --jq '.object | [.type, .sha] | @tsv')
+          done
+          read -r kind sha <<< "$object"
+          expected=$(python3 -c 'import json; print(json.load(open("receipt/managed-release-receipt.json"))["commit"])')
+          [[ "$kind" == commit && "$sha" == "$expected" ]]
+          gh release edit "$VERSION" --draft=false
+          # Repository immutable releases must be enabled by its administrator.
+          # Nodes independently refuse any release that remains mutable.
+          gh api "repos/$GH_REPO/releases/tags/$VERSION" --jq '.immutable' > immutable.txt
+          test "$(cat immutable.txt)" = true

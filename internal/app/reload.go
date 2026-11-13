@@ -9,8 +9,10 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/config"
+	"github.com/WhitenWhiten/topophany/internal/management"
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/probe"
 	"github.com/WhitenWhiten/topophany/internal/runner"
@@ -123,12 +125,34 @@ func changes(old, next model.Config) string {
 // prepareScheduler wires and validates the complete execution plan before a
 // caller publishes the new topology or stops its old scheduler. Both native
 // observations and source fan-outs use the same durability sink.
-func prepareScheduler(c model.Config, observer string, workers int, sink runner.BatchSink) (*runner.Scheduler, error) {
-	s, err := runner.New(c, observer, workers, probe.NewRunner(c, observer).Run, func(v model.Observation) error { return sink([]model.Observation{v}) })
+func prepareScheduler(c model.Config, observer string, workers int, sink runner.BatchSink, agents ...*management.Agent) (*runner.Scheduler, error) {
+	run := probe.NewRunner(c, observer).Run
+	guarded := func(ctx context.Context, c model.Config, x model.Check) model.Observation {
+		for _, agent := range agents {
+			if e := agent.Guard(c, x); e != nil {
+				evidence := "measured"
+				if x.Kind == "host" || x.Kind == "mihomo" || x.Kind == "cloudflare" || x.Kind == "cloudflared" || x.Kind == "tailscale" || x.Kind == "wireguard" {
+					evidence = "reported"
+				}
+				return model.Observation{Check: x.ID, SampledAt: time.Now().UTC(), Outcome: "error", Evidence: evidence, Code: "management_policy_denied", Stage: "setup", Detail: "local management policy refused execution"}
+			}
+		}
+		for _, agent := range agents {
+			ctx = managedNetwork(ctx, agent)
+		}
+		return run(ctx, c, x)
+	}
+	s, err := runner.New(c, observer, workers, guarded, func(v model.Observation) error { return sink([]model.Observation{v}) })
 	if err != nil {
 		return nil, err
 	}
-	s.WithSources(probe.NewSourceRuntime(probe.ProductionSourceAdapters()), sink, 4)
+	var rt runner.SourceRuntime = probe.NewSourceRuntime(probe.ProductionSourceAdapters())
+	for _, agent := range agents {
+		if agent != nil {
+			rt = managedSources{rt, agent}
+		}
+	}
+	s.WithSources(rt, sink, 4)
 	if err = s.ValidateExecution(); err != nil {
 		return nil, err
 	}

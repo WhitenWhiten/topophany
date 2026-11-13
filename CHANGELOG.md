@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A separate, opt-in management control plane delivers signed, reviewed
+  configuration to enrolled workers/collectors. Local configuration acceptance
+  and update acceptance both default off and are independent; existing viewer
+  and observation-worker credentials gain no management powers.
+- Configuration preparation/activation preserves observer contracts and local
+  secret/destination grants. Contract changes coordinate a bounded pause and
+  outbox drain, then activate receiving collectors before workers.
+- A separately installed Linux/systemd update supervisor verifies exact stable,
+  immutable official GitHub releases, publisher signatures, fresh revocation
+  metadata and compatible recovery pairs. It performs unprivileged data-recovery
+  rehearsal, health checks and binary-only rollback without restoring stale data.
+- Offline publisher tools and a provenance-gated draft-promotion workflow.
+  Production trust roots, signing custody, immutable-release settings and a
+  suitable signed initial release require explicit maintainer setup. macOS and
+  Windows binary replacement are not supported by this executor.
+
+See [the management guide](docs/MANAGEMENT.md) for actual schemas, local opt-ins,
+platform limits and acceptance evidence. Observation wire formats and default
+local monitoring behavior remain unchanged.
+
 ## [1.6.0] - 2026-11-12
 
 This release adds a CF-Server-Monitor resource source and reports network

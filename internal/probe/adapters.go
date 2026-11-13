@@ -136,7 +136,7 @@ func loopbackDial(ctx context.Context, network, address string) (net.Conn, error
 	if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
 		return nil, errors.New("cloudflared listener is not loopback")
 	}
-	return (&net.Dialer{}).DialContext(ctx, network, address)
+	return dialContext(ctx, &net.Dialer{}, network, address)
 }
 
 func (r Runner) tailscale(ctx context.Context, x model.Check, o *model.Observation) error {

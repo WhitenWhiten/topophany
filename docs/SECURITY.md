@@ -115,12 +115,56 @@ either secret. Loopback binding and browser-origin headers alone do not
 authenticate a local OS user. Restart the bridge to obtain another launch link;
 keep the terminal link private like other viewer credentials.
 
-The API provides no endpoints for modifying topology, altering proxy routing policies, reading arbitrary files, running remote commands, or restarting services. Workers load reviewed checks from local files and do not poll or receive arbitrary tasks to execute from the collector. Because probing arbitrary targets inherently grants access to networks reachable by the executor, the audited configuration file itself forms the authorization boundary; never load untrusted third-party topology files automatically.
+The observation API provides no topology-write, arbitrary-file, remote-command
+or service-restart endpoints. Viewer and observation-worker credentials never
+authorize management. By default, workers execute only reviewed local files
+and make no management requests. Probing grants access to networks reachable
+by the executor; never load untrusted third-party topology automatically.
 
-The [remote management plan](REMOTE-MANAGEMENT-PLAN.md) proposes separate,
-locally enabled configuration and software update capabilities, both disabled by
-default. It is an implementation proposal, not a capability of the current
-release; the boundaries described here continue to apply.
+The separate [management subsystem](MANAGEMENT.md) adds independently enabled
+configuration delivery and managed updates. Both default off. A local policy
+binds one installation to one HTTPS controller and command trust root; scoped
+management credentials cannot enable acceptance or edit local authority. The
+listener refuses browser origins, uses a separate auth store and budgets, and
+accepts only closed, signed, expiring commands with durable sequence/generation
+and acceptance-session checks. Observation delivery failover does not change
+management authority.
+
+Configuration grants bind reviewed measurement contracts, secret references,
+execution paths and actual destination IP networks. Remote configuration cannot
+change those grants, inject secret values, choose new local credential references
+or authorize arbitrary script execution. Direct DNS answers are checked at dial
+time; proxy-side DNS that cannot enforce the local address scope is refused.
+Denials are monitor errors, not target outages. A valid tightened local grant
+applies while disconnected. Invalid/missing policy blocks new actions while
+recovering a previously committed managed configuration and its saved grants;
+it does not silently load an older local file.
+
+Linux binary replacement requires a separately installed root supervisor, a
+fixed local service/executable registration, verified Unix-socket peer identity,
+and independent publisher verification. Only exact stable, published, immutable
+GitHub releases from the pinned repository are eligible. Project signatures bind
+asset and binary digests, commit and compatibility; a fresh signed catalog
+enforces revocations/security floors. A matching GitHub checksum alone does not
+authorize code. Candidate preflight runs under the unprivileged service UID.
+Automatic recovery restores only a permitted previous executable and preserves
+acknowledged monitoring data; it outlives the monitoring process and controller.
+
+Use a dedicated executable per installation. Package/container deployment and
+macOS/Windows updater authority are not supported. Windows management enrollment
+is refused pending native ACL acceptance. Initial publisher root installation,
+root renewal, GitHub immutable-release settings and key custody are explicit
+administrator/maintainer operations, not automatic trust acquisition. Native
+Linux acceptance uses synthetic release authority, not an official publication.
+See the [implementation record](REMOTE-MANAGEMENT-PLAN.md#implementation-record)
+for remaining acceptance gates.
+
+Receipts are reports from trusted executors, not hardware attestation. A stolen
+agent credential can forge that installation's status and read its assigned
+configuration; it cannot publish a command or authenticate a new executable.
+Compromise of local root or the trusted software publisher remains outside these
+boundaries. Atomic rename/fsync relies on the local filesystem; disk exhaustion
+can require manual recovery, and new mutations stop on persistence errors.
 
 The proxy adapter reads only explicitly allowlisted endpoints (such as safe configuration and status queries), forbidding arbitrary GET endpoints from being treated as side-effect-free authorizations. Tunnel tools (`tailscale` and `wg`) and `ssh` for SSH hops are looked up on the process `PATH` and invoked directly, never through a shell, with fixed argument structures. OpenSSH is used solely for `-W` stream forwarding with strict host-key checking and never opens an interactive shell; unknown host keys are rejected and agent forwarding is disabled. Binary installation directories and system PATH must be trusted. Because tunnel interfaces like WireGuard often require elevated privileges, probe in-tunnel services where possible rather than running the entire monitoring process persistently as root.
 

@@ -24,6 +24,17 @@ introduce silent direct fallback. Adding an API GET endpoint still requires a
 side-effect review. Do not add remote execution permissions to viewer/worker
 roles. Keep the original observation timestamp during replay.
 
+The optional management control plane lives in `internal/management`; executable
+verification and the Linux service supervisor live in `internal/update`.
+Keep independent local acceptance flags default off, management credentials
+separate, and publisher trust independent from controller trust. Remote requests
+must never supply helper paths, service definitions, shell commands or local
+policy changes. Managed network denials are monitor errors. Register named
+regressions for commit/audit boundaries, replay/session handling and provenance
+failures. `docs/MANAGEMENT.md` is the operator/schema reference; the design plan
+retains acceptance gates. Privileged lifecycle tests require an explicitly
+disposable VM and never run against the developer's host services by default.
+
 No third-party runtime dependencies are currently required. A future storage
 or TUI library change must retain the wire contract, migration/recovery tests,
 cross-builds and resource-budget behavior. JSON topology is the sole writable

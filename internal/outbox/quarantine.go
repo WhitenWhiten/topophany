@@ -127,6 +127,7 @@ func (q *Queue) quarantineItem(v Item, recipient, reason string) error {
 		return e
 	}
 	q.used = q.used - old + int64(len(b))
+	q.quarantineEvents++
 	q.quarantineUsed += int64(len(b)) - old
 	return nil
 }

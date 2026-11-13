@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,10 +13,12 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/config"
 	"github.com/WhitenWhiten/topophany/internal/ioaccount"
 	"github.com/WhitenWhiten/topophany/internal/logging"
+	"github.com/WhitenWhiten/topophany/internal/management"
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/monitor"
 	"github.com/WhitenWhiten/topophany/internal/outbox"
 	"github.com/WhitenWhiten/topophany/internal/runner"
+	"github.com/WhitenWhiten/topophany/internal/update"
 )
 
 func (a *App) worker(parent context.Context, args []string) (retErr error) {
@@ -23,6 +26,7 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 	panelFlags := addMonitorFlags(f)
 	logs := addLogFlags(f)
 	memory := addMemoryFlags(f)
+	managementPath := f.String("management-policy", "", "local default-off management policy")
 	path := f.String("config", "topology.json", "reviewed LOCAL topology; never downloaded as executable work")
 	observer := f.String("observer", "", "this executor's observer identity")
 	credPath := f.String("credentials", "worker-credentials.json", "0600 worker credential file")
@@ -52,6 +56,20 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 	if e != nil {
 		return e
 	}
+	managementDir, e := filepath.Abs(*dir)
+	if e != nil {
+		return e
+	}
+	agent, c, e := management.NewAgent(*managementPath, managementDir, c, "worker", *observer, *workers)
+	if e != nil {
+		return e
+	}
+	defer agent.Close()
+	var managedChanges <-chan management.ApplyRequest
+	if agent != nil {
+		agent.Update = update.HelperCall
+		managedChanges = agent.Changes
+	}
 	panel, panelPath, e := panelFlags.load("worker", c.Project, *observer)
 	if e != nil {
 		return e
@@ -75,7 +93,7 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 	// Authenticate and collapse aliases before allocating independent recipients.
 	resolved := p
 	var notes []string
-	needsIdentity := len(p.Servers) > 1
+	needsIdentity := len(p.Servers) > 1 || agent != nil
 	for _, ep := range p.Servers {
 		needsIdentity = needsIdentity || len(ep.AlternateURLs) > 0 || ep.CollectorID != ""
 	}
@@ -100,6 +118,18 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 		return e
 	}
 	defer q.Close()
+	if agent != nil {
+		agent.Pending = q.ManagementDrainStats
+		agent.Collectors = func() []string {
+			ids := []string{}
+			for _, ep := range resolved.Servers {
+				if ep.CollectorID != "" {
+					ids = append(ids, ep.CollectorID)
+				}
+			}
+			return ids
+		}
+	}
 	if e = d.ConsolidateAliases(q); e != nil {
 		return e
 	}
@@ -130,7 +160,7 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 			}
 			return err
 		}
-		return prepareScheduler(c, *observer, *workers, batch)
+		return prepareScheduler(c, *observer, *workers, batch, agent)
 	}
 	s, e := local(c)
 	if e != nil {
@@ -139,6 +169,7 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 	d.SetHeartbeatInterval(idleHeartbeatInterval(c, *observer, *heartbeatInterval))
 	failed := make(chan error, 1)
 	running := background(ctx, &wg, s, failed)
+	managedPaused := false
 	contractsDigest := config.ObserverContracts(c, *observer)
 	runtimeState := newRuntimePublisher(*dir, "worker", *observer, c, func(message string) { fmt.Fprintln(a.Err, message) })
 	defer runtimeState.Close()
@@ -146,10 +177,9 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 	defer stopHup()
 	// reload reads the topology again; samples already queued keep the
 	// contracts they were taken under, and collectors judge them by those.
-	reload := func() error {
-		next, e := reloaded(*path, c, *observer)
-		if e != nil {
-			return e
+	apply := func(next model.Config) error {
+		if next.Project != c.Project || !declares(next, *observer) {
+			return fmt.Errorf("managed configuration identity mismatch")
 		}
 		s, e := local(next)
 		if e != nil {
@@ -164,9 +194,29 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 		d.SetRevision(config.Revision(next))
 		contractsDigest = config.ObserverContracts(next, *observer)
 		fmt.Fprintf(a.Err, "reloaded topology revision %s → %s; %s\n", config.Revision(c)[:12], config.Revision(next)[:12], changes(c, next))
+		managedPaused = false
 		c = next
 		runtimeState.Set(c)
 		return nil
+	}
+	reload := func() error {
+		if agent.Managed() || managedPaused || agent.Paused() || agent.Updating() {
+			return fmt.Errorf("managed_configuration_active: use a management deployment")
+		}
+		next, e := reloaded(*path, c, *observer)
+		if e != nil {
+			return e
+		}
+		if e = apply(next); e != nil {
+			return e
+		}
+		if agent != nil {
+			return agent.LocalReload(next)
+		}
+		return nil
+	}
+	if agent != nil {
+		wg.Go(func() { agent.Run(ctx, func(code string) { fmt.Fprintln(a.Err, "management:", code) }) })
 	}
 	fmt.Fprintf(a.Err, "Topophany worker observer=%s project=%s revision=%s; %d collectors\n", *observer, c.Project, config.Revision(c)[:12], len(resolved.Servers))
 	a.logMemory()
@@ -203,6 +253,27 @@ func (a *App) worker(parent context.Context, args []string) (retErr error) {
 			return nil
 		case e := <-failed:
 			return e
+		case request := <-managedChanges:
+			err := request.Context.Err()
+			if err == nil && request.Check != nil {
+				err = request.Check()
+			}
+			if err == nil {
+				switch request.Operation {
+				case "pause":
+					running.stop()
+					managedPaused = true
+				case "resume":
+					if managedPaused {
+						running = background(ctx, &wg, running.Scheduler, failed)
+						managedPaused = false
+					}
+				default:
+					err = apply(request.Config)
+				}
+			}
+			request.Done <- err
+			heartbeat()
 		case <-hup:
 			if e := reload(); e != nil {
 				fmt.Fprintf(a.Err, "reload refused; still running revision %s: %v\n", config.Revision(c)[:12], e)

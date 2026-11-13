@@ -1,5 +1,10 @@
 # Configuration and API Reference (Schema 1)
 
+Remote management uses a separate policy, credential store, listener and signed
+protocol. Its CLI, local grants, deployment request schemas, limits and supported
+platforms are documented in [MANAGEMENT.md](MANAGEMENT.md). The `/v1` observation
+API and its viewer/worker roles do not acquire write or update permissions.
+
 The complete schema is defined in Go in `internal/model/model.go`. Input configuration is strictly parsed JSON; unknown fields, multiple top-level values, and files exceeding 4 MiB are rejected. Identifiers must use stable ASCII strings; human-readable names and notes may contain UTF-8 text. Never use raw IP addresses as entity IDs.
 
 ## Entities

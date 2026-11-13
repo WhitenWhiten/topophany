@@ -24,6 +24,11 @@ type Failure struct {
 func (e *Failure) Error() string     { return e.Stage + ": " + e.Code }
 func Local(stage, code string) error { return &Failure{Stage: stage, Code: code, Local: true} }
 func Fail(stage string, err error) error {
+	var policy *Failure
+	if errors.As(err, &policy) && policy.Local && policy.Code == "management_network_denied" {
+		return policy
+	}
+
 	var se *os.SyscallError
 	if errors.As(err, &se) && (se.Syscall == "bind" || se.Syscall == "socket" || se.Syscall == "setsockopt") {
 		return Local("setup", "local_"+se.Syscall+"_failed")

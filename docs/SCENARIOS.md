@@ -1,5 +1,39 @@
 # Scenario Contracts and Test Mapping
 
+## Opt-in management regressions (after 1.6.0)
+
+These cases use isolated files, loopback TLS, synthetic credentials and signed
+test releases. The Linux service case additionally requires an explicitly
+disposable systemd VM; normal `go test` skips privileged lifecycle changes.
+
+| Scenario and invariant | Automated evidence |
+| --- | --- |
+| No capability is enabled by missing fields, initialization or enrollment; config/update gates remain independent | `TestDefaultOffAndIndependentGates`, `TestManagementCLIInitialPolicyAndCredentialArePrivateAndDefaultOff` |
+| Unknown/case-alias/duplicate JSON fields and alternate public-key encodings cannot bypass strict policy or signature thresholds | `TestStrictJSONAndPolicy`, `TestPublicKeyEncodingCannotDuplicateThresholdIdentity`, `FuzzStrictEnvelope` |
+| Observation credentials never acquire control-plane powers; signed command identity, role, domain and session remain scoped | `TestControllerRefusesObservationCredentials`, `TestCommandAuthenticationAndScope`, `TestSignatureDomainAndThreshold` |
+| Idle unauthenticated peers count against the controller connection budget before TLS/authentication; closing a connection releases exactly one slot | `TestControlListenerBoundsUnauthenticatedConnections` |
+| Accepted sequence floors and exact prepared receipts survive restart; tampered cached bytes are not executed | `TestDurableReplayAndPreparedBinding`, `TestBlobIntegrityAndSymlinks`, `TestControllerAgentConfigurationTransaction` |
+| Observer projection preserves contracts while removing unrelated secrets; source credential references cannot be rebound even when a measurement contract is unchanged | `TestProjectionPreservesOwnContractAndRemovesOtherSecrets`, `TestConstraintsRejectDestinationAndSecretRebinding`, `TestExternalCredentialReferenceIsAuthorizationNotMeasurement` |
+| Actual dial addresses obey local grants; denial through TCP/HTTP/DNS and adapter wrappers remains a monitor error, never a target outage | `TestManagedDialEnforcesActualAddress`, probe network-policy tests |
+| Changed contracts require complete inventory, all-node preparation/drain, then both collectors before workers; quarantine or lease expiry resumes the old schedule | `TestCoordinatedContractChangeRequiresDrainedWorkersAndActivatedCollectors`, `TestPauseExpiresAndQuarantineAbortsDrain` |
+| A failure after state rename never makes the runtime silently revert behind its committed pointer; pre-commit and post-commit audit faults remain distinguishable | `TestCheckpointDistinguishesCommitFromAuditFailure` |
+| Exact stable immutable release identity, publisher signatures, current catalog and closed archive membership are mandatory | `TestOfficialReleaseResolutionAndPrereleaseRejection`, `TestManifestAndCatalogTrust`, `TestArchiveClosedMembersAndHashes`, `TestDownloadAddressPolicy` |
+| Publication requires all six matching archives, an uploaded matching signature and exact commit; key/catalog rotations preserve prior security floors | `TestPublisherDraftRequiresAllArchivesAndMatchingSignature`, `TestRootRotationRequiresBothKeys`, `TestCatalogRefreshPreservesExpiredPolicyWithoutInstallingFromIt` |
+| Helper preparation does not stop the service; activation is idempotent; failed candidate health restores only the binary, preserving acknowledged data | `TestHelperVerifiedUpdateAndIdempotency`, `TestHelperFailedHealthRestoresBinaryWithoutRestoringData`, `TestHelperCrashRecovery` |
+| Disk/audit failure does not suppress an attempted authenticated binary recovery or produce a healthy receipt | `TestHelperAuditFailureDoesNotPreventBinaryRecovery` |
+| Changed runtime configuration, staged bytes, registration or acceptance blocks activation; mutable helper/data paths cannot overlap authority/executables | `TestUpdateRefusesChangedRuntimeConfiguration`, `TestHelperDisableAndStagingTamper`, `TestHelperRegistrationCannotBeRetargetedAcrossRestart`, `TestHelperRegistrationRejectsOverlappingMutablePaths` |
+| Re-requesting the installed version checks digest and completes without restart; a modified binary is an integrity error | `TestHelperCurrentVersionIsVerifiedNoOp` |
+| Canary advancement uses controller-observed health, requires fresh peers and stops after failure; readiness cannot enable against another installation's helper | `TestUpdateCanaryUsesControllerObservationAndStopsAfterFailure`, `TestLinuxHelperReadinessBindsRootPeerAndInstallation` |
+| Maintenance windows require an explicit timezone and reject repeated DST minutes, including half-hour transitions | `TestUpdatePolicyWindowAndDowngrade` |
+| Service-owned runtime files cannot turn privileged health reads into symlink/FIFO reads or forge an unbounded lease | `TestLinuxRuntimeRecordRejectsLinksFIFOsAndInvalidLeases` |
+| Recovery-copy handoff keeps its root directory private until all privileged traversal is complete and changes file ownership through no-follow descriptors | `TestLinuxRecoveryHandoffKeepsPrivateGateUntilTraversalCompletes` |
+| Real Linux service stop/start, unprivileged recovery rehearsal and `/proc` digest checks succeed; injected candidate health failure restores the real previous service | `TestLinuxSystemdUpdateAcceptance` (opt-in disposable VM; synthetic release source) |
+
+The remaining public-release and platform gates are recorded in
+[MANAGEMENT.md](MANAGEMENT.md) and the [implementation record](REMOTE-MANAGEMENT-PLAN.md#implementation-record).
+
+## Existing observation scenarios
+
 This document lists the finite, verifiable scenario contracts for version 1.6.0, deliberately avoiding unsubstantiated claims that "all conceivable network failure scenarios are verified." The unit and integration test cases below reproduce software mechanics under controlled conditions; live operational deployments require separate hardware acceptance per [ACCEPTANCE.md](ACCEPTANCE.md). Automated execution evidence is produced by `scripts/verify.py` and published as a CI artifact.
 
 | Scenario and Invariant | Automated Test Evidence |

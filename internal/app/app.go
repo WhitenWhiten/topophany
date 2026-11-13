@@ -79,6 +79,7 @@ Describe your network
   topo export                       export a redacted topology
 
 Deploy
+  topo management                  opt-in configuration delivery and verified release updates
   topo init --role ROLE             make a private server, worker or client bundle
   topo install                      install a reviewed bundle (--dry-run, --rollback DIR)
   topo alerts status --data DIR     inspect notification delivery without exposing URLs
@@ -129,7 +130,8 @@ launches; or, for example:
 
 Credentials and preferences live in the OS user config directory, under
 topophany/. 'topo COMMAND --help' lists a command's options. Monitoring
-never changes routes, proxy policies, TUN settings or services.
+never changes routes, proxy policies or TUN settings. Service updates require
+explicit local management acceptance.
 `
 
 func (a *App) flags(name string) *flag.FlagSet {
@@ -152,6 +154,8 @@ func (a *App) run(ctx context.Context, args []string) error {
 	case "version", "--version":
 		_, e := fmt.Fprintln(a.Out, "Topophany "+model.Version)
 		return e
+	case "management":
+		return a.management(ctx, args[1:])
 	case "serve":
 		return a.serve(ctx, args[1:])
 	case "worker":

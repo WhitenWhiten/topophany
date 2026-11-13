@@ -18,12 +18,14 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/ioaccount"
 	"github.com/WhitenWhiten/topophany/internal/ledger"
 	"github.com/WhitenWhiten/topophany/internal/logging"
+	"github.com/WhitenWhiten/topophany/internal/management"
 	"github.com/WhitenWhiten/topophany/internal/model"
 	"github.com/WhitenWhiten/topophany/internal/monitor"
 	"github.com/WhitenWhiten/topophany/internal/rollup"
 	"github.com/WhitenWhiten/topophany/internal/runner"
 	"github.com/WhitenWhiten/topophany/internal/secure"
 	"github.com/WhitenWhiten/topophany/internal/store"
+	"github.com/WhitenWhiten/topophany/internal/update"
 )
 
 func (a *App) serve(parent context.Context, args []string) (retErr error) {
@@ -31,6 +33,8 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 	panelFlags := addMonitorFlags(f)
 	logs := addLogFlags(f)
 	memory := addMemoryFlags(f)
+	managementPath := f.String("management-policy", "", "local default-off management acceptance policy")
+	controlPath := f.String("control-plane-policy", "", "local default-off controller policy")
 	path := f.String("config", "topology.json", "reviewed local topology JSON")
 	authPath := f.String("auth", "auth.json", "0600 collector token-hash configuration")
 	alertsPath := f.String("alerts", "", "0600 webhook configuration; no alerts when empty")
@@ -95,6 +99,20 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 	if e != nil {
 		return e
 	}
+	managementDir, e := filepath.Abs(*dir)
+	if e != nil {
+		return e
+	}
+	agent, c, e := management.NewAgent(*managementPath, managementDir, c, "collector", *observer, *workers)
+	if e != nil {
+		return e
+	}
+	defer agent.Close()
+	var managedChanges <-chan management.ApplyRequest
+	if agent != nil {
+		agent.Update = update.HelperCall
+		managedChanges = agent.Changes
+	}
 	panel, panelPath, e := panelFlags.load("collector", c.Project, "")
 	if e != nil {
 		return e
@@ -113,6 +131,9 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 		return e
 	}
 	defer st.Close()
+	if agent != nil {
+		agent.CollectorID = st.CollectorID()
+	}
 	book, e := ledger.Open(filepath.Join(*dir, "incidents.json"))
 	if e != nil {
 		return e
@@ -198,7 +219,7 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 		batch := func(vs []model.Observation) error {
 			return st.Put(model.Batch{Schema: model.BatchSchema, Project: c.Project, Revision: revision, Observations: vs})
 		}
-		return prepareScheduler(c, *observer, *workers, batch)
+		return prepareScheduler(c, *observer, *workers, batch, agent)
 	}
 	scheduler, e := local(c)
 	if e != nil {
@@ -225,6 +246,7 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 			}
 		}
 	}()
+	managedPaused := false
 	var running *probing
 	if scheduler != nil {
 		running = background(ctx, &wg, scheduler, failures)
@@ -238,10 +260,9 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 	}
 	// reload reads the topology, tokens and alerts again; on any error the
 	// collector keeps what it runs.
-	reload := func() error {
-		next, e := reloaded(*path, c, *observer)
-		if e != nil {
-			return e
+	apply := func(next model.Config) error {
+		if next.Project != c.Project || (*observer != "" && !declares(next, *observer)) {
+			return fmt.Errorf("managed configuration identity mismatch")
 		}
 		auth, e := api.LoadAuth(*authPath, next)
 		if e != nil {
@@ -258,12 +279,19 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 		if e := st.ValidateTopology(next); e != nil {
 			return e
 		}
+		var previous *runner.Scheduler
+		if running != nil {
+			previous = running.Scheduler
+		}
 		running.stop()
 		if e := backend.ReloadWith(next, auth, func() {
 			if notifier != nil {
 				notifier.Configure(alerts)
 			}
 		}); e != nil {
+			if previous != nil {
+				running = background(ctx, &wg, previous, failures)
+			}
 			return e
 		}
 		if scheduler != nil {
@@ -274,9 +302,51 @@ func (a *App) serve(parent context.Context, args []string) (retErr error) {
 			also = ", tokens and alerts"
 		}
 		fmt.Fprintf(a.Err, "reloaded topology revision %s → %s%s; %s\n", config.Revision(c)[:12], config.Revision(next)[:12], also, changes(c, next))
+		managedPaused = false
 		c = next
 		runtimeState.Set(c)
 		return nil
+	}
+	reload := func() error {
+		if agent.Managed() || managedPaused || agent.Paused() || agent.Updating() {
+			return fmt.Errorf("managed_configuration_active: use a management deployment")
+		}
+		next, e := reloaded(*path, c, *observer)
+		if e != nil {
+			return e
+		}
+		if e = apply(next); e != nil {
+			return e
+		}
+		if agent != nil {
+			return agent.LocalReload(next)
+		}
+		return nil
+	}
+	if agent != nil {
+		wg.Go(func() { agent.Run(ctx, func(code string) { fmt.Fprintln(a.Err, "management:", code) }) })
+	}
+	if *controlPath != "" {
+		policy, err := management.LoadControllerPolicy(*controlPath)
+		if err != nil {
+			return err
+		}
+		if policy.Enabled {
+			control, err := management.NewController(policy)
+			if err != nil {
+				return err
+			}
+			configureUpdateController(control)
+			wg.Go(func() {
+				defer control.Close()
+				if err := management.ServeController(ctx, control); err != nil {
+					select {
+					case failures <- err:
+					case <-ctx.Done():
+					}
+				}
+			})
+		}
 	}
 	var result error
 wait:
@@ -286,6 +356,26 @@ wait:
 			break wait
 		case result = <-failures:
 			break wait
+		case request := <-managedChanges:
+			err := request.Context.Err()
+			if err == nil && request.Check != nil {
+				err = request.Check()
+			}
+			if err == nil {
+				switch request.Operation {
+				case "pause":
+					running.stop()
+					managedPaused = true
+				case "resume":
+					if managedPaused && running != nil {
+						running = background(ctx, &wg, running.Scheduler, failures)
+					}
+					managedPaused = false
+				default:
+					err = apply(request.Config)
+				}
+			}
+			request.Done <- err
 		case <-hup:
 			if e := reload(); e != nil {
 				fmt.Fprintf(a.Err, "reload refused; still serving revision %s: %v\n", config.Revision(c)[:12], e)

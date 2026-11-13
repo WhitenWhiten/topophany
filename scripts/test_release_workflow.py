@@ -1,6 +1,7 @@
 """Exercise the actual publication argument selection without publishing."""
 import hashlib
 import io
+import json
 import os
 import shutil
 import tarfile
@@ -139,8 +140,41 @@ class ReleaseFlags(unittest.TestCase):
                 result = subprocess.run(["bash", "-c", script], env={**os.environ, "VERSION": tag},
                                         text=True, capture_output=True, check=True)
                 self.assertEqual([x for x in result.stdout.splitlines() if x], expected)
+        result = subprocess.run(["bash", "-c", script], env={**os.environ, "VERSION": "v1.2.0", "MANAGED_RELEASES": "true"}, text=True, capture_output=True, check=True)
+        self.assertEqual(result.stdout.splitlines(), ["--verify-tag", "--draft"])
         self.assertIn('--notes-file ./RELEASE_NOTES.md "${release_flags[@]}"', workflow)
         self.assertIn('[[ "$kind" == commit && "$sha" == "$SOURCE_SHA" ]]', workflow)
+
+
+class ManagedPromotion(unittest.TestCase):
+    def test_publication_rechecks_receipt_without_executing_release_code(self):
+        source = (ROOT / ".github/workflows/managed-release.yml").read_text()
+        verify, publish = source.split("\n  publish:\n")
+        self.assertIn("--signer-workflow", verify)
+        self.assertIn("--source-digest", verify)
+        self.assertIn("--deny-self-hosted-runners", verify)
+        self.assertNotIn("contents: write", verify)
+        for forbidden in ("actions/checkout", "go build", "go test", "./topo", "bash receipt"):
+            self.assertNotIn(forbidden, publish)
+        self.assertIn("environment: release", publish)
+        script = "\n".join(line[10:] for line in publish.split('          python3 - "$VERSION" <<\'PY\'\n')[1].split("          PY\n")[0].splitlines())
+        asset = {"id": 8, "name": "topophany_1.7.1_linux_arm64.tar.gz", "size": 42, "digest": "sha256:"+"a"*64, "state": "uploaded"}
+        for poison in (None, "tag", "id", "digest", "draft", "prerelease", "extra"):
+            with self.subTest(poison=poison), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / "receipt").mkdir()
+                receipt = {"schema": 1, "version": "v1.7.1", "release_id": 11, "assets": [asset]}
+                current = {"tag_name": "v1.7.1", "id": 11, "assets": [dict(asset)], "draft": True, "prerelease": False}
+                if poison == "tag": current["tag_name"] = "v1.7.2"
+                if poison == "id": current["id"] += 1
+                if poison == "digest": current["assets"][0]["digest"] = "sha256:"+"b"*64
+                if poison == "draft": current["draft"] = False
+                if poison == "prerelease": current["prerelease"] = True
+                if poison == "extra": current["assets"].append({**asset, "id": 9, "name": "install.sh"})
+                (root / "receipt/managed-release-receipt.json").write_text(json.dumps(receipt))
+                (root / "current.json").write_text(json.dumps(current))
+                result = subprocess.run(["python3", "-c", script, "v1.7.1"], cwd=root, capture_output=True, text=True)
+                self.assertEqual(result.returncode == 0, poison is None, result.stderr)
 
 
 if __name__ == "__main__":

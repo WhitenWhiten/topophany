@@ -123,7 +123,7 @@ func dnsOverUDP(ctx context.Context, x model.Check, target string, q []byte, id 
 	if bind.IsValid() {
 		nd.LocalAddr = net.UDPAddrFromAddrPort(bind)
 	}
-	conn, e := nd.DialContext(ctx, "udp", target)
+	conn, e := dialContext(ctx, &nd, "udp", target)
 	if e != nil {
 		return nil, fail("dns_transport", e)
 	}
@@ -148,7 +148,7 @@ func dnsOverUDP(ctx context.Context, x model.Check, target string, q []byte, id 
 		if bind.IsValid() {
 			td.LocalAddr = net.TCPAddrFromAddrPort(bind)
 		}
-		tcp, e := td.DialContext(ctx, "tcp", target)
+		tcp, e := dialContext(ctx, &td, "tcp", target)
 		if e != nil {
 			return nil, fail("dns_tcp", e)
 		}
@@ -174,7 +174,7 @@ func dnsOverTCP(ctx context.Context, x model.Check, target string, q []byte, bin
 	if bind.IsValid() {
 		d.LocalAddr = net.TCPAddrFromAddrPort(bind)
 	}
-	conn, e := d.DialContext(ctx, "tcp", target)
+	conn, e := dialContext(ctx, &d, "tcp", target)
 	if e != nil {
 		return nil, fail("dns_transport", e)
 	}
@@ -218,7 +218,7 @@ func dnsOverTLS(ctx context.Context, x model.Check, target string, q []byte, bin
 		d.LocalAddr = net.TCPAddrFromAddrPort(bind)
 	}
 	began := time.Now()
-	raw, e := d.DialContext(ctx, "tcp", pinned(target, x.ResolveIP))
+	raw, e := dialContext(ctx, &d, "tcp", pinned(target, x.ResolveIP))
 	if e != nil {
 		return nil, fail("dns_transport", e)
 	}
@@ -280,7 +280,7 @@ func dnsOverHTTPS(ctx context.Context, x model.Check, target string, q []byte, b
 	requestStart := time.Now()
 	tr := restrictedTransport(tc, time.Duration(x.TimeoutSeconds)*time.Second)
 	tr.DialTLSContext = func(ctx context.Context, network, address string) (net.Conn, error) {
-		raw, e := d.DialContext(ctx, network, pinned(address, x.ResolveIP))
+		raw, e := dialContext(ctx, &d, network, pinned(address, x.ResolveIP))
 		if e != nil {
 			return nil, fail("dns_transport", e)
 		}
@@ -520,7 +520,7 @@ func udpEcho(ctx context.Context, x model.Check, target string, o *model.Observa
 		}
 		d.LocalAddr = net.UDPAddrFromAddrPort(a)
 	}
-	c, e := d.DialContext(ctx, "udp", target)
+	c, e := dialContext(ctx, &d, "udp", target)
 	if e != nil {
 		return fail("udp", e)
 	}

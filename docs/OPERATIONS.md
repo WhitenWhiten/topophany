@@ -1,5 +1,15 @@
 # Deployment, High Availability, and Operations
 
+## Optional remote management
+
+[MANAGEMENT.md](MANAGEMENT.md) documents explicit controller/node enrollment,
+default-off acceptance flags, configuration preparation/activation, coordinated
+contract changes, exact-version deployment and Linux helper recovery. Existing
+observation credentials and deployment bundles gain no management powers.
+Use the guide's actual CLI/schema examples rather than the original proposal's
+illustrative fields. Production updates require separately established publisher
+trust, immutable GitHub releases and a current signed security catalog.
+
 ## Principle of Least Privilege
 
 Run the loopback demonstration in `README.md` first. For production installations, place configurations in dedicated directories, create an isolated unprivileged system user, and install the compiled `topo` binary. The systemd unit templates in `deploy/topophany-collector.service` and `deploy/topophany-worker.service` are provided for administrator adaptation and are never installed automatically during tests. Administrators must supply TLS certificates, keys, hashed `auth.json` files, an optional `alerts.json` (add `--alerts /etc/topophany/alerts.json` to the collector's command line), and worker credentials with strict directory ownership matching the service user.
