@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/rand/v2"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -23,6 +24,9 @@ type ApplyRequest struct {
 	Context   context.Context
 }
 type Agent struct {
+	httpClient      *http.Client
+	httpKey         string
+	acknowledged    string
 	updating        atomic.Bool
 	pausedFlag      atomic.Bool
 	Pending         func() (int, uint64)
@@ -135,6 +139,9 @@ func NewAgent(path, dir string, local model.Config, role, observer string, concu
 	return a, local, nil
 }
 func (a *Agent) Close() error {
+	if a != nil && a.httpClient != nil {
+		a.httpClient.CloseIdleConnections()
+	}
 	if a == nil || a.store == nil {
 		return nil
 	}
@@ -211,6 +218,10 @@ func (a *Agent) Poll(ctx context.Context) error {
 		return errors.New("management_policy_invalid")
 	}
 	if !p.Network() {
+		if a.httpClient != nil {
+			a.httpClient.CloseIdleConnections()
+			a.httpClient = nil
+		}
 		return nil
 	}
 	if p.Installation != a.identity.Installation || p.Controller != a.identity.Controller || p.Project != a.identity.Project || p.Role != a.identity.Role || p.Observer != a.identity.Observer {
@@ -220,7 +231,16 @@ func (a *Agent) Poll(ctx context.Context) error {
 	if e != nil {
 		return errors.New("management_transport_setup_failed")
 	}
-	defer h.CloseIdleConnections()
+	key := Digest(append(Marshal(p.Controller), []byte(token)...))
+	if a.httpClient != nil && key == a.httpKey && sameRoots(h, a.httpClient) {
+		h.CloseIdleConnections()
+		h = a.httpClient
+	} else {
+		if a.httpClient != nil {
+			a.httpClient.CloseIdleConnections()
+		}
+		a.httpClient, a.httpKey = h, key
+	}
 	origin := strings.TrimRight(p.Controller.URL, "/")
 	status := NodeStatus{Contracts: ContractDigest(*a.current.Load(), p.Role, p.Observer), CollectorID: a.CollectorID, OS: runtime.GOOS, Arch: runtime.GOARCH, Installation: p.Installation, ConfigAccept: p.Config.Accept, UpdateAccept: p.Updates.Accept, ConfigSession: p.Config.Session, UpdateSession: p.Updates.Session, Version: model.Version, At: time.Now().UTC()}
 	if a.Collectors != nil {
@@ -253,7 +273,14 @@ func (a *Agent) Poll(ctx context.Context) error {
 	envelopeDigest := Digest(Marshal(env))
 	for _, receipt := range []*Receipt{snapshot.Config.Last, snapshot.Updates.Last} {
 		if receipt != nil && receipt.CommandDigest == envelopeDigest && receipt.State != "accepted" {
-			return sendReceipt(*receipt)
+			if a.acknowledged == receipt.Digest()+Digest(Marshal(p)) {
+				return nil
+			}
+			err := sendReceipt(*receipt)
+			if err == nil {
+				a.acknowledged = receipt.Digest() + Digest(Marshal(p))
+			}
+			return err
 		}
 	}
 	if !p.Config.Accept && !p.Updates.Accept {
@@ -295,6 +322,9 @@ func (a *Agent) Poll(ctx context.Context) error {
 	receipt, e := a.Process(ctx, cmd, env, raw)
 	if receipt.CommandID != "" {
 		sendErr := sendReceipt(receipt)
+		if sendErr == nil && receipt.State != "accepted" {
+			a.acknowledged = receipt.Digest() + Digest(Marshal(p))
+		}
 		if e == nil {
 			e = sendErr
 		}

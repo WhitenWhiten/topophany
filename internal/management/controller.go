@@ -247,9 +247,11 @@ func (c *Controller) save() error {
 	if len(b) > 32<<20 {
 		return errors.New("control_storage_budget")
 	}
+	// Operator events bind the complete state digest. Node outcomes are already
+	// audited separately; copying the fleet into each event exceeds record limits.
 	receipts := []Receipt{}
 	for _, node := range c.state.Nodes {
-		if c.actorInstallation != "" && c.actorInstallation != node.Registration.ID {
+		if c.actorInstallation == "" || c.actorInstallation != node.Registration.ID {
 			continue
 		}
 		if node.Status != nil && node.Status.Receipt != nil {
@@ -316,22 +318,29 @@ func (w controllerResponse) Write(raw []byte) (int, error) {
 
 func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Origin") != "" {
+		w.Header().Set("Connection", "close")
 		managementJSON(w, 403, map[string]string{"error": "management_browser_forbidden"})
 		return
 	}
 	if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+		w.Header().Set("Connection", "close")
 		managementJSON(w, 401, map[string]string{"error": "management_unauthorized"})
 		return
 	}
 	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if len(token) != 64 {
+		w.Header().Set("Connection", "close")
 		managementJSON(w, 401, map[string]string{"error": "management_unauthorized"})
 		return
 	}
 	principal, ok := c.auth[secure.Hash(token)]
 	if !ok {
+		w.Header().Set("Connection", "close")
 		managementJSON(w, 401, map[string]string{"error": "management_unauthorized"})
 		return
+	}
+	if conn, ok := r.Context().Value(managementConnectionKey{}).(*budgetConnection); ok {
+		conn.authenticate()
 	}
 	select {
 	case c.slots <- struct{}{}:
@@ -380,6 +389,7 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		managementJSON(w, 503, map[string]string{"error": "control_storage_requires_recovery"})
 		return
 	}
+	r = r.WithContext(context.WithValue(r.Context(), controllerLockKey{}, true))
 	c.actor = principal.Role + ":" + principal.Hash[:16]
 	c.actorInstallation = principal.Installation
 	now = time.Now().UTC()
@@ -730,6 +740,15 @@ func ServeController(ctx context.Context, c *Controller) error {
 		return e
 	}
 	server := &http.Server{TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12}, Addr: c.Policy.Listen, Handler: c, ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 40 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16384}
+	server.ConnContext = func(ctx context.Context, conn net.Conn) context.Context {
+		if tlsConn, ok := conn.(*tls.Conn); ok {
+			conn = tlsConn.NetConn()
+		}
+		if bounded, ok := conn.(*budgetConnection); ok {
+			return context.WithValue(ctx, managementConnectionKey{}, bounded)
+		}
+		return ctx
+	}
 	done := make(chan struct{})
 	defer close(done)
 	go func() {
@@ -746,7 +765,7 @@ func ServeController(ctx context.Context, c *Controller) error {
 		return e
 	}
 	defer listener.Close()
-	e = server.ServeTLS(&connectionBudget{Listener: listener, slots: make(chan struct{}, 16)}, c.Policy.Cert, c.Policy.Key)
+	e = server.ServeTLS(&connectionBudget{Listener: listener, slots: make(chan struct{}, 512), perPeer: 32}, c.Policy.Cert, c.Policy.Key)
 	if e == http.ErrServerClosed {
 		return nil
 	}
@@ -797,3 +816,5 @@ func (c *Controller) collectOrphanBlobs() error {
 	}
 	return nil
 }
+
+type managementConnectionKey struct{}

@@ -62,3 +62,60 @@ func TestControlListenerBoundsUnauthenticatedConnections(t *testing.T) {
 		t.Fatal("closed connection did not release capacity")
 	}
 }
+
+func TestPeerAdmissionReleasesQuotaOnAuthentication(t *testing.T) {
+	base, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := &connectionBudget{Listener: base, slots: make(chan struct{}, 3), perPeer: 1}
+	defer l.Close()
+	accepted := make(chan net.Conn, 3)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			c, e := l.Accept()
+			if e != nil {
+				return
+			}
+			accepted <- c
+		}
+	}()
+	defer func() { l.Close(); <-done }()
+	dial := func() net.Conn {
+		c, e := net.DialTimeout("tcp", base.Addr().String(), time.Second)
+		if e != nil {
+			t.Fatal(e)
+		}
+		t.Cleanup(func() { c.Close() })
+		return c
+	}
+	receive := func() net.Conn {
+		select {
+		case c := <-accepted:
+			return c
+		case <-time.After(time.Second):
+			t.Fatal("peer was not admitted")
+			return nil
+		}
+	}
+	dial()
+	first := receive()
+	defer first.Close()
+	rejected := dial()
+	rejected.SetReadDeadline(time.Now().Add(time.Second))
+	if _, err := rejected.Read(make([]byte, 1)); err != io.EOF {
+		t.Fatal("anonymous per-peer limit ineffective", err)
+	}
+	first.(*budgetConnection).authenticate()
+	dial()
+	second := receive()
+	defer second.Close()
+	first.Close() // Must not release the second connection's anonymous quota.
+	rejected = dial()
+	rejected.SetReadDeadline(time.Now().Add(time.Second))
+	if _, err := rejected.Read(make([]byte, 1)); err != io.EOF {
+		t.Fatal("authentication/close double-released peer quota", err)
+	}
+}

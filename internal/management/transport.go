@@ -36,7 +36,7 @@ func HTTP(p Policy) (*http.Client, string, error) {
 		}
 		tc.RootCAs = roots
 	}
-	tr := &http.Transport{Proxy: nil, TLSClientConfig: tc, DisableCompression: true, MaxResponseHeaderBytes: 16384, MaxIdleConnsPerHost: 1, TLSHandshakeTimeout: 4 * time.Second, ResponseHeaderTimeout: 6 * time.Second, DialContext: (&net.Dialer{Timeout: 3 * time.Second}).DialContext}
+	tr := &http.Transport{Proxy: nil, TLSClientConfig: tc, DisableCompression: true, MaxResponseHeaderBytes: 16384, MaxIdleConnsPerHost: 1, IdleConnTimeout: 25 * time.Second, TLSHandshakeTimeout: 4 * time.Second, ResponseHeaderTimeout: 6 * time.Second, DialContext: (&net.Dialer{Timeout: 3 * time.Second}).DialContext}
 	return &http.Client{Transport: tr, Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, cred.Token, nil
 }
 func Exchange(ctx context.Context, h *http.Client, token, method, url string, body []byte, limit int64) ([]byte, int, error) {
@@ -61,4 +61,13 @@ func Exchange(ctx context.Context, h *http.Client, token, method, url string, bo
 		return nil, r.StatusCode, errors.New("management_request_refused")
 	}
 	return b, r.StatusCode, nil
+}
+
+func sameRoots(a, b *http.Client) bool {
+	x := a.Transport.(*http.Transport).TLSClientConfig.RootCAs
+	y := b.Transport.(*http.Transport).TLSClientConfig.RootCAs
+	if x == nil || y == nil {
+		return x == y
+	}
+	return x.Equal(y)
 }

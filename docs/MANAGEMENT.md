@@ -615,8 +615,8 @@ off until local recovery. Do not edit or restore stale state while a process
 is running. Logs and state still contain internal identifiers and need private
 storage and retention handling.
 
-Default limits include 256 controller registrations/principals, 16 concurrent
-management connections, 60 requests/minute/principal, 64 config targets or 16
+Default limits include 256 controller registrations/principals, 512 total management connections (including idle authenticated connections),
+32 unauthenticated connections per source IP, 16 concurrent management requests, 60 requests/minute/principal, 64 config targets or 16
 update targets per proposal, 4 MiB topology, 8 MiB aggregate controller blobs,
 128 MiB compressed artifact and 256 MiB expanded archive. The helper's stopped
 copy is limited to 1 GiB and 100,000 directory entries. Large installations must use an
@@ -648,3 +648,16 @@ See [SECURITY.md](SECURITY.md) for residual trust assumptions and
 prove that a compromised enrolled executor is honest. A compromised publisher
 or local root can defeat these boundaries; signatures authenticate authority,
 not the absence of software vulnerabilities.
+
+Management polling reuses TLS connections while credential and CA material remain
+unchanged. Authentication failures close the connection. Authenticated connections
+leave the per-source unauthenticated budget, allowing enrolled nodes behind NAT
+to share an address. Native probes and external collections share the configured
+concurrency budget. Administrative audit events record the state digest; individual
+node outcomes remain in their separate agent audit streams.
+
+Release preflight runs outside the controller state mutex and refuses commit if
+fleet state changes during verification. Immutable release metadata is cached for
+at most 30 seconds and 32 entries, keyed by publisher trust, version and platform;
+the security catalog is fetched and checked on every reuse. A stale-state refusal
+requires retrying the proposal with current node state.

@@ -33,6 +33,18 @@ func (c *Controller) publishUpdate(w http.ResponseWriter, r *http.Request, p Man
 	}
 	verifyCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
+	for _, id := range plan.Targets {
+		n, ok := c.state.Nodes[id]
+		if !ok || !slices.Contains(p.Installations, id) || n.Registration.Project != p.Project || n.Status == nil || len(plan.Payloads[id]) == 0 || len(plan.Payloads[id]) > 32<<10 {
+			managementJSON(w, 409, map[string]string{"error": "update_scope_denied"})
+			return
+		}
+		if err := c.verifyOutsideLock(r, verifyCtx, plan.Payloads[id], *n.Status, p.Project); err != nil {
+			managementJSON(w, 409, map[string]string{"error": err.Error()})
+			return
+		}
+	}
+	now = time.Now().UTC()
 	e = c.mutate(func() error {
 		seen := map[string]bool{}
 		for _, id := range plan.Targets {
@@ -60,9 +72,6 @@ func (c *Controller) publishUpdate(w http.ResponseWriter, r *http.Request, p Man
 				if n.Status.Receipt == nil || n.Status.Receipt.CommandID != previous.ID || n.Status.Receipt.CommandDigest != Digest(Marshal(n.Desired)) || !slices.Contains([]string{"active", "healthy", "failed", "rejected", "canceled", "rolled_back"}, n.Status.Receipt.State) {
 					return errors.New("deployment_in_progress")
 				}
-			}
-			if e := c.VerifyUpdate(verifyCtx, raw, *n.Status, c.inventory(p.Project)); e != nil {
-				return errors.New("release_preflight_failed")
 			}
 			var targetVersion struct {
 				Version string `json:"version"`
@@ -112,6 +121,31 @@ func (c *Controller) advanceUpdate(w http.ResponseWriter, r *http.Request, p Man
 	if kind == "update.activate" && len(a.Targets) != 1 {
 		managementJSON(w, 409, map[string]string{"error": "activate_one_update_at_a_time"})
 		return
+	}
+	if kind == "update.activate" {
+		n, ok := c.state.Nodes[a.Targets[0]]
+		cmd, err := commandFor(n)
+		if !ok || err != nil || !slices.Contains(p.Installations, a.Targets[0]) || n.Registration.Project != p.Project || n.Status == nil || cmd.Deployment != a.ID || cmd.Channel() != "update" || c.VerifyUpdate == nil || !c.Policy.InventoryComplete {
+			managementJSON(w, 409, map[string]string{"error": "update_scope_denied"})
+			return
+		}
+		if cmd.Kind == kind {
+			managementJSON(w, 200, map[string]string{"deployment_id": a.ID, "state": kind})
+			return
+		}
+		raw, err := ReadLocal(filepath.Join(c.Policy.Data, "blob-"+cmd.Digest+".json"), 32<<10, false, true)
+		if err != nil || Digest(raw) != cmd.Digest {
+			managementJSON(w, 409, map[string]string{"error": "update_preflight_unavailable"})
+			return
+		}
+		check, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		err = c.verifyOutsideLock(r, check, raw, *n.Status, p.Project)
+		cancel()
+		if err != nil {
+			managementJSON(w, 409, map[string]string{"error": err.Error()})
+			return
+		}
+		now = time.Now().UTC()
 	}
 	e = c.mutate(func() error {
 		for _, id := range a.Targets {
@@ -169,16 +203,6 @@ func (c *Controller) advanceUpdate(w http.ResponseWriter, r *http.Request, p Man
 						return errors.New("canary_observation_in_progress")
 					}
 				}
-				raw, err := ReadLocal(filepath.Join(c.Policy.Data, "blob-"+cmd.Digest+".json"), 32<<10, false, true)
-				if err != nil || Digest(raw) != cmd.Digest || c.VerifyUpdate == nil || !c.Policy.InventoryComplete {
-					return errors.New("update_preflight_unavailable")
-				}
-				check, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-				err = c.VerifyUpdate(check, raw, *n.Status, c.inventory(p.Project))
-				cancel()
-				if err != nil {
-					return errors.New("update_peer_revalidation_failed")
-				}
 				cmd.Prepared = n.Status.Receipt.Digest()
 			}
 			n.Sequence++
@@ -215,4 +239,44 @@ func (c *Controller) inventory(project string) []NodeRecord {
 		}
 	}
 	return out
+}
+
+// Only the HTTP dispatcher owns the state mutex; direct unit callers are serial.
+type controllerLockKey struct{}
+
+func (c *Controller) verificationState() string {
+	var state controllerState
+	_ = Decode(Marshal(c.state), &state, 32<<20)
+	for id, n := range state.Nodes {
+		n.Received = time.Time{}
+		if n.Status != nil {
+			n.Status.At = time.Time{}
+		}
+		state.Nodes[id] = n
+	}
+	return Digest(Marshal(state))
+}
+func (c *Controller) verifyOutsideLock(r *http.Request, ctx context.Context, raw []byte, status NodeStatus, project string) error {
+	before := c.verificationState()
+	actor, installation := c.actor, c.actorInstallation
+	var inventory []NodeRecord
+	if err := Decode(Marshal(c.inventory(project)), &inventory, 32<<20); err != nil {
+		return err
+	}
+	locked, _ := r.Context().Value(controllerLockKey{}).(bool)
+	err := func() error {
+		if locked {
+			c.mu.Unlock()
+			defer c.mu.Lock()
+		}
+		return c.VerifyUpdate(ctx, raw, status, inventory)
+	}()
+	c.actor, c.actorInstallation = actor, installation
+	if c.failed || before != c.verificationState() {
+		return errors.New("update_state_changed_retry")
+	}
+	if err != nil {
+		return errors.New("release_preflight_failed")
+	}
+	return ctx.Err()
 }

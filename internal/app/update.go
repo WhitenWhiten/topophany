@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/WhitenWhiten/topophany/internal/management"
@@ -23,6 +24,7 @@ func configureUpdateController(c *management.Controller) {
 	if c.Policy.PublisherTrust == "" {
 		return
 	}
+	cache := &releaseCache{entries: map[string]update.Resolution{}}
 	c.VerifyUpdate = func(ctx context.Context, raw []byte, status management.NodeStatus, inventory []management.NodeRecord) error {
 		if status.OS != "linux" {
 			return errors.New("managed_updates_require_linux_systemd")
@@ -40,7 +42,7 @@ func configureUpdateController(c *management.Controller) {
 		}
 		source := update.NewGitHub()
 		defer source.Close()
-		resolved, e := source.Resolve(ctx, root, target.Version, status.OS, status.Arch, 0, time.Now())
+		resolved, e := cache.resolve(ctx, source, root, target.Version, status.OS, status.Arch)
 		if e != nil {
 			return e
 		}
@@ -365,4 +367,44 @@ func checkUpdatePeers(manifest update.Manifest, target management.NodeStatus, in
 		}
 	}
 	return nil
+}
+
+// Cache only immutable release identity; fetch the security catalog on every use.
+type releaseMetadata interface {
+	Resolve(context.Context, update.Root, string, string, string, uint64, time.Time) (update.Resolution, error)
+	Catalog(context.Context, update.Root, uint64, time.Time) (update.Catalog, error)
+}
+type releaseCache struct {
+	mu      sync.Mutex
+	entries map[string]update.Resolution
+}
+
+func (c *releaseCache) resolve(ctx context.Context, source releaseMetadata, root update.Root, version, osName, arch string) (update.Resolution, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return update.Resolution{}, err
+	}
+	now := time.Now()
+	key := management.Digest(management.Marshal(root)) + version + osName + arch
+	resolved, hit := c.entries[key]
+	if !hit || now.Before(resolved.ResolvedAt) || now.Sub(resolved.ResolvedAt) >= 30*time.Second {
+		r, err := source.Resolve(ctx, root, version, osName, arch, 0, now)
+		if err == nil {
+			if len(c.entries) >= 32 {
+				clear(c.entries)
+			}
+			c.entries[key] = r
+		}
+		return r, err
+	}
+	catalog, err := source.Catalog(ctx, root, resolved.Catalog.Version, now)
+	if err == nil {
+		err = catalog.Permits(resolved.Manifest, resolved.Artifact, resolved.Envelope)
+	}
+	if err == nil {
+		resolved.Catalog = catalog
+		c.entries[key] = resolved
+	}
+	return resolved, err
 }

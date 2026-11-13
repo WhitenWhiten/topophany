@@ -29,6 +29,15 @@ See [the management guide](docs/MANAGEMENT.md) for actual schemas, local opt-ins
 platform limits and acceptance evidence. Observation wire formats and default
 local monitoring behavior remain unchanged.
 
+### Fixed
+
+- Close unauthenticated management connections and bound anonymous connections
+  per source while allowing enrolled nodes to reuse authenticated TLS sessions.
+- Move release verification outside the controller state lock, recheck fleet
+  state before commit, and cache immutable metadata without caching revocation checks.
+- Share probe concurrency with external collection, keep fleet-wide audit records
+  bounded, and avoid resending unchanged acknowledged management receipts.
+
 ## [1.6.0] - 2026-11-12
 
 This release adds a CF-Server-Monitor resource source and reports network

@@ -38,3 +38,20 @@ func (s managedSources) Collect(ctx context.Context, c model.Config, src model.S
 	}
 	return s.runtime.Collect(managedNetwork(ctx, s.agent), c, src, requests)
 }
+
+// Share the native probe budget with external source collections.
+type limitedSources struct {
+	runtime runner.SourceRuntime
+	slots   chan struct{}
+}
+
+func (s limitedSources) Validate(c model.Config) error { return s.runtime.Validate(c) }
+func (s limitedSources) Collect(ctx context.Context, c model.Config, src model.Source, requests []source.Request) ([]source.Reading, error) {
+	select {
+	case s.slots <- struct{}{}:
+		defer func() { <-s.slots }()
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	return s.runtime.Collect(ctx, c, src, requests)
+}

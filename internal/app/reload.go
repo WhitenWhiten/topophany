@@ -127,11 +127,18 @@ func changes(old, next model.Config) string {
 // observations and source fan-outs use the same durability sink.
 func prepareScheduler(c model.Config, observer string, workers int, sink runner.BatchSink, agents ...*management.Agent) (*runner.Scheduler, error) {
 	run := probe.NewRunner(c, observer).Run
+	slots := make(chan struct{}, max(1, workers))
 	guards := make([]func() error, len(agents))
 	for i, agent := range agents {
 		guards[i] = agent.Guard(c, observer)
 	}
 	guarded := func(ctx context.Context, c model.Config, x model.Check) model.Observation {
+		select {
+		case slots <- struct{}{}:
+			defer func() { <-slots }()
+		case <-ctx.Done():
+			return model.Observation{}
+		}
 		for _, guard := range guards {
 			if e := guard(); e != nil {
 				evidence := "measured"
@@ -156,7 +163,8 @@ func prepareScheduler(c model.Config, observer string, workers int, sink runner.
 			rt = managedSources{runtime: rt, agent: agent, guard: guards[i]}
 		}
 	}
-	s.WithSources(rt, sink, 4)
+	rt = limitedSources{runtime: rt, slots: slots}
+	s.WithSources(rt, sink, min(4, workers))
 	if err = s.ValidateExecution(); err != nil {
 		return nil, err
 	}
