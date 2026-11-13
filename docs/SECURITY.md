@@ -117,6 +117,11 @@ keep the terminal link private like other viewer credentials.
 
 The API provides no endpoints for modifying topology, altering proxy routing policies, reading arbitrary files, running remote commands, or restarting services. Workers load reviewed checks from local files and do not poll or receive arbitrary tasks to execute from the collector. Because probing arbitrary targets inherently grants access to networks reachable by the executor, the audited configuration file itself forms the authorization boundary; never load untrusted third-party topology files automatically.
 
+The [remote management plan](REMOTE-MANAGEMENT-PLAN.md) proposes separate,
+locally enabled configuration and software update capabilities, both disabled by
+default. It is an implementation proposal, not a capability of the current
+release; the boundaries described here continue to apply.
+
 The proxy adapter reads only explicitly allowlisted endpoints (such as safe configuration and status queries), forbidding arbitrary GET endpoints from being treated as side-effect-free authorizations. Tunnel tools (`tailscale` and `wg`) and `ssh` for SSH hops are looked up on the process `PATH` and invoked directly, never through a shell, with fixed argument structures. OpenSSH is used solely for `-W` stream forwarding with strict host-key checking and never opens an interactive shell; unknown host keys are rejected and agent forwarding is disabled. Binary installation directories and system PATH must be trusted. Because tunnel interfaces like WireGuard often require elevated privileges, probe in-tunnel services where possible rather than running the entire monitoring process persistently as root.
 
 Raw ICMP sockets require appropriate system permissions. Missing permissions are reported as monitor errors; do not grant broad administrative privileges to the entire process merely to achieve a clean dashboard. Bandwidth and probe budgets are not port-scanning authorizations. Default checks are lightweight and do not offer throughput stress testing or automated network-wide discovery.

@@ -215,6 +215,7 @@ The [Chinese task guide](docs/GUIDE.zh.md) covers onboarding, diagnostics, chang
 | [Configuration and API reference](docs/REFERENCE.md) | Every entity, probe parameter and API endpoint |
 | [Operations](docs/OPERATIONS.md) · [Memory](docs/MEMORY.md) | Dual collectors, storage, recovery, resource limits and memory budgets |
 | [Security model](docs/SECURITY.md) | Credentials, transport and capability boundaries ([review](docs/SECURITY-REVIEW-2026-10-14.md)) |
+| [Remote management plan](docs/REMOTE-MANAGEMENT-PLAN.md) | Proposed default-off configuration delivery and official-release updates; not implemented |
 | [Scenarios](docs/SCENARIOS.md) · [Acceptance](docs/ACCEPTANCE.md) | What the tests prove, and what needs checking on real hardware |
 | [External adapters](docs/EXTERNAL-ADAPTERS.md) · [Implementation contract](docs/MULTI-PROBE-IMPLEMENTATION.md) | Source adapter authoring, report/time/dedup semantics, budgets and upgrade/rollback |
 | [Changelog](CHANGELOG.md) | Release history |
