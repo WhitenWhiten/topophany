@@ -1,6 +1,6 @@
 # Scenario Contracts and Test Mapping
 
-This document lists the finite, verifiable scenario contracts for version 1.5.4, deliberately avoiding unsubstantiated claims that "all conceivable network failure scenarios are verified." The unit and integration test cases below reproduce software mechanics under controlled conditions; live operational deployments require separate hardware acceptance per [ACCEPTANCE.md](ACCEPTANCE.md). Automated execution evidence is produced by `scripts/verify.py` and published as a CI artifact.
+This document lists the finite, verifiable scenario contracts for version 1.6.0, deliberately avoiding unsubstantiated claims that "all conceivable network failure scenarios are verified." The unit and integration test cases below reproduce software mechanics under controlled conditions; live operational deployments require separate hardware acceptance per [ACCEPTANCE.md](ACCEPTANCE.md). Automated execution evidence is produced by `scripts/verify.py` and published as a CI artifact.
 
 | Scenario and Invariant | Automated Test Evidence |
 |---|---|
@@ -301,6 +301,22 @@ do not exercise upstream 429/5xx behavior on a live account.
 | Paired diagnostic templates are paused and keep platform reports separate from application requests | `TestDiagnosticTemplatesSeparateReportsAndRequests` |
 | Renewed evidence deadlines, including nested ones, publish before a reader's last copy expires, while unchanged or distant deadlines keep the display cadence | `TestEvidenceRenewalPrecedesReaderExpiry`, `TestNestedEvidenceRenewalPrecedesReaderExpiry` |
 | A missed or timed-out collector read keeps the last valid snapshot with its original clocks until they expire, an authorization rejection withholds it, and `503 connection_rotating` earns one bounded retry | `TestCollectorReadFailureRecoveryAndOwnership`, `TestSnapshotRotationRetryRecovers`, `TestSnapshotBusyRetryBoundedAndSelective` |
+
+## Network rates, swap and load (1.6.0)
+
+Host cases use injected counters and parser fixtures. Adapter cases decode
+synthetic upstream responses. The CF-Server-Monitor source has its own table
+under [CF-Server-Monitor external source](#cf-server-monitor-external-source).
+
+| Scenario and Invariant | Automated Test Evidence |
+|---|---|
+| A host network rate needs two consecutive counter samples. The first sample, a counter reset on any interface or a changed interface set reports no rate until a new baseline exists, and a shared runtime sample keeps its rate and time | `TestHostNetworkRatesAcrossCollections` |
+| Linux swap comes from `SwapTotal`/`SwapFree`, interface counters exclude loopback and keep full 64-bit values | `TestLinuxSwapAndNetworkCounters` |
+| A host observation with every optional metric, with or without Windows load averages, still fits the collector's observation bounds | `TestHostOptionalMetricsStayWithinObservationBounds` |
+| Report normalization keeps exact swap bytes and reported zero rates. It refuses negative, negative-zero, infinite and NaN rates and loads, and swap usage above capacity, without aliasing its input | `TestNormalizeOptionalResourceMetrics` |
+| Beszel, Komari and CF-Server-Monitor keep missing and invalid optional readings unavailable with field statuses, never zero. They validate upstream wire types and units, and Beszel falls back to legacy MiB/s rates and GiB swap only when the newer tuples are absent | `beszel.TestBeszelOptionalResourceMetrics`, `beszel.TestOptionalMetricsAvailabilityAndWireTypes`, `komari.TestOptionalMetricsAvailabilityAndWireTypes`, `cfservermonitor.TestOptionalMetricsAvailability` |
+| `servers.list`, `server.card` and the node and host scalars carry the readings with their own deadlines, the list and card outlive expired nested metrics, and a full 256-server list fits the frame budget | `TestOptionalResourceMetricsInListCardAndScalarRows`, `TestNativeHostOptionalScalars`, `TestServerListWithResourceMetricsFitsFrame` |
+| The OrbStack lab refuses host namespaces, privileged containers, published ports, host filesystem or Docker socket mounts and external egress, and allows only container-scoped capabilities | `scripts.test_accept_orbstack.IsolationTests` |
 
 ## Geographic map labels (1.2.0)
 

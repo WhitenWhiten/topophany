@@ -7,15 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [1.6.0] - 2026-11-12
 
-- Require Go 1.26.11 for source builds to fix the standard-library HTTP server
-  vulnerability GO-2026-6859 detected by CI's `govulncheck` gate.
-- Preserve missing/invalid availability for network, swap and load readings
-  in Beszel, Komari and CF-Server-Monitor. Validate Beszel and Komari network
-  rates against their upstream integer types, reject malformed Komari metric
-  objects, and reject negative-zero or over-capacity CF-Server-Monitor swap
-  readings before byte rounding.
+This release adds a CF-Server-Monitor resource source and reports network
+rates, swap and load averages from host checks and external resource adapters.
+Source builds now require Go 1.26.11. See the
+[release notes](docs/releases/v1.6.0.md) for compatibility and upgrade details.
 
 ### Added
 
@@ -24,6 +21,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   supports public access or a pre-issued JWT. Use `topo setup --task direct`
   for a collector-free TUI profile, or `topo templates cf-server-monitor` for
   a paused collector topology. [Adapter guide](internal/adapters/cfservermonitor/README.md)
+- Host resource checks report optional `network_rx_bytes_per_second`,
+  `network_tx_bytes_per_second`, `swap_total_bytes`, `swap_used_bytes` and
+  `load_avg_1m`/`5m`/`15m` facts. Rates come from two consecutive counter
+  samples of the visible non-loopback interfaces. The first sample, an
+  interface change or a counter reset starts a new baseline and reports no
+  rate. Windows reports paging-file capacity and usage, and no load averages.
+- External resource reports carry optional `network`, `swap` and `load`
+  groups, which Beszel, Komari and CF-Server-Monitor map from their upstream
+  fields. Missing and invalid readings keep their field status and never
+  become zero. Beszel and Komari rates are validated against their upstream
+  integer types, malformed Komari metric objects fail decoding, and
+  CF-Server-Monitor swap that is negative zero or above capacity is invalid
+  even before byte rounding.
+- The Servers page shows network, swap and load when the current reading has
+  them. `server.card` carries the same groups, `servers.list` entries carry
+  `resource_metrics` with their own `sampled_at` and `valid_until`, and the
+  monitor catalog adds `resource.network.*`, `resource.swap.*` and
+  `resource.load.*` node scalars with `host.*` counterparts for native host
+  checks. A `servers.list` value may now use up to 256 KiB of a frame.
+- `scripts/accept_orbstack.py` runs Beszel, Komari, CF-Server-Monitor, Mihomo,
+  WireGuard, Tailscale and cloudflared against their real upstream software in
+  an isolated OrbStack lab, without changing the host's network configuration.
+  [Lab guide](deploy/adapter-lab/README.md)
+
+### Security
+
+- Require Go 1.26.11 for source builds to fix the standard-library HTTP server
+  vulnerability GO-2026-6859 detected by CI's `govulncheck` gate.
 
 ## [1.5.4] - 2026-11-02
 
@@ -2126,7 +2151,8 @@ Initial release.
 - Terminal UI with geographic and network topology maps, offline preview
   scenarios and a local topology editor.
 
-[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.5.4...HEAD
+[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/WhitenWhiten/topophany/compare/v1.5.4...v1.6.0
 [1.5.4]: https://github.com/WhitenWhiten/topophany/compare/v1.5.3...v1.5.4
 [1.5.3]: https://github.com/WhitenWhiten/topophany/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/WhitenWhiten/topophany/compare/v1.5.1...v1.5.2

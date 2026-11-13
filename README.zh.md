@@ -118,6 +118,7 @@ topo --credentials ./demo/credentials.json
 
 ### 升级注意事项
 
+- **使用 1.6.0 的资源读数前请先升级 collector。** 1.6.0 的 worker 会在 Beszel 和 Komari 报告中加入网络、交换空间和负载读数，1.5.4 的 collector 会拒绝这些报告。请同时升级查看端：1.5.4 的查看端会拒绝含有新读数的检查历史。在拓扑中加入 `cf-server-monitor` 之前，collector、worker 和查看端都必须支持它；使用它的直连配置需要本机 1.6.0 二进制。现有 1.5.4 配置及状态无需迁移。源码构建需要 Go 1.26.11。详见 [1.6.0 发布说明](docs/releases/v1.6.0.md)。
 - **使用 1.5.4 的 Cloudflare 新字段前请升级所有角色。** 在拓扑中加入 `tunnel_connections` 或 `expected_status` 之前，collector、worker 和查看端都必须支持它们。请升级 worker，以获得带编号的 colo 名称修复、共享的 Cloudflare 请求预算和连接器部分就绪证据；使用带编号位置的 colo 策略可能从“未验证”变为“匹配”或“违反”。现有 1.5.3 配置及状态无需迁移。详见 [1.5.4 发布说明](docs/releases/v1.5.4.md)。
 - **本机检查和最新流式诊断请使用 1.5.3。** 本机 mihomo 检查需要新版本机二进制；消费端应通过 `monitor stream --capabilities` 确认 `local` 和指标目录。现有 1.5.2 配置及状态无需迁移。请升级 collector 和 worker，以获得 Cloudflare 令牌脱敏和适配器证据修复；既有日志不会被重写。详见 [1.5.3 发布说明](docs/releases/v1.5.3.md)。
 - **启用 1.5.2 策略前先升级。** 在拓扑中加入 `tls_min_days`、`max_duration_ms` 和 `http.json_equals` 前，collector、worker 和查看端都必须支持这些字段。JSON 断言要求配置文件保持私密。新增通知策略字段前请先升级 collector，并保留匹配的配置备份以便回滚。详见 [1.5.2 发布说明](docs/releases/v1.5.2.md)。
