@@ -142,15 +142,15 @@ topo --credentials ./demo/credentials.json
 ## 它能检查什么
 
 - **原生探针：** HTTP（状态码、正文、响应头、出口 IP）、TCP、带证书校验的 TLS、SSH banner、DNS A/AAAA（UDP、TCP、DoT、DoH）、UDP echo、ICMP（IPv4）。
-- **主机资源（Linux、macOS、Windows）：** CPU、内存、文件系统容量与 inode、进程数以及指定进程的内存占用，可以设置资源阈值和进程数检查。参见 [`examples/host-resources.json`](examples/host-resources.json)。
+- **主机资源（Linux、macOS、Windows）：** CPU、内存、文件系统容量与 inode、进程数以及指定进程的内存占用，可以设置资源阈值和进程数检查。还会报告网络收发速率、交换空间以及 1、5、15 分钟平均负载；Windows 把页面文件作为交换空间报告，没有平均负载。参见 [`examples/host-resources.json`](examples/host-resources.json)。
 - **代理链：** HTTP CONNECT、HTTPS CONNECT、SOCKS5 和 OpenSSH `-W`，可以多跳串联。
 - **只读适配器：** Mihomo、Tailscale、WireGuard、cloudflared、Cloudflare API。
-- **外部资源：** 从 Beszel Hub、Komari Monitor 和 CF-Server-Monitor Worker 读取 CPU、内存与磁盘读数，保留样本身份和新鲜度。Beszel 还支持上游报告的系统状态。Komari 和 CF-Server-Monitor 提供整机磁盘统计。[Beszel 说明](internal/adapters/beszel/README.md) · [Beszel 示例](examples/beszel.json) · [Komari 说明](internal/adapters/komari/README.md) · [Komari 示例](examples/komari.json) · [CF-Server-Monitor 说明](internal/adapters/cfservermonitor/README.md) · [CF-Server-Monitor 示例](examples/cf-server-monitor.json)
+- **外部资源：** 从 Beszel Hub、Komari Monitor 和 CF-Server-Monitor Worker 读取 CPU、内存与磁盘读数，上游提供时还会读取网络速率、交换空间和平均负载，并保留样本身份和新鲜度。Beszel 还支持上游报告的系统状态。Komari 和 CF-Server-Monitor 提供整机磁盘统计。[Beszel 说明](internal/adapters/beszel/README.md) · [Beszel 示例](examples/beszel.json) · [Komari 说明](internal/adapters/komari/README.md) · [Komari 示例](examples/komari.json) · [CF-Server-Monitor 说明](internal/adapters/cfservermonitor/README.md) · [CF-Server-Monitor 示例](examples/cf-server-monitor.json)
 - **边缘与平台：** Cloudflare（包括 Workers 和 Pages）、Vercel、Supabase。边缘有应答，只能证明边缘本身没问题，证明不了它背后的源站。
 
 ## 无需 collector 的外部资源直连
 
-direct 模式下，每个 `topo` 进程直接从 Beszel Hub、Komari Monitor 或 CF-Server-Monitor Worker 读取 CPU、内存和磁盘。用 `topo setup --task direct` 创建 profile，再用 `topo --source direct --profile desktop` 打开。`--json`、`status`、`show` 和 `monitor configure`/`run` 共用同一个 profile。用 `topo sources inspect|save|remove --json-stdin` 编辑，用 `topo sources list --json` 列出。一个 profile 可以混用这些数据源。默认每 60 秒采集一次，每 5 秒刷新显示，数据有效期 180 秒，单次读取默认等待首批样本最多 15 秒（`--wait`）。
+direct 模式下，每个 `topo` 进程直接从 Beszel Hub、Komari Monitor 或 CF-Server-Monitor Worker 读取 CPU、内存和磁盘；上游提供时，还会显示网络速率、交换空间和平均负载。用 `topo setup --task direct` 创建 profile，再用 `topo --source direct --profile desktop` 打开。`--json`、`status`、`show` 和 `monitor configure`/`run` 共用同一个 profile。用 `topo sources inspect|save|remove --json-stdin` 编辑，用 `topo sources list --json` 列出。一个 profile 可以混用这些数据源。默认每 60 秒采集一次，每 5 秒刷新显示，数据有效期 180 秒，单次读取默认等待首批样本最多 15 秒（`--wait`）。
 
 direct 模式不保存资源历史（`history --source direct` 会明确返回不支持），不运行后台服务，也不会从资源读数推断网络是否可达。支持 Beszel v0.21.0、Komari 1.6.0 和文档所述的 CF-Server-Monitor Worker REST API。Komari 支持 API Key，CF-Server-Monitor 支持已签发的 JWT，两者都可匿名读取公开节点并提供整机磁盘统计。[配置与限制](docs/DIRECT.md) · [Komari 配置](docs/DIRECT.md#configure-komari) · [CF-Server-Monitor 配置](docs/DIRECT.md#configure-cf-server-monitor) · [D1 规范包](docs/contracts/direct-v1/contract.md)
 

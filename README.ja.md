@@ -142,15 +142,15 @@ topo --credentials ./demo/credentials.json
 ## 計測できるもの
 
 - **ネイティブプローブ:** HTTP (ステータス、本文、ヘッダー、送信元 IP)、TCP、証明書を検証する TLS、SSH バナー、DNS A/AAAA (UDP、TCP、DoT、DoH)、UDP エコー、ICMP (IPv4)。
-- **ホストリソース (Linux、macOS、Windows):** CPU、メモリ、ファイルシステムの容量と inode、プロセス数、指定したプロセスの RSS。リソースのしきい値とプロセス数も検証できます。[`examples/host-resources.json`](examples/host-resources.json) を参照してください。
+- **ホストリソース (Linux、macOS、Windows):** CPU、メモリ、ファイルシステムの容量と inode、プロセス数、指定したプロセスの RSS。リソースのしきい値とプロセス数も検証できます。ネットワークの受信・送信レート、スワップ、1・5・15 分のロードアベレージも報告します。Windows ではページングファイルをスワップとして報告し、ロードアベレージはありません。[`examples/host-resources.json`](examples/host-resources.json) を参照してください。
 - **プロキシチェーン:** HTTP CONNECT、HTTPS CONNECT、SOCKS5、OpenSSH `-W` を、何段でもつないで使えます。
 - **読み取り専用のアダプター:** Mihomo、Tailscale、WireGuard、cloudflared、Cloudflare API。
-- **外部リソース:** Beszel Hub、Komari Monitor、CF-Server-Monitor の Worker から CPU、メモリ、ディスクのサンプルを取得し、識別子と鮮度を保持します。Beszel では報告されたシステム状態も取得できます。Komari と CF-Server-Monitor のディスク使用量はホスト単位の集計値です。[Beszel ガイド](internal/adapters/beszel/README.md) · [Beszel の例](examples/beszel.json) · [Komari ガイド](internal/adapters/komari/README.md) · [Komari の例](examples/komari.json) · [CF-Server-Monitor ガイド](internal/adapters/cfservermonitor/README.md) · [CF-Server-Monitor の例](examples/cf-server-monitor.json)
+- **外部リソース:** Beszel Hub、Komari Monitor、CF-Server-Monitor の Worker から CPU、メモリ、ディスクのサンプルを取得し、識別子と鮮度を保持します。上流が報告していれば、ネットワークレート、スワップ、ロードアベレージも取得します。Beszel では報告されたシステム状態も取得できます。Komari と CF-Server-Monitor のディスク使用量はホスト単位の集計値です。[Beszel ガイド](internal/adapters/beszel/README.md) · [Beszel の例](examples/beszel.json) · [Komari ガイド](internal/adapters/komari/README.md) · [Komari の例](examples/komari.json) · [CF-Server-Monitor ガイド](internal/adapters/cfservermonitor/README.md) · [CF-Server-Monitor の例](examples/cf-server-monitor.json)
 - **エッジとプラットフォーム:** Cloudflare (Workers と Pages を含む)、Vercel、Supabase。エッジが応答したからといって証明されるのはエッジまでで、その奥のオリジンではありません。
 
 ## コレクターなしで外部リソースを表示
 
-direct モードでは、各 `topo` プロセスが Beszel Hub、Komari Monitor、CF-Server-Monitor の Worker から CPU、メモリ、ディスクを直接読み取ります。`topo setup --task direct` でプロファイルを作成し、`topo --source direct --profile desktop` で開きます。同じプロファイルを `--json`、`status`、`show`、`monitor configure`/`run` でも使えます。`topo sources inspect|save|remove --json-stdin` で設定し、`topo sources list --json` で一覧を表示できます。ひとつのプロファイルに複数のソースを設定できます。既定では 60 秒ごとに取得し、5 秒ごとに表示を更新します。データの有効期間は 180 秒で、単発の読み取りは最初のサンプルを最大 15 秒待ちます (`--wait`)。
+direct モードでは、各 `topo` プロセスが Beszel Hub、Komari Monitor、CF-Server-Monitor の Worker から CPU、メモリ、ディスクを直接読み取ります。上流が報告していれば、ネットワークレート、スワップ、ロードアベレージも表示します。`topo setup --task direct` でプロファイルを作成し、`topo --source direct --profile desktop` で開きます。同じプロファイルを `--json`、`status`、`show`、`monitor configure`/`run` でも使えます。`topo sources inspect|save|remove --json-stdin` で設定し、`topo sources list --json` で一覧を表示できます。ひとつのプロファイルに複数のソースを設定できます。既定では 60 秒ごとに取得し、5 秒ごとに表示を更新します。データの有効期間は 180 秒で、単発の読み取りは最初のサンプルを最大 15 秒待ちます (`--wait`)。
 
 direct モードはリソースの履歴を持たず (`history --source direct` は未対応と答えます)、バックグラウンドサービスも動かさず、リソースの読み取りからネットワークの到達性を推測しません。対応形式は Beszel v0.21.0、Komari 1.6.0、および以下に記載する CF-Server-Monitor Worker の REST API です。Komari は API キー、CF-Server-Monitor は発行済みの JWT を利用できます。どちらも公開ノードへの匿名アクセスとホスト単位のディスク使用量に対応します。[設定と制限](docs/DIRECT.md) · [Komari の設定例](docs/DIRECT.md#configure-komari) · [CF-Server-Monitor の設定](docs/DIRECT.md#configure-cf-server-monitor) · [D1 契約](docs/contracts/direct-v1/contract.md)
 
