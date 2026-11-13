@@ -213,6 +213,11 @@ references must already exist locally. A managed denial is a **monitor error**,
 not a measured target outage. Restrictions are checked at preparation and at
 execution. A tightened valid local grant takes effect without controller access.
 
+Each scheduler caches validation of its fixed topology against an unchanged
+trusted constraints file. Execution still checks local policy and file ownership;
+replacement or modification of the constraints refreshes both authorization and
+dial restrictions before the next probe or source collection.
+
 Enable only the desired capability:
 
 ```sh
@@ -304,6 +309,15 @@ activated changes require a new forward deployment, or explicit local recovery.
 Config and software deployments share a per-installation desired-command slot;
 finish or cancel one before starting the other. Commands have 15-minute issued
 lifetimes and bind activation to the exact durable preparation receipt.
+
+Completed receipts are retransmitted without reexecuting the command or fetching
+its payload, even after expiry or local session rotation, while management status
+reporting is permitted. On restart, an accepted but uncommitted configuration
+command is marked `failed` with `configuration_interrupted`; the durable active
+topology and replay floors remain authoritative. Review that outcome and issue a
+fresh deployment. After disabling and reenabling acceptance, cancellation of a
+staged deployment uses the current session; activation still requires the
+original preparation's session.
 
 ## Disable and return to local configuration
 
@@ -499,6 +513,12 @@ fresh runtime lease with the correct version/project/role/observer. The exact
 runtime configuration must match preparation. A repeated exact current-version
 request verifies integrity and completes without restarting the service.
 
+Immediately before committing activation intent, the helper reloads management
+policy, update policy and publisher trust, reauthenticates the command against
+current controller trust and checks the current maintenance window. A policy or
+publisher-root change during verification requires a fresh attempt; expired or
+revoked command authority cannot stop the service.
+
 Failure restores only the authenticated, permitted previous executable. It
 **does not restore an old data snapshot over acknowledged evidence**. Recovery
 requires the publisher's explicit `rollback_from` compatibility declaration;
@@ -507,6 +527,11 @@ not a retained disaster-recovery backup. Maintain your normal stopped-data
 backups. Recovery outlives the client/monitor process and can resume from the
 helper's protected journal after helper restart. Disk or health failures can
 require local intervention; do not delete journals or manually lower floors.
+
+Restoring the old service has a separate two-minute recovery budget, including
+when activation or the candidate rehearsal has exhausted its own deadline.
+Rehearsal failure also verifies that the previous service becomes healthy after
+restart before reporting the candidate's failure.
 
 ## Publisher setup and release procedure
 

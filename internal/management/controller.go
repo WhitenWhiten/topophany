@@ -1,12 +1,14 @@
 package management
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -265,26 +267,53 @@ func (c *Controller) mutate(f func() error) error {
 		return e
 	}
 	before := Marshal(c.state)
+	restore := func() {
+		// Decoding into existing maps retains keys introduced by a failed
+		// transaction, incorrectly charging orphan blobs against the budget.
+		var previous controllerState
+		if err := Decode(before, &previous, 32<<20); err != nil {
+			c.failed = true
+			return
+		}
+		c.state = previous
+	}
 	if e := f(); e != nil {
-		_ = Decode(before, &c.state, 32<<20)
+		restore()
 		return e
 	}
 	if e := c.save(); e != nil {
 		if !CheckpointCommitted(e) {
-			_ = Decode(before, &c.state, 32<<20)
+			restore()
 		}
 		return e
 	}
 	return nil
 }
 func managementJSON(w http.ResponseWriter, status int, v any) {
+	// Serialize while the caller still owns its state lock. The response writer
+	// can release that lock before any potentially blocking socket write.
+	b, _ := secure.MarshalJSON(v, "")
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(status)
-	b, _ := secure.MarshalJSON(v, "")
 	_, _ = w.Write(b)
 }
+
+type controllerResponse struct {
+	http.ResponseWriter
+	release func()
+}
+
+func (w controllerResponse) WriteHeader(code int) {
+	w.release()
+	w.ResponseWriter.WriteHeader(code)
+}
+func (w controllerResponse) Write(raw []byte) (int, error) {
+	w.release()
+	return w.ResponseWriter.Write(raw)
+}
+
 func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Origin") != "" {
 		managementJSON(w, 403, map[string]string{"error": "management_browser_forbidden"})
@@ -312,13 +341,6 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.failed {
-		managementJSON(w, 503, map[string]string{"error": "control_storage_requires_recovery"})
-		return
-	}
-	c.actor = principal.Role + ":" + principal.Hash[:16]
-	c.actorInstallation = principal.Installation
 	now := time.Now().UTC()
 	v := c.rates[principal.Hash]
 	if now.Sub(v.At) >= time.Minute {
@@ -326,10 +348,41 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	v.Count++
 	c.rates[principal.Hash] = v
+	c.mu.Unlock()
 	if v.Count > 60 {
 		managementJSON(w, 429, map[string]string{"error": "management_rate_limited"})
 		return
 	}
+	// Never wait for a peer's body while owning the fleet state lock. Admission
+	// slots and the HTTP read deadline bound slow readers and buffer allocation.
+	if r.Method == "POST" {
+		limit := int64(32 << 10)
+		switch {
+		case principal.Role == "management-agent":
+			limit = 16 << 10
+		case principal.Role == "config-publish" && r.URL.Path == "/management/v1/config-deployments":
+			limit = 4 << 20
+		case principal.Role == "update-publish" && r.URL.Path == "/management/v1/update-deployments":
+			limit = 1 << 20
+		}
+		raw, err := readLimit(r.Body, limit)
+		if err != nil {
+			managementJSON(w, 400, map[string]string{"error": "invalid_management_request_body"})
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewReader(raw))
+	}
+	c.mu.Lock()
+	release := sync.OnceFunc(c.mu.Unlock)
+	defer release()
+	w = controllerResponse{ResponseWriter: w, release: release}
+	if c.failed {
+		managementJSON(w, 503, map[string]string{"error": "control_storage_requires_recovery"})
+		return
+	}
+	c.actor = principal.Role + ":" + principal.Hash[:16]
+	c.actorInstallation = principal.Installation
+	now = time.Now().UTC()
 	if r.Method == "GET" && r.URL.Path == "/management/v1/capabilities" {
 		managementJSON(w, 200, map[string]any{"schema": 1, "capabilities": []string{"management.v1", "config.reviewed-contracts.v1"}, "managed_updates": c.VerifyUpdate != nil})
 		return
@@ -601,11 +654,19 @@ func (c *Controller) advance(w http.ResponseWriter, r *http.Request, p Managemen
 			if Decode(raw, &cmd, 32<<10) != nil || cmd.Deployment != a.ID {
 				return errors.New("deployment_not_found")
 			}
-			if cmd.Kind == kind {
+			if cmd.Kind == kind && (kind != "config.cancel" || n.Status != nil && n.Status.ConfigSession == cmd.Session) {
 				continue
 			}
-			if cmd.Kind != "config.prepare" && cmd.Kind != "config.quiesce" {
+			if cmd.Kind != "config.prepare" && cmd.Kind != "config.quiesce" && !(kind == "config.cancel" && cmd.Kind == kind) {
 				return errors.New("deployment_already_activated")
+			}
+			if kind == "config.cancel" {
+				if n.Status == nil || !n.Status.ConfigAccept || !config.ID(n.Status.ConfigSession) || now.Sub(n.Received) > time.Minute {
+					return errors.New("node_not_ready")
+				}
+				// Cancel is a new, separately authorized action. Reusing the
+				// preparation's revoked session would strand the desired slot.
+				cmd.Session = n.Status.ConfigSession
 			}
 			if kind == "config.activate" {
 				if n.Status == nil || !n.Status.ConfigAccept || n.Status.ConfigSession != cmd.Session || now.Sub(n.Received) > time.Minute || n.PreparedReceipt == nil {

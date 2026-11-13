@@ -24,6 +24,70 @@ type testSource struct {
 	archives map[int64][]byte
 }
 
+type changingReleaseSource struct {
+	ReleaseSource
+	change func()
+}
+
+func (s changingReleaseSource) Resolve(ctx context.Context, root Root, version, osName, arch string, floor uint64, now time.Time) (Resolution, error) {
+	r, err := s.ReleaseSource.Resolve(ctx, root, version, osName, arch, floor, now)
+	s.change()
+	return r, err
+}
+
+func TestHelperRechecksLocalAuthorityBeforeStoppingService(t *testing.T) {
+	for _, change := range []string{"update-policy", "publisher-trust", "controller-trust"} {
+		t.Run(change, func(t *testing.T) {
+			h, reg, p, cmd, env, payload, key, effects, original := helperFixture(t)
+			defer h.Close()
+			prepared, err := h.Handle(context.Background(), HelperRequest{env, payload})
+			if err != nil {
+				t.Fatal(err)
+			}
+			changed := false
+			h.source = changingReleaseSource{ReleaseSource: original, change: func() {
+				if changed {
+					return
+				}
+				changed = true
+				switch change {
+				case "update-policy":
+					policy, err := LoadPolicy(p.Updates.PolicyFile, false)
+					if err != nil {
+						t.Fatal(err)
+					}
+					policy.Minimum = "v1.7.2"
+					writeJSON(t, p.Updates.PolicyFile, policy)
+				case "publisher-trust":
+					root, err := LoadRoot(p.Updates.PublisherTrustFile, false)
+					if err != nil {
+						t.Fatal(err)
+					}
+					for i := range root.Trust.Keys {
+						root.Trust.Keys[i].Roles = []string{"root"}
+					}
+					writeJSON(t, p.Updates.PublisherTrustFile, root)
+				case "controller-trust":
+					trust, err := management.LoadTrust(p.Controller.CommandTrustFile, false, time.Now())
+					if err != nil {
+						t.Fatal(err)
+					}
+					trust.Keys[0].Roles = []string{"config"}
+					writeJSON(t, p.Controller.CommandTrustFile, trust)
+				}
+			}}
+			_, activate := activation(t, cmd, prepared, key)
+			receipt, err := h.Handle(context.Background(), HelperRequest{activate, nil})
+			if err == nil || receipt.State != "failed" || effects.stopped != 0 {
+				t.Fatal("changed local authority did not stop activation", receipt, err, effects.stopped)
+			}
+			if digest, err := fileDigest(reg.Binary, false); err != nil || digest != original.versions[effects.old].Artifact.BinarySHA256 {
+				t.Fatal("revoked activation replaced the binary", digest, err)
+			}
+		})
+	}
+}
+
 func (s *testSource) Resolve(_ context.Context, _ Root, v, _, _ string, _ uint64, _ time.Time) (Resolution, error) {
 	r, ok := s.versions[v]
 	if !ok {
@@ -42,6 +106,56 @@ type testEffects struct {
 	candidateFails              bool
 	old                         string
 	stopped, started, preflight int
+}
+
+type contextCheckingEffects struct{ *testEffects }
+
+func (e contextCheckingEffects) Stop(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return e.testEffects.Stop(ctx)
+}
+func (e contextCheckingEffects) Start(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return e.testEffects.Start(ctx)
+}
+func (e contextCheckingEffects) Healthy(ctx context.Context, version, digest string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return e.testEffects.Healthy(ctx, version, digest)
+}
+
+func TestHelperRecoveryHasIndependentDeadline(t *testing.T) {
+	h, reg, _, _, env, payload, _, effects, source := helperFixture(t)
+	defer h.Close()
+	if _, err := h.Handle(context.Background(), HelperRequest{env, payload}); err != nil {
+		t.Fatal(err)
+	}
+	if err := replaceBinary(reg.Binary, filepath.Join(reg.State, "previous"), h.state.OldDigest, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := replaceBinary(filepath.Join(reg.State, "candidate"), reg.Binary, source.versions["v1.7.1"].Artifact.BinarySHA256, false); err != nil {
+		t.Fatal(err)
+	}
+	h.effects = contextCheckingEffects{effects}
+	exhausted, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	receipt, err := h.recover(exhausted, func(state, code string) (management.Receipt, error) {
+		r := *h.state.Last
+		r.State, r.Code = state, code
+		h.state.Last = &r
+		return r, h.save()
+	})
+	if err != nil || receipt.State != "rolled_back" || effects.started != 1 {
+		t.Fatal("exhausted activation budget prevented recovery", receipt, err)
+	}
+	if digest, err := fileDigest(reg.Binary, false); err != nil || digest != h.state.OldDigest {
+		t.Fatal("old executable was not restored", digest, err)
+	}
 }
 
 func (e *testEffects) Configuration(context.Context) (string, error) {

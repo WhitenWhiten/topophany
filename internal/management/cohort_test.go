@@ -192,3 +192,42 @@ func TestPauseExpiresAndQuarantineAbortsDrain(t *testing.T) {
 		t.Fatal("expired pause did not resume")
 	}
 }
+
+func TestQuiesceDetectsQuarantineWhileSchedulerStops(t *testing.T) {
+	a, p, key, _, _ := reviewAgent(t, nil)
+	_, _, _, cmd := fixture(t)
+	env := signed(t, key, cmd)
+	if _, _, err := a.store.Begin(cmd, env, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	cmd.LeaseSeconds = 180
+	var quarantined atomic.Uint64
+	a.Pending = func() (int, uint64) { return 0, quarantined.Load() }
+	go func() {
+		request := <-a.Changes
+		quarantined.Add(1) // A delivery fails while the scheduler is stopping.
+		request.Done <- nil
+	}()
+	if _, err := a.quiesce(context.Background(), cmd, p); err != nil {
+		t.Fatal(err)
+	}
+	resumed := make(chan string, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		select {
+		case request := <-a.Changes:
+			resumed <- request.Operation
+			request.Done <- nil
+		case <-ctx.Done():
+		}
+	}()
+	a.checkPause(ctx)
+	state := a.store.Snapshot().Config
+	if state.Quiesced || a.Paused() || state.Last.Code != "configuration_drain_quarantined" {
+		t.Fatalf("lost observations counted as a successful drain: %+v", state)
+	}
+	if <-resumed != "resume" {
+		t.Fatal("aborted barrier did not resume monitoring")
+	}
+}

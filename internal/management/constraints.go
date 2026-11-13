@@ -107,11 +107,13 @@ func (v Constraints) Check(c model.Config, observer string, concurrency int) err
 		return errors.New("remote_literal_secrets_denied")
 	}
 	count := 0
+	present := make(map[string]bool, len(c.Checks))
 	for _, x := range c.Checks {
 		if observer != "" && x.Observer != observer {
 			continue
 		}
 		count++
+		present[x.ID] = true
 		if !slices.Contains(v.Contracts[x.ID], config.Contract(c, x)) {
 			return errors.New("measurement_contract_not_authorized")
 		}
@@ -141,13 +143,7 @@ func (v Constraints) Check(c model.Config, observer string, concurrency int) err
 			}
 		}
 		for _, id := range required {
-			found := false
-			for _, x := range c.Checks {
-				if (observer == "" || x.Observer == observer) && x.ID == id {
-					found = true
-				}
-			}
-			if !found {
+			if !present[id] {
 				return errors.New("remote_check_removal_denied")
 			}
 		}

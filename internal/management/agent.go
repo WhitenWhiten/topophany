@@ -41,6 +41,8 @@ type Agent struct {
 	store           *Store
 	current         atomic.Pointer[model.Config]
 	constraints     atomic.Pointer[Constraints]
+	constraintMu    sync.Mutex
+	constraintFile  constraintFile
 	managed         atomic.Bool
 	concurrency     int
 	Changes         chan ApplyRequest
@@ -125,7 +127,7 @@ func NewAgent(path, dir string, local model.Config, role, observer string, concu
 		a.managed.Store(true)
 		local = loaded
 	}
-	if err := st.ClearInterruptedPause(); err != nil {
+	if err := st.RecoverConfig(); err != nil {
 		st.Close()
 		return nil, local, err
 	}
@@ -140,29 +142,6 @@ func (a *Agent) Close() error {
 }
 func (a *Agent) Managed() bool { return a != nil && a.managed.Load() }
 
-// Guard is called before every managed probe, so local revocation applies even
-// when the controller is disconnected. Exact contracts bind secrets and targets.
-func (a *Agent) Guard(c model.Config, x model.Check) error {
-	if !a.Managed() {
-		return nil
-	}
-	limits := a.constraints.Load()
-	p, e := LoadPolicy(a.path)
-	if e == nil && p.Installation == a.identity.Installation && p.Config.ConstraintsFile != "" {
-		fresh, e := LoadConstraints(p.Config.ConstraintsFile, p.System)
-		if e == nil {
-			limits = &fresh
-			a.constraints.Store(limits)
-		}
-	}
-	if limits == nil {
-		return errors.New("managed_constraints_unavailable")
-	}
-	if e = limits.Check(c, x.Observer, a.concurrency); e != nil {
-		return e
-	}
-	return nil
-}
 func (a *Agent) LocalReload(next model.Config) error {
 	if a.Managed() {
 		return errors.New("managed_configuration_active")
@@ -251,9 +230,6 @@ func (a *Agent) Poll(ctx context.Context) error {
 	if _, _, e = Exchange(ctx, h, token, "POST", origin+"/management/v1/status", Marshal(status), 16<<10); e != nil {
 		return e
 	}
-	if !p.Config.Accept && !p.Updates.Accept {
-		return nil
-	}
 	b, code, e := Exchange(ctx, h, token, "GET", origin+"/management/v1/desired", nil, 64<<10)
 	if e != nil || code == 204 {
 		return e
@@ -262,7 +238,28 @@ func (a *Agent) Poll(ctx context.Context) error {
 	if e = Decode(b, &env, 64<<10); e != nil {
 		return errors.New("invalid_command_envelope")
 	}
-	pending := a.store.Snapshot().Updates.Last
+	sendReceipt := func(receipt Receipt) error {
+		status.Receipt = &receipt
+		status.Contracts = ContractDigest(*a.current.Load(), p.Role, p.Observer)
+		status.QuiesceUntil = a.store.Snapshot().Config.QuiesceUntil
+		status.At = time.Now().UTC()
+		_, _, err := Exchange(ctx, h, token, "POST", origin+"/management/v1/status", Marshal(status), 16<<10)
+		return err
+	}
+	snapshot := a.store.Snapshot()
+	// Reporting an already authenticated result is not authorization to execute
+	// again. Retry the exact receipt even after command/trust expiry or a local
+	// session rotation, and avoid repeatedly downloading a prepared payload.
+	envelopeDigest := Digest(Marshal(env))
+	for _, receipt := range []*Receipt{snapshot.Config.Last, snapshot.Updates.Last} {
+		if receipt != nil && receipt.CommandDigest == envelopeDigest && receipt.State != "accepted" {
+			return sendReceipt(*receipt)
+		}
+	}
+	if !p.Config.Accept && !p.Updates.Accept {
+		return nil
+	}
+	pending := snapshot.Updates.Last
 	if pending != nil && pending.State == "accepted" && pending.CommandDigest == Digest(Marshal(env)) && a.Update != nil && p.Updates.Accept {
 		var completedCommand Command
 		original, _ := payloadBytes(env, 32<<10)
@@ -272,9 +269,7 @@ func (a *Agent) Poll(ctx context.Context) error {
 				if saveErr := a.store.ImportUpdateReceipt(completedCommand, receipt); saveErr != nil {
 					return saveErr
 				}
-				status.Receipt = &receipt
-				status.At = time.Now().UTC()
-				_, _, sendErr := Exchange(ctx, h, token, "POST", origin+"/management/v1/status", Marshal(status), 16<<10)
+				sendErr := sendReceipt(receipt)
 				if err != nil {
 					return err
 				}
@@ -299,11 +294,7 @@ func (a *Agent) Poll(ctx context.Context) error {
 	}
 	receipt, e := a.Process(ctx, cmd, env, raw)
 	if receipt.CommandID != "" {
-		status.Receipt = &receipt
-		status.Contracts = ContractDigest(*a.current.Load(), p.Role, p.Observer)
-		status.QuiesceUntil = a.store.Snapshot().Config.QuiesceUntil
-		status.At = time.Now().UTC()
-		_, _, sendErr := Exchange(ctx, h, token, "POST", origin+"/management/v1/status", Marshal(status), 16<<10)
+		sendErr := sendReceipt(receipt)
 		if e == nil {
 			e = sendErr
 		}

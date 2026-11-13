@@ -34,6 +34,10 @@ func (a *Agent) quiesce(ctx context.Context, c Command, p Policy) (Receipt, erro
 	if a.paused {
 		return a.store.Finish(c, "rejected", "already_quiescing", time.Now())
 	}
+	// Include quarantines while the scheduler is stopping in the drain barrier.
+	if a.Pending != nil {
+		_, a.quarantineFloor = a.Pending()
+	}
 	if e := a.requestOperation(ctx, "pause"); e != nil {
 		return a.store.Finish(c, "failed", "configuration_pause_failed", time.Now())
 	}
@@ -41,9 +45,6 @@ func (a *Agent) quiesce(ctx context.Context, c Command, p Policy) (Receipt, erro
 	a.pausedFlag.Store(true)
 	a.pauseUntil = time.Now().Add(min(time.Duration(c.LeaseSeconds)*time.Second, time.Until(c.Expires)))
 	a.pauseSession = p.Config.Session
-	if a.Pending != nil {
-		_, a.quarantineFloor = a.Pending()
-	}
 	r, e := a.store.Finish(c, "quiescing", "", time.Now())
 	if e == nil {
 		e = a.store.SetQuiesce(false, a.pauseUntil.UTC(), "")
@@ -134,10 +135,37 @@ func (s *Store) SetQuiesce(ready bool, until time.Time, code string) error {
 	s.state = next
 	return nil
 }
-func (s *Store) ClearInterruptedPause() error {
-	snapshot := s.Snapshot()
-	if snapshot.Config.QuiesceUntil.IsZero() {
+
+// RecoverConfig runs after loading the durable active pointer and before any
+// scheduler starts. An accepted action cannot safely be resumed: the old or new
+// runtime may have run before the crash. Preserve replay/generation floors and
+// report a terminal failure so a fresh deployment can reconcile the node.
+func (s *Store) RecoverConfig() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	next := s.state
+	ch := &next.Config
+	interrupted := ch.Last != nil && (ch.Last.State == "accepted" || ch.Last.State == "quiescing" || ch.Last.State == "quiesced")
+	if !interrupted && !ch.Quiesced && ch.QuiesceUntil.IsZero() {
 		return nil
 	}
-	return s.SetQuiesce(false, time.Time{}, "configuration_pause_interrupted")
+	ch.Quiesced = false
+	ch.QuiesceUntil = time.Time{}
+	if interrupted {
+		r := *ch.Last
+		r.Code = "configuration_pause_interrupted"
+		if r.State == "accepted" {
+			r.Code = "configuration_interrupted"
+		}
+		r.State = "failed"
+		r.At = time.Now().UTC()
+		ch.Last = &r
+		ch.Prepared = nil
+		ch.PreparedConstraints = ""
+	}
+	if err := s.write(next); err != nil {
+		return err
+	}
+	s.state = next
+	return nil
 }

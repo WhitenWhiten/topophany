@@ -325,6 +325,20 @@ func (h *Helper) Handle(ctx context.Context, request HelperRequest) (management.
 		return r, nil
 	}
 	fail := func(code string) (management.Receipt, error) { h.state.Phase = "failed"; return finish("failed", code) }
+	reauthorize := func() error {
+		current, currentPolicy, currentRoot, err := h.policy()
+		if err != nil || management.Digest(management.Marshal(current)) != management.Digest(management.Marshal(p)) || management.Digest(management.Marshal(currentPolicy)) != management.Digest(management.Marshal(policy)) || management.Digest(management.Marshal(currentRoot)) != management.Digest(management.Marshal(root)) {
+			return errors.New("management_policy_changed")
+		}
+		currentTrust, err := management.LoadTrust(current.Controller.CommandTrustFile, h.system, time.Now())
+		if err != nil {
+			return errors.New("management_trust_changed")
+		}
+		if _, err := management.ParseCommand(request.Envelope, current, currentTrust, time.Now()); err != nil {
+			return errors.New("management_authorization_changed")
+		}
+		return nil
+	}
 	if cmd.Kind == "update.cancel" {
 		h.state.Prepared = nil
 		h.state.Candidate = nil
@@ -402,9 +416,8 @@ func (h *Helper) Handle(ctx context.Context, request HelperRequest) (management.
 				return fail("candidate_archive_invalid")
 			}
 		}
-		current, _, _, e := h.policy()
-		if e != nil || management.Digest(management.Marshal(current)) != management.Digest(management.Marshal(p)) {
-			return fail("management_policy_changed")
+		if e = reauthorize(); e != nil {
+			return fail(e.Error())
 		}
 		configDigest, err := h.effects.Configuration(ctx)
 		if err != nil || !management.HashOK(configDigest) {
@@ -499,10 +512,15 @@ func (h *Helper) Handle(ctx context.Context, request HelperRequest) (management.
 	if e != nil {
 		return fail("management_policy_lock_unavailable")
 	}
-	current, _, _, e := h.policy()
-	if e != nil || management.Digest(management.Marshal(current)) != management.Digest(management.Marshal(p)) {
+	// Network verification and staging may outlive a local policy/trust edit or
+	// the command/window. Recheck every authority at the service-stop boundary.
+	if e = reauthorize(); e != nil {
 		release()
-		return fail("management_policy_changed")
+		return fail(e.Error())
+	}
+	if !policy.Window(time.Now()) {
+		release()
+		return fail("outside_maintenance_window")
 	}
 	if sameVersion {
 		defer release()
@@ -525,7 +543,13 @@ func (h *Helper) Handle(ctx context.Context, request HelperRequest) (management.
 		return finish("manual_recovery_required", "service_stop_failed")
 	}
 	if e = h.effects.Preflight(work, candidate, h.registration.State, h.state.PreparedConfig); e != nil {
-		if restartErr := h.effects.Start(work); restartErr != nil {
+		recovery, stopRecovery := context.WithTimeout(context.WithoutCancel(work), 2*time.Minute)
+		defer stopRecovery()
+		restartErr := h.effects.Start(recovery)
+		if restartErr == nil {
+			restartErr = h.effects.Healthy(recovery, h.state.OldVersion, h.state.OldDigest)
+		}
+		if restartErr != nil {
 			h.state.Phase = "manual_recovery_required"
 			return finish("manual_recovery_required", "previous_service_restart_failed")
 		}
@@ -574,6 +598,10 @@ func (h *Helper) acceptCatalog(c Catalog) error {
 	return h.save()
 }
 func (h *Helper) recover(ctx context.Context, finish func(string, string) (management.Receipt, error)) (management.Receipt, error) {
+	// A failed activation may have exhausted its entire deadline. Recovery must
+	// have its own bounded budget, including service stop/start and health checks.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+	defer cancel()
 	h.state.Phase = "recovering"
 	// The durable activating/checking intent already authorizes this exact
 	// recovery pair. Exhausted journal storage must not prevent restoring the

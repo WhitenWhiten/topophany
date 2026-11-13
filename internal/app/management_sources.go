@@ -28,16 +28,13 @@ func managedNetwork(ctx context.Context, a *management.Agent) context.Context {
 type managedSources struct {
 	runtime runner.SourceRuntime
 	agent   *management.Agent
+	guard   func() error
 }
 
 func (s managedSources) Validate(c model.Config) error { return s.runtime.Validate(c) }
 func (s managedSources) Collect(ctx context.Context, c model.Config, src model.Source, requests []source.Request) ([]source.Reading, error) {
-	for _, x := range c.Checks {
-		if x.Observer == src.Observer && x.External != nil && x.External.Source == src.ID {
-			if e := s.agent.Guard(c, x); e != nil {
-				return nil, source.NewError("management_policy_denied", "local management policy refused collection")
-			}
-		}
+	if err := s.guard(); err != nil {
+		return nil, source.NewError("management_policy_denied", "local management policy refused collection")
 	}
 	return s.runtime.Collect(managedNetwork(ctx, s.agent), c, src, requests)
 }

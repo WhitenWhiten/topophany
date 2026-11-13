@@ -57,7 +57,7 @@ func (c *Controller) publishUpdate(w http.ResponseWriter, r *http.Request, p Man
 					}
 					return errors.New("deployment_id_conflict")
 				}
-				if n.Status.Receipt == nil || !slices.Contains([]string{"active", "healthy", "failed", "rejected", "canceled", "rolled_back"}, n.Status.Receipt.State) {
+				if n.Status.Receipt == nil || n.Status.Receipt.CommandID != previous.ID || n.Status.Receipt.CommandDigest != Digest(Marshal(n.Desired)) || !slices.Contains([]string{"active", "healthy", "failed", "rejected", "canceled", "rolled_back"}, n.Status.Receipt.State) {
 					return errors.New("deployment_in_progress")
 				}
 			}
@@ -124,11 +124,17 @@ func (c *Controller) advanceUpdate(w http.ResponseWriter, r *http.Request, p Man
 			if Decode(raw, &cmd, 32<<10) != nil || cmd.Deployment != a.ID || cmd.Channel() != "update" {
 				return errors.New("update_not_found")
 			}
-			if cmd.Kind == kind {
+			if cmd.Kind == kind && (kind != "update.cancel" || n.Status != nil && n.Status.UpdateSession == cmd.Session) {
 				continue
 			}
-			if cmd.Kind != "update.prepare" {
+			if cmd.Kind != "update.prepare" && !(kind == "update.cancel" && cmd.Kind == kind) {
 				return errors.New("update_already_activated")
+			}
+			if kind == "update.cancel" {
+				if n.Status == nil || !n.Status.UpdateAccept || !config.ID(n.Status.UpdateSession) || now.Sub(n.Received) > time.Minute {
+					return errors.New("node_not_ready")
+				}
+				cmd.Session = n.Status.UpdateSession
 			}
 			if kind == "update.activate" {
 				for otherID, other := range c.state.Nodes {

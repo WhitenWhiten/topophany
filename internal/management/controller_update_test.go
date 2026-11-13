@@ -5,11 +5,34 @@ package management
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestUpdatePublishRequiresReceiptForCurrentCommand(t *testing.T) {
+	_, trust, key, cmd := fixture(t)
+	dir := t.TempDir()
+	cmd.Kind = "update.prepare"
+	cmd.ID, cmd.Deployment = "pending.prepare", "pending"
+	env := signed(t, key, cmd)
+	node := NodeRecord{
+		Registration: Registration{ID: cmd.Installation, Project: cmd.Project, Role: "worker", Observer: "a"},
+		Desired:      &env, Received: time.Now(),
+		Status: &NodeStatus{UpdateAccept: true, UpdateSession: cmd.Session, Receipt: &Receipt{CommandID: "old.activate", State: "healthy"}},
+	}
+	c := &Controller{Policy: ControllerPolicy{ID: trust.ID, Epoch: 1, Data: dir, InventoryComplete: true}, key: SigningKey{ID: "one"}, private: key, state: controllerState{Schema: 1, Nodes: map[string]NodeRecord{cmd.Installation: node}, Blobs: map[string]int64{}}}
+	c.VerifyUpdate = func(context.Context, []byte, NodeStatus, []NodeRecord) error { return nil }
+	plan := UpdateDeployment{ID: "overwrite", Targets: []string{cmd.Installation}, Bases: map[string]uint64{cmd.Installation: 0}, Payloads: map[string]json.RawMessage{cmd.Installation: json.RawMessage(`{"version":"v1.7.1"}`)}}
+	request := httptest.NewRequest("POST", "/management/v1/update-deployments", bytes.NewReader(Marshal(plan)))
+	response := httptest.NewRecorder()
+	c.publishUpdate(response, request, ManagementPrincipal{Role: "update-publish", Project: cmd.Project, Installations: plan.Targets}, time.Now())
+	if response.Code != 409 || Digest(Marshal(c.state.Nodes[cmd.Installation].Desired)) != Digest(Marshal(env)) {
+		t.Fatal("an old healthy receipt allowed replacing an in-progress deployment", response.Code, response.Body.String())
+	}
+}
 
 func TestUpdateCanaryUsesControllerObservationAndStopsAfterFailure(t *testing.T) {
 	for _, kind := range []string{"fresh-receipt-with-old-clock", "stale-peer", "failed-peer", "observed-healthy"} {

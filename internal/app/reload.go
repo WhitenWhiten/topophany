@@ -127,9 +127,13 @@ func changes(old, next model.Config) string {
 // observations and source fan-outs use the same durability sink.
 func prepareScheduler(c model.Config, observer string, workers int, sink runner.BatchSink, agents ...*management.Agent) (*runner.Scheduler, error) {
 	run := probe.NewRunner(c, observer).Run
+	guards := make([]func() error, len(agents))
+	for i, agent := range agents {
+		guards[i] = agent.Guard(c, observer)
+	}
 	guarded := func(ctx context.Context, c model.Config, x model.Check) model.Observation {
-		for _, agent := range agents {
-			if e := agent.Guard(c, x); e != nil {
+		for _, guard := range guards {
+			if e := guard(); e != nil {
 				evidence := "measured"
 				if x.Kind == "host" || x.Kind == "mihomo" || x.Kind == "cloudflare" || x.Kind == "cloudflared" || x.Kind == "tailscale" || x.Kind == "wireguard" {
 					evidence = "reported"
@@ -147,9 +151,9 @@ func prepareScheduler(c model.Config, observer string, workers int, sink runner.
 		return nil, err
 	}
 	var rt runner.SourceRuntime = probe.NewSourceRuntime(probe.ProductionSourceAdapters())
-	for _, agent := range agents {
+	for i, agent := range agents {
 		if agent != nil {
-			rt = managedSources{rt, agent}
+			rt = managedSources{runtime: rt, agent: agent, guard: guards[i]}
 		}
 	}
 	s.WithSources(rt, sink, 4)
