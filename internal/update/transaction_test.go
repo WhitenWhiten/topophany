@@ -491,7 +491,10 @@ func TestHelperCrashRecovery(t *testing.T) {
 	}
 }
 func TestUpdatePolicyWindowAndDowngrade(t *testing.T) {
-	p := Policy{Schema: 1, Minimum: "v1.7.0", MaxMajor: 1, Timezone: "UTC", Start: "23:00", End: "01:00", Socket: "/tmp/helper.sock", HealthSeconds: 30}
+	p := Policy{Schema: 1, Minimum: "v1.7.0", MaxMajor: 1, Timezone: "UTC", Start: "23:00", End: "01:00", Socket: filepath.Join(t.TempDir(), "helper.sock"), HealthSeconds: 30}
+	if err := p.Validate(); err != nil {
+		t.Fatal(err)
+	}
 	if !p.Window(time.Date(2026, 11, 12, 23, 30, 0, 0, time.UTC)) || p.Window(time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC)) {
 		t.Fatal("window error")
 	}
