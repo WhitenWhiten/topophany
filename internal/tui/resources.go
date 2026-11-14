@@ -115,7 +115,9 @@ func (m *Model) resourceRows(rs []view.CardResource, w int) []cardRow {
 			continue
 		}
 		rows = append(rows, panel...)
-		rows = appendResourceMetricRows(rows, r.Facts, hit)
+		if cells := readingCells(r.Facts, panelWidths(w), panelGap); cells != nil {
+			rows = append(rows, cardRow{left: cells, hit: hit})
+		}
 		if !r.External {
 			named, total := processes(r.Facts, h)
 			if named == nil {
@@ -127,14 +129,140 @@ func (m *Model) resourceRows(rs []view.CardResource, w int) []cardRow {
 	return rows
 }
 
-func appendResourceMetricRows(rows []cardRow, facts map[string]string, hit string) []cardRow {
-	for _, pair := range view.ResourceMetricValues(facts) {
-		rows = append(rows, cardRow{
-			left: []span{{fit(pair[0], 9), fg(cMuted)}, {pair[1], fg(cText)}},
-			hit:  hit,
-		})
+// A host may also report how fast its network moves, how much swap it
+// uses and its load averages. A card says each under the panel it belongs
+// with, the load under the CPU, the swap under the memory and the network
+// under the disk; an evidence panel or an open card says each in full, on
+// a line of its own under the charts.
+
+// shortBytes writes a byte count as a card has room for it: "512", "305K",
+// "1.7M", "12G".
+func shortBytes(v float64) string {
+	units := []string{"", "K", "M", "G", "T", "P"}
+	u := 0
+	for v >= 1000 && u < len(units)-1 {
+		v /= 1024
+		u++
 	}
-	return rows
+	if v < 10 && u > 0 {
+		return strconv.FormatFloat(v, 'f', 1, 64) + units[u]
+	}
+	return strconv.FormatFloat(math.Round(v), 'f', 0, 64) + units[u]
+}
+
+// fullRate writes bytes a second with their unit: "305.4 KiB/s".
+func fullRate(v float64) string {
+	units := []string{"B/s", "KiB/s", "MiB/s", "GiB/s", "TiB/s", "PiB/s"}
+	u := 0
+	for v >= 1024 && u < len(units)-1 {
+		v /= 1024
+		u++
+	}
+	return strconv.FormatFloat(v, 'f', 1, 64) + " " + units[u]
+}
+
+// swapShare is the share of swap in use, "" when either reading is
+// missing and "none" when the host has none.
+func swapShare(s model.SwapReport) string {
+	switch {
+	case s.TotalBytes != nil && *s.TotalBytes == 0:
+		return "none"
+	case s.TotalBytes == nil || s.UsedBytes == nil:
+		return ""
+	}
+	return pct(float64(*s.UsedBytes)/float64(*s.TotalBytes)*100, 0)
+}
+
+// loads writes the averages it has, "—" for one missing.
+func loads(l model.LoadReport) []string {
+	out := []string{}
+	for _, v := range []*float64{l.Avg1m, l.Avg5m, l.Avg15m} {
+		if v == nil {
+			out = append(out, "—")
+			continue
+		}
+		out = append(out, strconv.FormatFloat(*v, 'f', 2, 64))
+	}
+	return out
+}
+
+// readingCells is a card's row for the other readings, the panels' widths
+// in ns: the load under the CPU, the swap under the memory, the network
+// under the disk, each cell blank where its host reports nothing. nil when
+// it reports none of them.
+func readingCells(facts map[string]string, ns [3]int, gap int) []span {
+	r := model.ResourceMetricsFromFacts(facts)
+	if r.Network == (model.NetworkReport{}) && r.Swap == (model.SwapReport{}) && r.Load == (model.LoadReport{}) {
+		return nil
+	}
+	label, value := fg(cFaint), fg(Mix(cMuted, cText, .3))
+	cell := func(n int, left, right []span) []span {
+		pad := n - spansWidth(left) - spansWidth(right)
+		if pad < 1 {
+			return []span{{strings.Repeat(" ", n), Style{}}}
+		}
+		return append(append(left, span{strings.Repeat(" ", pad), Style{}}), right...)
+	}
+	out := []span{}
+	if r.Load.Avg1m != nil {
+		out = append(out, cell(ns[0], []span{{"load", label}}, []span{{loads(r.Load)[0], value}})...)
+	} else {
+		out = append(out, span{strings.Repeat(" ", ns[0]), Style{}})
+	}
+	out = append(out, span{strings.Repeat(" ", gap), Style{}})
+	if share := swapShare(r.Swap); share != "" {
+		out = append(out, cell(ns[1], []span{{"swap", label}}, []span{{share, value}})...)
+	} else {
+		out = append(out, span{strings.Repeat(" ", ns[1]), Style{}})
+	}
+	out = append(out, span{strings.Repeat(" ", gap), Style{}})
+	if rx, tx := r.Network.RXBytesPerSecond, r.Network.TXBytesPerSecond; rx != nil || tx != nil {
+		side := func(arrow string, v *float64) []span {
+			if v == nil {
+				return []span{{arrow, label}, {"—", label}}
+			}
+			return []span{{arrow, label}, {shortBytes(*v), value}}
+		}
+		out = append(out, cell(ns[2], side("↓", rx), side("↑", tx))...)
+	}
+	return out
+}
+
+// readingLines are the other readings in full, each a label in the style
+// of the charts' names (style) padded to n, then its values.
+func readingLines(facts map[string]string, n int, style Style) []vline {
+	r := model.ResourceMetricsFromFacts(facts)
+	value, quiet := fg(cText), fg(cMuted)
+	out := []vline{}
+	if rx, tx := r.Network.RXBytesPerSecond, r.Network.TXBytesPerSecond; rx != nil || tx != nil {
+		rate := func(v *float64) string {
+			if v == nil {
+				return "—"
+			}
+			return fullRate(*v)
+		}
+		out = append(out, vline{{fit("NETWORK", n), style}, {"↓ ", quiet}, {rate(rx), value}, {"   ↑ ", quiet}, {rate(tx), value}})
+	}
+	if r.Swap != (model.SwapReport{}) {
+		line := vline{{fit("SWAP", n), style}}
+		if share := swapShare(r.Swap); share != "" && share != "none" {
+			line = append(line, span{share, value.bold()}, span{"  ", Style{}})
+		}
+		switch {
+		case r.Swap.TotalBytes != nil && *r.Swap.TotalBytes == 0:
+			line = append(line, span{"none configured", quiet})
+		case r.Swap.TotalBytes != nil && r.Swap.UsedBytes != nil:
+			line = append(line, span{capacity(*r.Swap.UsedBytes, *r.Swap.TotalBytes), quiet})
+		case r.Swap.TotalBytes != nil:
+			line = append(line, span{"— of " + capacity(*r.Swap.TotalBytes, *r.Swap.TotalBytes), quiet})
+		}
+		out = append(out, line)
+	}
+	if r.Load != (model.LoadReport{}) {
+		l := loads(r.Load)
+		out = append(out, vline{{fit("LOAD", n), style}, {l[0], value.bold()}, {"  " + l[1] + "  " + l[2], value}, {"   1 · 5 · 15 min", fg(cFaint)}})
+	}
+	return out
 }
 
 func resourceTitle(rs []view.CardResource) string {
@@ -149,9 +277,9 @@ func resourceTitle(rs []view.CardResource) string {
 // as far as the resource is used, and how much there is under it. Without
 // a current reading, when the last one was read stands under them.
 func (m *Model) resourcePanel(r view.CardResource, w int) []cardRow {
-	const gap = 2
-	pw := (w - 2*gap) / 3
-	extra := w - 2*gap - 3*pw
+	const gap = panelGap
+	ns := panelWidths(w)
+	pw, extra := ns[0], ns[2]-ns[0]
 	well := Mix(cInk, cLine, .35)
 	x, h := m.hostCheck(r.Check)
 	_, use := usageSlots(x, m.trendSamples(r.Check), m.Now, pw+extra)
@@ -194,6 +322,16 @@ func (m *Model) resourcePanel(r view.CardResource, w int) []cardRow {
 		panel[k].hit = "goto:check:" + r.Check
 	}
 	return panel
+}
+
+// panelGap is the room between a card's resource panels.
+const panelGap = 2
+
+// panelWidths are the widths of a card's three resource panels across w,
+// the last taking what does not divide.
+func panelWidths(w int) [3]int {
+	pw := (w - 2*panelGap) / 3
+	return [3]int{pw, pw, w - 2*panelGap - 2*pw}
 }
 
 // resourceAside is what a card's resources heading says on the right: how
@@ -347,8 +485,8 @@ func (m *Model) nodeResources(r view.CardResource, w int) []vline {
 	}
 	use = append(pad, use...)
 	out = append(out, m.resourceCharts(h, use, r.Facts, time.Duration(n*max(1, x.IntervalSeconds))*time.Second)...)
-	for _, pair := range view.ResourceMetricValues(r.Facts) {
-		out = append(out, vline{{fit(pair[0], 10), fg(cMuted)}, {pair[1], fg(cText)}})
+	if more := readingLines(r.Facts, 8, fg(Mix(cAccent, cMuted, .35)).bold()); len(more) > 0 {
+		out = append(append(out, more...), vline{})
 	}
 	if r.External {
 		return out

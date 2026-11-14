@@ -36,6 +36,10 @@ local monitoring behavior remain unchanged.
   `app:unknown path:degraded worker:up`, and the open card and the evidence
   panel list each check it rests on with its observer, scope and check, the
   notes wrapped rather than cut off. `topo show` keeps the sentences.
+- Server cards say network, swap and load in one row under the panels they go
+  with: the load under the CPU, the swap's share under the memory and the
+  network rates under the disk. Open cards and node evidence give each a line
+  styled like the CPU, memory and disk charts, with spaced units.
 
 ### Fixed
 

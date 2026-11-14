@@ -313,7 +313,12 @@ func (m *Model) sheetResources(rs []view.CardResource, w int) []cardRow {
 				rows = append(rows, cardRow{})
 			}
 		}
-		rows = appendResourceMetricRows(rows, r.Facts, hit)
+		if more := readingLines(r.Facts, 8, fg(cMuted)); len(more) > 0 {
+			rows = append(rows, cardRow{})
+			for _, l := range more {
+				rows = append(rows, cardRow{left: l, hit: hit})
+			}
+		}
 		if current {
 			named, total := processes(r.Facts, h)
 			if named == nil {
