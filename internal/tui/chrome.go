@@ -417,6 +417,64 @@ func (m *Model) panel(cv *Canvas, x, y, w, h int, title, tag string, active bool
 	return x + 2, y + 1, max(0, w-4), max(0, h-2)
 }
 
+// panelTitleEnd is the column after what panel writes on a panel's top
+// edge, x to x+w: its title and, when it fits, its tag.
+func panelTitleEnd(x, w int, title, tag string) int {
+	if title == "" || w <= 6 {
+		return x + 1
+	}
+	n := min(width(secure.Text(" "+title+" ")), w-4)
+	end := x + 2 + n
+	if tag != "" && x+2+n+width(tag)+3 < x+w {
+		end += min(width(secure.Text(tag+" ")), w-4-n)
+	}
+	return end
+}
+
+// browseTag sets what a business list is browsed by on the right of its
+// panel's top edge, x to x+w on row y, after the title that ends at from:
+// what was chosen lit, what is left at everything quiet. Where it does not
+// fit, what is left at everything gives way first. A click on it browses.
+func (m *Model) browseTag(cv *Canvas, x, y, w, from int) {
+	room := x + w - 4 - from
+	parts := m.browseParts()
+	build := func(all bool) []span {
+		out := []span{}
+		for _, p := range parts {
+			if !all && !p.chosen {
+				continue
+			}
+			if len(out) > 0 {
+				out = append(out, span{p.sep, fg(cFaint)})
+			}
+			st := fg(cMuted)
+			switch {
+			case p.text == "attention only":
+				st = fg(cWarn)
+			case p.chosen:
+				st = fg(cAccent2)
+			}
+			out = append(out, span{p.text, st})
+		}
+		return out
+	}
+	tag := build(true)
+	if spansWidth(tag)+2 > room {
+		tag = build(false)
+	}
+	if len(tag) == 0 || room < 10 {
+		return
+	}
+	tw := min(spansWidth(tag), room-2) + 2
+	rx := x + w - 2 - tw
+	cx := rx + cv.Text(rx, y, " ", Style{}, 1)
+	for _, sp := range tag {
+		cx += cv.Text(cx, y, ellipsis(sp.s, rx+tw-1-cx), sp.st, rx+tw-1-cx)
+	}
+	cv.Text(cx, y, " ", Style{}, 1)
+	m.hit(rx, y, tw, "key:b")
+}
+
 type keycap struct{ key, label, action string }
 
 // An action is something the viewer can do from where it stands: a key on

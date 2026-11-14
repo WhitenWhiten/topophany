@@ -49,6 +49,10 @@ local monitoring behavior remain unchanged.
   label with a capital, color health words wherever they are a value, and let
   each incident in a related problem head its own sections in its own words
   rather than in capitals indistinguishable from `FAILED CHECKS`.
+- Services and Checks say what they are browsed by on their panel's top edge,
+  what you chose lit and what is left at everything quiet, instead of on a row
+  of their own above it, so the list gains a row. Where the edge is short, what
+  is left at everything gives way first. A click on it still opens Browse.
 
 ### Fixed
 

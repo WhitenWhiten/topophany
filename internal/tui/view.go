@@ -169,13 +169,9 @@ func (m *Model) body(cv *Canvas, x, y, w, h int) {
 	if m.Search != "" {
 		tag += " matching “" + m.Search + "”"
 	}
-	// The cards stay where they were while one lies open over them.
-	if m.businessTab() && (!m.Detail || m.serviceCards()) {
-		cv.Text(x+1, y, ellipsis(m.businessStatus()+" · b Browse", w-2), fg(cMuted), w-2)
-		m.hit(x+1, y, w-2, "key:b")
-		y++
-		h--
-	}
+	// What a business list is browsed by is said on its panel's edge; the
+	// cards keep it while one lies open over them.
+	browse := m.businessTab() && (!m.Detail || m.serviceCards())
 	if m.Tab == tabAbout {
 		ix, iy, iw, ih := m.panel(cv, x, y, w, h, "ABOUT", "· the appearance of place", false)
 		m.drawAbout(cv, ix-1, iy, iw+2, ih)
@@ -248,6 +244,7 @@ func (m *Model) body(cv *Canvas, x, y, w, h int) {
 		return
 	case m.serviceCards():
 		ix, iy, iw, ih := m.panel(cv, x, y, w, h, title+" · cards", tag, !m.Detail)
+		m.browseTag(cv, x, y, w, panelTitleEnd(x, w, title+" · cards", tag))
 		m.drawServiceCards(cv, ix, iy, iw, ih, rows)
 		if m.Detail && len(rows) > 0 {
 			m.drawServiceSheet(cv, ix-1, iy, iw+2, ih, sel)
@@ -262,6 +259,9 @@ func (m *Model) body(cv *Canvas, x, y, w, h int) {
 			lw = w * 56 / 100
 		}
 		ix, iy, iw, ih := m.panel(cv, x, y, lw, h, title, tag, true)
+		if browse {
+			m.browseTag(cv, x, y, lw, panelTitleEnd(x, lw, title, tag))
+		}
 		m.drawList(cv, ix, iy, iw, ih, rows)
 		hint := "Enter expand"
 		if sel.Kind == "group" {
@@ -272,6 +272,9 @@ func (m *Model) body(cv *Canvas, x, y, w, h int) {
 		return
 	}
 	ix, iy, iw, ih := m.panel(cv, x, y, w, h, title, tag, true)
+	if browse {
+		m.browseTag(cv, x, y, w, panelTitleEnd(x, w, title, tag))
+	}
 	m.drawList(cv, ix, iy, iw, ih, rows)
 }
 

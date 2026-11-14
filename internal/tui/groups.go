@@ -42,35 +42,58 @@ func (m *Model) toggleGroup() bool {
 	return true
 }
 func (m *Model) businessStatus() string {
-	app := "All applications"
+	text := ""
+	for i, p := range m.browseParts() {
+		if i > 0 {
+			text += p.sep
+		}
+		text += p.text
+	}
+	return text
+}
+
+// browsePart is one thing the business list is browsed by, and whether it
+// is chosen rather than left at everything.
+type browsePart struct {
+	text, sep string
+	chosen    bool
+}
+
+// browseParts are what the business list is browsed by: the application
+// and environment, how it is grouped, the service and attention filters.
+func (m *Model) browseParts() []browsePart {
+	app := browsePart{text: "All applications"}
 	if m.Application == "-" {
-		app = "Ungrouped"
+		app = browsePart{text: "Ungrouped", chosen: true}
 	} else if m.Application != "" {
-		app = view.ApplicationName(m.Snapshot.Topology, m.Application)
+		app = browsePart{text: view.ApplicationName(m.Snapshot.Topology, m.Application), chosen: true}
 	}
-	env := m.Environment
-	if env == "" {
-		env = "All environments"
-	}
-	if env == "-" {
-		env = "Unspecified"
+	parts := []browsePart{app}
+	// Without environments declared there is none to choose between.
+	if m.Environment != "" || view.DeclaresEnvironments(m.Snapshot.Topology) {
+		env := browsePart{text: m.Environment, sep: " / ", chosen: m.Environment != ""}
+		switch m.Environment {
+		case "":
+			env.text = "All environments"
+		case "-":
+			env.text = "Unspecified"
+		}
+		parts = append(parts, env)
 	}
 	by := m.groupMode()
 	if by != "flat" {
 		by = "by " + by
 	}
-	text := app + " / " + env + " · " + by
-	if m.Environment == "" && !view.DeclaresEnvironments(m.Snapshot.Topology) {
-		text = app + " · " + by // no environment to choose between
-	}
+	parts = append(parts, browsePart{text: by, sep: " · ", chosen: m.GroupBy[m.Tab] != ""})
 	if m.ServiceFilter != "" {
-		text += " · " + m.ServiceFilter
+		parts = append(parts, browsePart{text: m.ServiceFilter, sep: " · ", chosen: true})
 	}
 	if m.AttentionOnly {
-		text += " · attention only"
+		parts = append(parts, browsePart{text: "attention only", sep: " · ", chosen: true})
 	}
-	return text
+	return parts
 }
+
 func (m *Model) choiceMenu(title string, labels []string, pick func(int)) {
 	items := make([]menuItem, len(labels))
 	for i, label := range labels {

@@ -554,8 +554,9 @@ as Ungrouped. The built-in preview declares six applications, so `topo preview`
 opens Services in groups and the Overview's services card by application.
 
 - `b` opens Browse: application/environment filters, grouping, attention only,
-  shared dependencies, expand/collapse all, and clear filters. Click the scope
-  line above the table to open the same menu.
+  shared dependencies, expand/collapse all, and clear filters. The list's top
+  edge says what it is browsed by, with what you chose lit; click it to open
+  the same menu.
 - `Enter` or `Space` on a group expands/collapses it. Enter on a member opens its
   evidence; `i` opens full group evidence on narrow terminals. Fold state is remembered during the session.
 - `/` searches members and application names and temporarily reveals matching
