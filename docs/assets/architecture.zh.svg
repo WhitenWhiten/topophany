@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" xml:lang="zh-Hans" lang="zh-Hans" viewBox="0 0 1000 500" width="1000" height="500" role="img" aria-label="从你所在之处看到的网络地图，以及它的依据">
+<title>从你所在之处看到的网络地图，以及它的依据</title>
+<defs><marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#3c5f70"/></marker></defs>
+<rect width="1000" height="500" rx="14" fill="#0a1016"/>
+<rect x="36" y="28" width="604" height="76" rx="8" fill="#0f1b23" stroke="#5eead4" stroke-width="1.2"/>
+<text x="56" y="56" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="15" font-weight="600" fill="#5eead4" text-anchor="start">topology.json</text>
+<text x="56" y="78" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="13" font-weight="400" fill="#dbe7ee" text-anchor="start">什么跑在哪里、每台机器怎么连上、要检查什么</text>
+<text x="56" y="95" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">由你或你的 Agent 编写，用 topo validate 校验</text>
+<path d="M176 104 L176 134" stroke="#3c5f70" stroke-width="1.6" fill="none" marker-end="url(#head)"/>
+<path d="M500 104 L500 134" stroke="#3c5f70" stroke-width="1.6" fill="none" marker-end="url(#head)"/>
+<rect x="684" y="28" width="280" height="76" rx="8" fill="#0f1b23" stroke="#22394a" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="704" y="56" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="13.5" font-weight="600" fill="#dbe7ee" text-anchor="start">Beszel · Komari · CF-Server-Monitor</text>
+<text x="704" y="78" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">这些资源数据源也可以</text>
+<text x="704" y="95" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">由 topo 直接读取，无需采集器</text>
+<path d="M824 104 L824 134" stroke="#3c5f70" stroke-width="1.6" fill="none" stroke-dasharray="4 4" marker-end="url(#head)"/>
+<text x="36" y="162" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" font-weight="700" fill="#5eead4" text-anchor="start" letter-spacing="1.5">WORKER</text>
+<text x="36" y="184" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="13" font-weight="400" fill="#8da3b0" text-anchor="start">从你上网的地方测量</text>
+<text x="360" y="162" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="13" font-weight="700" fill="#5eead4" text-anchor="start">采集器</text>
+<text x="360" y="184" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="13" font-weight="400" fill="#8da3b0" text-anchor="start">保存证据</text>
+<text x="684" y="162" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="13" font-weight="700" fill="#5eead4" text-anchor="start">客户端</text>
+<text x="684" y="184" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="13" font-weight="400" fill="#8da3b0" text-anchor="start">只读，不改动任何东西</text>
+<rect x="36" y="214" width="280" height="58" rx="8" fill="#0f1b23" stroke="#22394a" stroke-width="1.2"/>
+<circle cx="56" cy="236" r="4" fill="#5eead4"/>
+<text x="70" y="241" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="600" fill="#dbe7ee" text-anchor="start">topo worker</text>
+<text x="70" y="260" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">家里的笔记本</text>
+<rect x="36" y="286" width="280" height="58" rx="8" fill="#0f1b23" stroke="#22394a" stroke-width="1.2"/>
+<circle cx="56" cy="308" r="4" fill="#5eead4"/>
+<text x="70" y="313" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="600" fill="#dbe7ee" text-anchor="start">topo worker</text>
+<text x="70" y="332" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">东京的 VPS</text>
+<rect x="36" y="358" width="280" height="58" rx="8" fill="#0f1b23" stroke="#22394a" stroke-width="1.2"/>
+<circle cx="56" cy="380" r="4" fill="#5eead4"/>
+<text x="70" y="385" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="600" fill="#dbe7ee" text-anchor="start">topo worker</text>
+<text x="70" y="404" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">公司的服务器</text>
+<rect x="360" y="214" width="280" height="58" rx="8" fill="#0f1b23" stroke="#22394a" stroke-width="1.2"/>
+<circle cx="380" cy="236" r="4" fill="#5eead4"/>
+<text x="394" y="241" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="600" fill="#dbe7ee" text-anchor="start">topo serve</text>
+<text x="394" y="260" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">采集器 A</text>
+<rect x="360" y="286" width="280" height="58" rx="8" fill="#0f1b23" stroke="#22394a" stroke-width="1.2"/>
+<circle cx="380" cy="308" r="4" fill="#5eead4"/>
+<text x="394" y="313" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="600" fill="#dbe7ee" text-anchor="start">topo serve</text>
+<text x="394" y="332" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">采集器 B</text>
+<circle cx="366" cy="372" r="2.2" fill="#8da3b0"/>
+<text x="378" y="376" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">只追加写入的日志，先 fsync 再确认</text>
+<circle cx="366" cy="394" r="2.2" fill="#8da3b0"/>
+<text x="378" y="398" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">健康状态 · 事件 · 新鲜度</text>
+<circle cx="366" cy="416" r="2.2" fill="#8da3b0"/>
+<text x="378" y="420" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">推送到 ntfy · Slack · Discord</text>
+<rect x="684" y="214" width="280" height="58" rx="8" fill="#0f1b23" stroke="#22394a" stroke-width="1.2"/>
+<circle cx="704" cy="236" r="4" fill="#5eead4"/>
+<text x="718" y="241" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="600" fill="#dbe7ee" text-anchor="start">topo</text>
+<text x="718" y="260" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">终端界面</text>
+<rect x="684" y="286" width="280" height="58" rx="8" fill="#0f1b23" stroke="#22394a" stroke-width="1.2"/>
+<circle cx="704" cy="308" r="4" fill="#5eead4"/>
+<text x="718" y="313" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="600" fill="#dbe7ee" text-anchor="start">topo status · show</text>
+<text x="718" y="332" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">文本或 JSON，给脚本和 Agent</text>
+<rect x="684" y="358" width="280" height="58" rx="8" fill="#0f1b23" stroke="#22394a" stroke-width="1.2"/>
+<circle cx="704" cy="380" r="4" fill="#5eead4"/>
+<text x="718" y="385" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="600" fill="#dbe7ee" text-anchor="start">topo monitor</text>
+<text x="718" y="404" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="400" fill="#8da3b0" text-anchor="start">菜单栏和桌面小组件</text>
+<path d="M316 243 L338 243" stroke="#3c5f70" stroke-width="1.6" fill="none"/>
+<path d="M316 315 L338 315" stroke="#3c5f70" stroke-width="1.6" fill="none"/>
+<path d="M316 387 L338 387" stroke="#3c5f70" stroke-width="1.6" fill="none"/>
+<path d="M338 243 L338 387" stroke="#3c5f70" stroke-width="1.6" fill="none"/>
+<path d="M338 243 L358 243" stroke="#3c5f70" stroke-width="1.6" fill="none" marker-end="url(#head)"/>
+<path d="M338 315 L358 315" stroke="#3c5f70" stroke-width="1.6" fill="none" marker-end="url(#head)"/>
+<path d="M640 243 L662 243" stroke="#3c5f70" stroke-width="1.6" fill="none"/>
+<path d="M640 315 L662 315" stroke="#3c5f70" stroke-width="1.6" fill="none"/>
+<path d="M662 243 L662 387" stroke="#3c5f70" stroke-width="1.6" fill="none"/>
+<path d="M662 243 L682 243" stroke="#3c5f70" stroke-width="1.6" fill="none" marker-end="url(#head)"/>
+<path d="M662 315 L682 315" stroke="#3c5f70" stroke-width="1.6" fill="none" marker-end="url(#head)"/>
+<path d="M662 387 L682 387" stroke="#3c5f70" stroke-width="1.6" fill="none" marker-end="url(#head)"/>
+<path d="M36 448 L964 448" stroke="#22394a" stroke-width="1"/>
+<text x="36" y="474" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', -apple-system, 'Segoe UI', sans-serif" font-size="13" font-weight="400" fill="#8da3b0" text-anchor="start">所有角色都是同一个 Go 二进制。网络中断时，worker 先把结果缓存在磁盘上。</text>
+</svg>

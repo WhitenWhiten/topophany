@@ -1,4 +1,4 @@
-.PHONY: build test race vet fmt fmt-check lint cover verify banner site site-check captures device-shots icon clean
+.PHONY: build test race vet fmt fmt-check lint cover verify banner site site-check captures architecture device-shots icon clean
 build:
 	mkdir -p bin
 	go build -trimpath $(if $(TAGS),-tags $(TAGS)) -o bin/topo ./cmd/topo
@@ -30,6 +30,8 @@ site-check: site
 	@test -z "$$(git status --porcelain --untracked-files=all -- site/)" || { echo "site/ is stale: commit the regenerated pages and tours"; git status --short --untracked-files=all -- site/; exit 1; }
 captures:
 	python3 scripts/capture.py $(if $(FONTS),--fonts $(FONTS))
+architecture:
+	python3 scripts/architecture.py
 device-shots:
 	python3 scripts/device_shots.py $(if $(DUO_KIT),--duo-kit $(DUO_KIT))
 icon:

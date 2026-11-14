@@ -61,6 +61,11 @@ func newRecorder(t *testing.T, lang string) *recorder {
 	if e != nil {
 		t.Fatal(e)
 	}
+	return newRecorderOn(t, lang, c)
+}
+
+// newRecorderOn is a recorder of the preview of c, the topology it simulates.
+func newRecorderOn(t *testing.T, lang string, c model.Config) *recorder {
 	now := time.Date(2026, 10, 13, 18, 0, 0, 0, time.UTC)
 	sim := preview.New(c, now, lang)
 	r := &recorder{t: t, sim: sim}

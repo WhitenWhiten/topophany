@@ -23,19 +23,22 @@
   <a href="https://linux.do"><img src="https://img.shields.io/badge/LINUX%20DO-コミュニティ-FFB003?logo=linux" alt="LINUX DO"></a>
 </p>
 
-**Topophany** は、ネットワーク全体をひとつの画面に描き出します。どのマシンがどこにあり、互いがどの経路でつながり、その上でどんなサービスが動いているのか。ワーカーは、あなたが実際にネットワークを使う場所 (自宅、オフィス、海外の VPS) からチェックを行い、ターミナル UI は、何が壊れているのか、それがどこから見えたのか、そして何を根拠にそう言えるのかを示します。すべてはセルフホストできる Go のバイナリ 1 つ、`topo` に収まっています。
+**Topophany** は、ネットワーク全体をひとつの画面に描き出します。どのマシンがどこにあり、互いがどの経路でつながり、その上でどんなサービスが動いているのか。ワーカーはあなたが実際にネットワークを使う場所からチェックを行い、ターミナル UI は、何が壊れているのか、それがどこから見えたのか、そして何を根拠にそう言えるのかを示します。すべてはセルフホストできる Go のバイナリ 1 つ、`topo` に収まっています。
 
 <p align="center">
   <img src="docs/assets/outage.ja.gif" alt="Overview に障害が起きる様子：シナリオの選択画面が開き、サンプルが届くたびにチェックが失敗して 5 件のインシデントが開き、失敗した経路が地図上で琥珀色になる。問題を選ぶたびにその経路が浮かび上がり、最後に 1 件のインシデントの根拠が開く。続いて地図が全画面に広がり、場所のカードと点を切り替えてからパネル表示に戻る" width="100%">
-  <br><sub><code>topo preview --lang ja</code> で <code>x</code> を押すと、自宅からロサンゼルスの回線サーバーへの接続が切れます。問題を選ぶとその経路が浮かび上がり、<code>Enter</code> で根拠が開きます。続いて地図が全画面に広がり (<code>f</code>)、場所のカードが点に切り替わります (<code>p</code>)。</sub>
+  <br><sub><code>topo preview --lang ja</code> で <code>x</code> を押すと障害が起きます。問題を選ぶとその経路が浮かび上がり、<code>Enter</code> で根拠が開きます。</sub>
 </p>
 
-## Topophany を選ぶ理由
+## 主な機能
 
-- **壊れたことだけでなく、どこで壊れたのかを。** チェックはすべて、名前を付けた観測点から行います。大阪からは届かないのにニューヨークからは届くなら、それは大阪からの経路の障害です。Topophany はサーバーダウンと決めつけず、そのまま報告します。
-- **色ではなく根拠を。** 健全性、根拠の出どころ、鮮度はそれぞれ別のフィールドです。成功したチェックがなければ緑にはならず、誰もチェックしていないサービスは `unknown` のまま。キャッシュを表示しているときは、そうはっきり示します。
-- **ネットワークの備忘録に。** 何がどこで動き、各マシンにどうたどり着き、各経路がどのプロキシチェーンを通るのか。レビュー済みの JSON ファイル 1 つに、メモや手順書と一緒にまとまります。あなたが読み、エージェントが読み、監視もこのファイルを基準にチェックします。
-- **眺めていたくなる画面。** 点字で描く世界地図は、チェックに応答した Cloudflare のコロをその場所に置きます。場所の並びを保った模式図、ネットワークグラフ、サーバーごとのカード。サービスは属するアプリケーションごとにまとまります。どのターミナルでも動き、マウスも使えます。
+- **壊れたことだけでなく、どこで壊れたのかを。** チェックはすべて、名前を付けた観測点から行います。大阪からは届かないのにニューヨークからは届くなら、それはサーバーダウンではなく、大阪からの経路の障害です。
+- **色ではなく根拠を。** 健全性、根拠の出どころ、鮮度はそれぞれ別に扱います。成功したチェックがなければ緑にはならず、誰もチェックしていないサービスは `unknown` のままです。
+- **ネットワークをファイル 1 つに。** 何がどこで動き、各マシンにどうたどり着き、何をチェックするのか。レビュー済みの JSON のトポロジーに、メモと一緒にまとまります。コーディングエージェントに書かせることもでき、`topo validate` で検証します。
+- **通信が通る道のままにチェック。** HTTP、TLS、TCP、DNS (DoT・DoH を含む)、SSH、UDP、ICMP、ホストのリソースを、複数段のプロキシチェーン越しにも。読み取り専用のアダプターで Mihomo、Tailscale、WireGuard、cloudflared、Cloudflare API、Beszel、Komari、CF-Server-Monitor を読みます。Cloudflare、Vercel、Supabase などのエッジからの応答を、その後ろのオリジンの応答と取り違えることはありません。
+- **眺めていたくなる画面。** 点字で描く世界地図、模式図、ネットワークグラフ、サーバーとサービスごとのカード。どのターミナルでも動き、マウスも使えます。
+- **プロダクトモード。** アプリやサイトを運営する人のために、ユーザーが触れる部分ごとに 1 行、それが載っているものすべてと一緒に並べます。
+- **スクリプトやエージェントからも。** `topo status`、`topo show`、`topo history` が 1 行か JSON で答え、`topo monitor` はメニューバーやデスクトップウィジェットに状態を届けます。
 - **バイナリ 1 つ、ほかには何も要らない。** CGO も、データベースのデーモンも、Node.js も不要で、外部の Go モジュールにも一切依存しません。
 
 <p align="center">
@@ -43,7 +46,7 @@
   <br><sub>障害をシミュレートしている Overview。<code>topo preview --lang ja --scenario 1</code> より。</sub>
 </p>
 
-## 1 分で試す
+## すぐに試す
 
 [リリースページ](https://github.com/WhitenWhiten/topophany/releases) (Linux、macOS、Windows · amd64、arm64) からダウンロードするか、Go 1.26.11 以降でインストールします。
 
@@ -51,225 +54,73 @@
 go install github.com/WhitenWhiten/topophany/cmd/topo@latest
 ```
 
-何も準備しなくても、合成データで UI 全体を試せます。`x` を押せば障害を起こせます。組み込みのネットワークとシナリオには日本語・英語・中国語版があり、ロケールに合わせて切り替わります。`--lang ja` で指定することもできます。
+何も準備しなくても、合成データで UI 全体を試せます。`x` を押せば障害を起こせます。
 
 ```sh
 topo preview
 ```
 
-デモ用のトポロジーと新しく生成した認証情報で、本物のコレクターを手元で動かすこともできます。
-
-```sh
-topo init --dir ./demo
-topo serve --config ./demo/topology.json --auth ./demo/auth.json \
-  --data ./demo/collector-data --observer demo
-
-# in another terminal
-topo --credentials ./demo/credentials.json
-```
-
-## エージェントに書かせる
-
-監視でいちばん手間がかかるのは、何を監視するのかを書き出す作業です。そしてこれは、コーディングエージェントの得意分野でもあります。普段使っているエージェント (Claude Code、Codex、Gemini CLI、Cursor など、コマンドを実行できるもの) に、マシン上にすでにある情報を読ませて、トポロジーを書かせましょう。エージェントは `topo validate` で自分の書いたものを検証し、あなたは実際に動かす前に `topo preview` で仕上がりを確認できます。たとえば、こんなふうに頼みます。
-
-> 私のネットワークを Topophany のトポロジーとして `topology.json` に書いてください。形式は `topo preview --print-topology` の出力と、github.com/WhitenWhiten/topophany の docs/REFERENCE.md を参考にしてください。SSH の設定、`tailscale status`、見つかる限りの Compose ファイルとリバースプロキシの設定を読み、各マシンについて、場所、動いているサービス、サービスが属するアプリケーション、待ち受けているアドレスを書いてください。ワーカーを動かす予定のマシンからのチェックも加え、各マシンについて分かったことはその notes に書いてください。秘密情報はファイルに書かないでください。`topo validate --config topology.json` が通るまで修正し、最後に、確認できたことと推測したことを分けて教えてください。
-
-一度書き上げれば、あなたにもエージェントにも役立ち続けます。
-
-- **ネットワークの備忘録として。** 何がどこで動き、各マシンにどうたどり着くのかが、メモや手順書と一緒にこのファイルにまとまっています。エージェントは作業の前にこれを読み、あなたはその変更をコードと同じように差分でレビューできます。`topo edit` を使えば TUI でも編集できます。
-- **すぐに答えが返る窓口として。** `topo status`、`topo show`、`topo history` は 1 行で、`--json` を付ければ JSON で答えます。いま何か問題はないか、あのサーバーで何が動いているか、あのチェックが夜のあいだどうだったか。コレクターを動かす前でも、`topo preview --config topology.json show servers` ならファイルだけを読んで答えます。
+自分のネットワークを監視するには、[ユーザーガイド](docs/GUIDE.md) (英語) に沿って、[`examples/`](examples/) のトポロジーから始めてください。設定項目はすべて[リファレンス](docs/REFERENCE.md) (英語) にあります。アップグレードする場合は [1.7.0 のリリースノート](docs/releases/v1.7.0.md) (英語) を読んでください。
 
 ## しくみ
 
-```text
-  WORKERS                          COLLECTORS                  CLIENTS
-  measure from where they are      keep the evidence           read it
-
-  topo worker   (home laptop)  ─┬─▶  topo serve  (A)  ─┬─▶  topo          the TUI
-  topo worker   (Tokyo server) ─┴─▶  topo serve  (B)  ─┴─▶  topo status   for scripts and agents
-```
-
-- **ワーカー** (計測する側) は、レビュー済みのローカルのトポロジーファイルに書かれたチェックを実行し、観測結果を 1 台か 2 台のコレクターに送ります。ネットワークが落ちているあいだは、ディスクにためておきます。
-- **コレクター** (根拠を保管する側) は追記専用のジャーナルを持ち (fsync してから ACK を返します)、健全性、インシデント、鮮度を判定します。各インシデントを発生から収束まで、各チェックの成績を数か月にわたって記録し、インシデントを Webhook (ntfy、Slack、Discord、JSON) に通知することも、自らチェックを実行することもできます。
-- **クライアント** (読む側) は読むだけです。TUI を閉じても監視は止まらず、Topophany がルート、プロキシ、サービスを書き換えることは一切ありません。
-
-| コマンド | 役割 |
-|---|---|
-| `topo` | 保存した認証情報で、リモートのコレクターを TUI で開く |
-| `topo status` / `topo show TAB [ID]` | TUI と同じ内容をテキストか `--json` で出力する。`status` は終了コードでも結果を返す |
-| `topo login` | コレクターへの接続を確認して保存する |
-| `topo serve` | コレクターを動かす。コレクター自身でチェックを実行することもできる |
-| `topo worker` | このマシンからチェックを実行して報告する |
-| `topo edit` / `topo validate` | トポロジーファイルを TUI で編集する / 検証してリビジョンとコントラクトを表示する |
-| `topo preview` | 合成データで TUI を開く |
-| `topo monitor` | 状態をデスクトップのウィジェットや [topophany-bar](https://github.com/WhitenWhiten/topophany-bar) などのメニューバーに、ファイルか NDJSON ストリームで届ける |
-| `topo init` | 新しい認証情報でローカルのデモを作る |
-
-すべてのコマンドは `topo help` で確認できます。
-
-## 自分のネットワークを監視する
-
-1. **書き出す。** トポロジーは、ノード、リンク、エンドポイント、サービス、経路、観測点、チェックを並べた JSON です。上のようにエージェントに書かせるか、[`examples/homelab.json`](examples/homelab.json) をもとに `topo edit --config topology.json` で編集します。どちらの場合も `topo validate` で検証します。Cloudflare のゾーンなら、[`examples/cloudflare.json`](examples/cloudflare.json) が手本になる完成した例です。プロキシされたオリジンとその直接チェック、Worker と Pages サイト、Tunnel とコネクターの `cloudflared` チェック、サービス自身のループバックチェック、trace と DoT のチェック、Access 保護されたホスト名が入っています。`topo preview` は、チャレンジページ、宣言した一覧の外のコロからの応答、Tunnel コネクターの停止をシミュレートするので、実際に動かす前にそれぞれがどう判定されるかを確認できます。
-2. **コレクターを動かす。** 各マシンから届く場所で、TLS を有効にして起動します: `topo serve --config topology.json --auth auth.json --data collector-data --listen 0.0.0.0:7447 --tls-cert server.pem --tls-key server-key.pem`
-3. **ワーカーを動かす。** 計測の起点にしたいマシンそれぞれで起動します: `topo worker --config topology.json --observer <id> --credentials worker-credentials.json --data worker-data`
-4. **どこからでも見る。** `topo login --server https://your-collector:7447 --project <name>` を一度実行すれば、あとは `topo` だけです。
-
-デュアルコレクター、systemd ユニット、各種の上限は[運用ガイド](docs/OPERATIONS.md)、小さなマシンでのサイズの見積もりは[メモリ予算](docs/MEMORY.md)、トークンと通信は[セキュリティモデル](docs/SECURITY.md)で説明しています (いずれも英語)。
-
-### アップグレード時の注意
-
-- **1.6.0 のリソース値を使うには、collector を先に更新してください。** 1.6.0 の worker は Beszel と Komari のレポートにネットワーク、スワップ、ロードの値を追加しますが、1.5.4 の collector はこれを拒否します。閲覧クライアントも collector と同時に更新してください。1.5.4 の閲覧クライアントは新しい値を含むチェック履歴を拒否します。`cf-server-monitor` をトポロジーへ追加する前にすべてのロールを更新し、これを使う直接接続プロファイルにはローカルの 1.6.0 バイナリが必要です。既存の 1.5.4 の設定と状態に移行は不要です。ソースからのビルドには Go 1.26.11 が必要です。詳しくは [1.6.0 のリリースノート](docs/releases/v1.6.0.md)を参照してください。
-- **1.5.4 の Cloudflare フィールドを使う前に、すべてのロールを更新してください。** `tunnel_connections` や `expected_status` をトポロジーへ追加する前に、collector、worker、閲覧クライアントを対応版へ更新してください。番号付き colo 名の修正、Cloudflare リクエスト予算の共有、コネクターの部分的な準備状態の保持には worker の更新が必要です。番号付きの拠点を使う colo ポリシーは「未検証」から「一致」または「違反」に変わる場合があります。既存の 1.5.3 の設定と状態に移行は不要です。詳しくは [1.5.4 のリリースノート](docs/releases/v1.5.4.md)を参照してください。
-- **ローカルチェックと最新のストリーム診断には 1.5.3 を使ってください。** ローカルの mihomo チェックには新しいローカルバイナリが必要です。利用側は `monitor stream --capabilities` で `local` とメトリクス一覧を確認してください。既存の 1.5.2 の設定と状態に移行は不要です。Cloudflare のトークン秘匿とアダプターの証拠判定の修正には collector と worker を更新してください。保存済みのジャーナルは書き換えません。詳しくは [1.5.3 のリリースノート](docs/releases/v1.5.3.md)を参照してください。
-- **1.5.2 のポリシーを有効にする前に更新してください。** `tls_min_days`、`max_duration_ms`、`http.json_equals` をトポロジーへ追加する前に、collector、worker、閲覧クライアントを対応版へ更新してください。JSON アサーションには非公開の設定ファイルが必要です。通知ポリシーのフィールドを追加する前に collector を更新し、ロールバック用に対応する設定のバックアップを保持してください。詳しくは [1.5.2 のリリースノート](docs/releases/v1.5.2.md)を参照してください。
-- **1.5.1 へ更新するときは、worker より先に collector を更新してください。** 1.5.1 の worker は旧版の collector が拒否する可能性のある配信診断と collector エイリアスを報告します。複数の collector を使う worker には `collector_id` を返す collector が必要です。`availability_scope` を使うトポロジーは collector、worker、閲覧クライアントをすべて更新し、`allow_insecure` を使う直接接続プロファイルはローカルの 1.5.1 バイナリが必要です。詳しくは [1.5.1 のリリースノート](docs/releases/v1.5.1.md)を参照してください。
-- **Komari を有効にする前に 1.5.0 へ更新してください。** Komari のリソース収集と直接接続プロファイルには新しいアダプターが必要です。更新前に、新しい送信先ごとの容量枠を超える worker キューを排出または保管し、拡張された外部状態を戻す場合に備えて collector のバックアップを保持してください。詳しくは [1.5.0 のリリースノート](docs/releases/v1.5.0.md)を参照してください。
-- **外部ソースを有効にする前に、すべてを更新してください。** `sources` と `external` チェックには 1.4.2 の collector、worker、閲覧クライアントが必要です。旧版は新しいフィールドを受け付けません。バッチとスナップショットは schema 3 ですが、schema 2 のネイティブ通信は引き続き読めます。collector が外部レポートを確認するとチェックポイントは schema 2 になり、旧版はそれを拒否します。ロールバックにはアップグレード前の対応するバックアップが必要です。詳しくは [1.4.2 のリリースノート](docs/releases/v1.4.2.md)を参照してください。
-- **1.4.0 の新しいフィールドを使う前に、collector とすべての閲覧クライアントを更新してください。** 旧版は新しい Cloudflare アダプターのオプション、DNS トランスポート、秘密のリクエストヘッダー、trace と colo のアサーションを受け付けません。新しいチェックを実行する worker も更新してください。ストリームのプロトコルは 1 のままです。`service.card` と `services.list` を要求する前にメトリクスの一覧を確認してください。[1.4.0 のリリースノート](docs/releases/v1.4.0.md)に詳細があります。
-- **バンドルのインストールにはレビューの控えが必要です。** `topo install --bundle DIR --dry-run` が `bundle_sha256` を表示するので、バンドルとは別の場所に控えておき、インストール時に `--bundle-sha256` で渡してください。レビューした後にバンドルが変わっていれば、インストールは拒否されます。
-- **コレクターとワーカーにメモリの目標値が設定されます。** 既定値は `serve` が 128 MiB、`worker` が 64 MiB です。`--memory-limit` で変更でき (`0` なら `GOMEMLIMIT` に従います)、Linux では `--memory-max` でハードリミットもかけられます。詳しくは[メモリ予算](docs/MEMORY.md) (英語) を参照してください。
-- **トークンはコマンドラインに書きません。** `--credential TOKEN` は廃止されました。認証情報は `topo login` で保存してください。一時的に別のトークンを使うときは、標準入力か非公開のファイル (POSIX では `0600`、Windows では ACL を制限) から読み込みます。両方を同時には使えず、複数のサーバーを持つプロファイルでは `--server` も指定します。
-
-  ```sh
-  topo --json --token-stdin < token.txt
-  topo --credential-file token.txt
-  ```
-
-- **ログは非公開にします。** POSIX では、`--log-file` で指定したファイルと番号付きのバックアップの権限を `0600` 以下にしてください。そうでなければ `serve` と `worker` は起動しません。
-
-それ以前のリリースの注意点は[変更履歴](CHANGELOG.md) (英語) にあります。
-
-## 計測できるもの
-
-- **ネイティブプローブ:** HTTP (ステータス、本文、ヘッダー、送信元 IP)、TCP、証明書を検証する TLS、SSH バナー、DNS A/AAAA (UDP、TCP、DoT、DoH)、UDP エコー、ICMP (IPv4)。
-- **ホストリソース (Linux、macOS、Windows):** CPU、メモリ、ファイルシステムの容量と inode、プロセス数、指定したプロセスの RSS。リソースのしきい値とプロセス数も検証できます。ネットワークの受信・送信レート、スワップ、1・5・15 分のロードアベレージも報告します。Windows ではページングファイルをスワップとして報告し、ロードアベレージはありません。[`examples/host-resources.json`](examples/host-resources.json) を参照してください。
-- **プロキシチェーン:** HTTP CONNECT、HTTPS CONNECT、SOCKS5、OpenSSH `-W` を、何段でもつないで使えます。
-- **読み取り専用のアダプター:** Mihomo、Tailscale、WireGuard、cloudflared、Cloudflare API。
-- **外部リソース:** Beszel Hub、Komari Monitor、CF-Server-Monitor の Worker から CPU、メモリ、ディスクのサンプルを取得し、識別子と鮮度を保持します。上流が報告していれば、ネットワークレート、スワップ、ロードアベレージも取得します。Beszel では報告されたシステム状態も取得できます。Komari と CF-Server-Monitor のディスク使用量はホスト単位の集計値です。[Beszel ガイド](internal/adapters/beszel/README.md) · [Beszel の例](examples/beszel.json) · [Komari ガイド](internal/adapters/komari/README.md) · [Komari の例](examples/komari.json) · [CF-Server-Monitor ガイド](internal/adapters/cfservermonitor/README.md) · [CF-Server-Monitor の例](examples/cf-server-monitor.json)
-- **エッジとプラットフォーム:** Cloudflare (Workers と Pages を含む)、Vercel、Supabase。エッジが応答したからといって証明されるのはエッジまでで、その奥のオリジンではありません。
-
-## コレクターなしで外部リソースを表示
-
-direct モードでは、各 `topo` プロセスが Beszel Hub、Komari Monitor、CF-Server-Monitor の Worker から CPU、メモリ、ディスクを直接読み取ります。上流が報告していれば、ネットワークレート、スワップ、ロードアベレージも表示します。`topo setup --task direct` でプロファイルを作成し、`topo --source direct --profile desktop` で開きます。同じプロファイルを `--json`、`status`、`show`、`monitor configure`/`run` でも使えます。`topo sources inspect|save|remove --json-stdin` で設定し、`topo sources list --json` で一覧を表示できます。ひとつのプロファイルに複数のソースを設定できます。既定では 60 秒ごとに取得し、5 秒ごとに表示を更新します。データの有効期間は 180 秒で、単発の読み取りは最初のサンプルを最大 15 秒待ちます (`--wait`)。
-
-direct モードはリソースの履歴を持たず (`history --source direct` は未対応と答えます)、バックグラウンドサービスも動かさず、リソースの読み取りからネットワークの到達性を推測しません。対応形式は Beszel v0.21.0、Komari 1.6.0、および以下に記載する CF-Server-Monitor Worker の REST API です。Komari は API キー、CF-Server-Monitor は発行済みの JWT を利用できます。どちらも公開ノードへの匿名アクセスとホスト単位のディスク使用量に対応します。[設定と制限](docs/DIRECT.md) · [Komari の設定例](docs/DIRECT.md#configure-komari) · [CF-Server-Monitor の設定](docs/DIRECT.md#configure-cf-server-monitor) · [D1 契約](docs/contracts/direct-v1/contract.md)
-
-## このマシンの mihomo エンジンを見る
-
-`topo local list --json` と `topo local inspect|save|remove --json-stdin` で、
-ループバックのコントローラーを読む非公開のチェックを最大 4 件管理できます。
-`topo monitor stream` に `"source":"local"` を指定すると、ストリームを開いている
-間だけ読み取り、collector や direct のストリームと並行して実行できます。秘密情報は
-非公開の別ファイルに保存し、読み取った内容はこのマシン内にとどまります。モード、
-TUN の状態、選択先はエンジン自身の報告です。実際の通信は別のアプリケーション
-チェックで確認してください。[設定ガイド](docs/GUIDE.md#watch-this-machines-proxy-engine)と
-[API リファレンス](docs/REFERENCE.md#local-checks-this-machine)（英語）を参照してください。
-
-## Cloudflare：エッジからオリジンまで
-
-Topophany 1.4.0 では、Cloudflare の公開ホスト名、オリジン、Tunnel コネクター、コントロールプレーンをまとめて確認できます。HTTP チェックはチャレンジページと Access のログインリダイレクトを識別し、エッジ接続の時間や `/cdn-cgi/trace` を読み取り、キャッシュと colo の割合を集計します。マップには応答が報告した colo が表示され、`expected_pops` と trace のアサーションで宣言したポリシーからのずれを検出できます。Access のサービス・トークンは worker の環境変数からリクエストヘッダーに渡します。ローカルの `cloudflared` チェックは Tunnel のセッションを、読み取り専用の Cloudflare API チェックは Tunnel の状態、DNS レコード、ロードバランサープールの正常性を報告します。DNS チェックは DoT と DoH にも対応しています。
-
-[Cloudflare の詳しい設定ガイド](docs/CLOUDFLARE.md)と [`examples/cloudflare.json`](examples/cloudflare.json) から始めてください。ガイドでは、オリジンへの直接チェック、Access の認証情報、コネクターのローカルメトリクス、API トークンの権限、ポリシーのアサーションを説明しています。エッジからの応答や確立済みの Tunnel セッションだけでは、オリジンのアプリケーションが動いているかは分かりません。アプリケーション自体の独立したチェックも用意してください。
-
-## ターミナル UI
-
-タブは 9 つ: **Overview**、**Topology** (仮想地図、地図、ネットワークの 3 種類のマップ)、**Servers**、**Services**、**Paths**、**Checks**、**Incidents**、**Observers**、**About**。サービスは宣言したアプリケーションごとに、チェックは検証するサービスごとにまとまり、`b` でアプリケーション、環境、ホスト別に切り替えて見られます。
-
 <p align="center">
-  <img src="docs/assets/views.ja.gif" alt="大阪の MacBook から見た Overview では回線サーバーへの経路がダウンし、ニューヨークのサーバーから見ると正常。続いて Topology タブの仮想地図、全画面に広がって場所のカードと点を切り替える地図、ネットワーク図" width="100%">
-  <br><sub>大阪からはダウン、ニューヨークからは正常。各観測点は自分に見えるものだけを報告します (<code>v</code>)。続いて 3 種類のマップ (<code>m</code>): 仮想地図、地図、ネットワーク。地図は全画面に広がり (<code>f</code>)、場所のカードが点に切り替わります (<code>p</code>)。</sub>
+  <img src="docs/assets/architecture.ja.svg" alt="自宅のノート PC、東京の VPS、オフィスのサーバーで動くワーカーが 2 台のコレクターに報告し、コレクターは根拠を追記専用のジャーナルに保存する。それを TUI、スクリプトとエージェント、メニューバーのウィジェットが読む。トポロジーファイルがワーカーとコレクターに何をチェックするかを伝え、Beszel、Komari、CF-Server-Monitor はコレクターなしで直接読むこともできる" width="100%">
 </p>
 
-**Service card モード。** **Services** タブで `s` を押すと、アプリケーション別にサービスごとのカードを表示し、ホストの色で見分けられます。カードには観測点と各チェック、最近のサンプル、当日の遅延と稼働率、エンドポイント、依存関係、エッジの colo がまとまります。`Enter` で開くと、個々のチェック、キャッシュの割合、メモ、runbook まで確認できます。選択は `service_cards` として保存され、`topo --page services --service-cards` で直接開くこともできます。デスクトップウィジェットでも `topo monitor stream` の `service.card` と `services.list` で同じビューを利用できます。[メトリクスのリファレンス](docs/REFERENCE.md#template-and-metric-contract)を参照してください。
-
-| キー | |
-|---|---|
-| `1`–`9`、`Tab` | タブを切り替える |
-| `j` / `k`、矢印キー | リストを移動する |
-| `Enter` | 選んだ行の根拠を表示する |
-| `/` | 絞り込む |
-| `v` | どの観測点から見るかを切り替える |
-| `m` / `z` / `f` / `p` | マップを切り替える / ズームする / マップだけを表示する / 地図の表示を場所のカード、地名、点の順に切り替える |
-| `s` | サーバーカードの大きさを揃える。Services ではサービスごとのカードを表示 |
-| `b` | サービスとチェックをアプリケーション、環境、ホスト別に見る |
-| `P` | Overview をプロダクト表示に切り替える。もう一度押すと戻る |
-| `q` | 終了する |
-
-マウスでも操作できます。色は truecolor、256 色、`NO_COLOR` の各ターミナルに合わせて調整されます。すべてのタブとマップの見方、そして `topo status`、`topo show`、`topo history` でスクリプトやエージェントから同じ情報を読み取る方法は、[ユーザーガイド](docs/GUIDE.md) (英語) で説明しています。
+ワーカーがチェックを行い、見たものを 1 つか 2 つのコレクターに届けます。コレクターは追記専用のジャーナルを持ち、健全性、インシデント、鮮度を判断します。クライアントは読むだけです。TUI を閉じても監視は止まらず、Topophany がルート、プロキシ、サービスを変更することはありません。
 
 ## プロダクトモード
 
-いくつかのアプリやサイトを運営する個人開発者や小さなチーム向けのモードです。たとえば Cloudflare Worker と Supabase で動く API、Cloudflare の後ろにある自前サーバーの API、Vercel の Web アプリ、ブログ。`P` を押すと Overview がボードに変わり、ユーザーが触れる部分ごとに 1 行ずつ、プロダクト別に並びます。各行には、その部分の状態と、それが載っている層 (エッジ、プラットフォーム、データベース。層ごとに自分のマーク) が表示され、主チェックの遅延の中央値、最近のサンプル、稼働率も並びます。問題のある部分の下には 1 行が加わり、何が失敗したか、いつからか、どこから見たかを示します。期限の近い証明書は最下部に並びます。
+<p align="center">
+  <img src="docs/assets/products.ja.png" alt="障害中のプロダクトモード：4 つのプロダクトとその各部分が並び、それぞれの状態、エッジからデータベースまで載っているもの、遅延の中央値、最近のサンプル、稼働率を示す。Cloudflare の後ろにある 2 つの部分がリスボンから見て HTTP 521 で失敗しており、期限の近い証明書が最下部に並ぶ" width="100%">
+  <br><sub>Cloudflare の後ろのサーバーが応答しなくなった状態。<code>topo preview --config examples/products.json --mode products --scenario 2</code> より。</sub>
+</p>
 
-```text
-   PRODUCT           LINE       RESTS ON                                      P50  RECENT                 UP
- ▲ Habitly    ios  ▲ API        CF workers ● › Habitly DB ▲                 54 ms  ▆▇▅▅▅✖▆▃▃▇▅▄▇▇▃▅▅▄   98.8%
-                     └ WARN · some access checks pass; others fail, degrade or lack current evidence
-                   ● Site       CF pages ●                                  55 ms  ▅▅▇▆▇▅▅▄▄▆▅▄▇▅▅▆▅▆  98.68%
- ○ Snapmeal   ios  ○ API        CF ● › Hetzner ○ › Snapmeal DB ○           142 ms  ✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖  98.12%
-                     └ ACCESS FAIL · for 7m · HTTP 521 via Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
-                   ● Site       CF pages ●                                  54 ms  ▄▆▇▆▆▇▄▄▃▅▅▄▆▄▅▅▅▆  98.91%
- ▲ Driftwood  web  ▲ Driftwood  Vercel functions ● › Driftwood DB ○        135 ms  ▅▅▆▅▆▆▇▅▇▆▆▇▇▅▅▇▅▅  97.96%
-                     └ WARN · some access checks pass; others fail, degrade or lack current evidence
- ○ Notebook   web  ○ Blog       CF ● › Hetzner ○                           142 ms  ▇▆▆✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖  98.44%
-                     └ ACCESS FAIL · for 14m · HTTP 521 via Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
+`P` を押すと Overview がボードに変わります。プロダクトの各部分が 1 行ずつ並び、エッジからデータベースまで何の上に載っているか、遅延、最近のサンプル、稼働率を示します。問題のある部分には、何が、いつから、どこから見て失敗しているかが添えられます。ボードのマークはどれもネットワークビューと同じです。[プロダクトモードのガイド](docs/PRODUCTS.md) (英語)
 
- CERTIFICATES  notebook.example 34 days · api.habitly.example 38 days · api.snapmeal.example 42 days +1
-```
+## ターミナル UI
 
-<sub>上図: `topo preview --config examples/products.json --mode products`。Cloudflare の後ろのサーバーが応答しなくなって 30 分後。</sub>
+<p align="center">
+  <img src="docs/assets/views.ja.gif" alt="大阪の MacBook から見た Overview では回線サーバーへの経路がダウンし、ニューヨークのサーバーから見ると正常。続いて Topology タブの仮想地図、全画面に広がって場所のカードと点を切り替える地図、ネットワーク図" width="100%">
+  <br><sub>大阪からはダウン、ニューヨークからは正常。各観測点は自分に見えるものだけを報告します (<code>v</code>)。続いて 3 種類のマップ (<code>m</code>)。</sub>
+</p>
 
-`topo templates products` から始められます。スクリプトからは `topo show products` で読み取れ、[topophany-bar](https://github.com/WhitenWhiten/topophany-bar) でメニューバーに置くこともできます。プロダクトモードは新しい結論を出しません。ボードのマークはどれもネットワークビューと同じです。[プロダクトモードのガイド](docs/PRODUCTS.md) (英語)
+Overview から Incidents まで 9 つのタブがあり、サービスは属するアプリケーションごとに、チェックは検証するサービスごとにまとまります。すべてのタブ、マップ、キーは[ユーザーガイド](docs/GUIDE.md) (英語) で説明しています。
 
 ## macOS のメニューバーで
 
 <p align="center">
   <a href="https://github.com/WhitenWhiten/topophany-bar"><img src="docs/assets/topophany-bar.jpg" alt="topophany-bar を動かしている macOS のデスクトップ。メニューバーには白夜のアイコンがあり、部分月食の月の横に 2 の数字。その下に開いたパネルには、警告 2 件で低下したネットワーク、それを見ているオブザーバー、地図が表示され、デスクトップにはステータス、サーバー、タイムゾーン、サービス、地図のウィジェットが並ぶ" width="100%"></a>
-  <br><sub>警告が 2 件あるデモネットワークを表示した topophany-bar。合成データを使い、アプリ自身のビューで描いています。</sub>
 </p>
 
-[**topophany-bar**](https://github.com/WhitenWhiten/topophany-bar) は Topophany の macOS 用コンパニオンです。`topo monitor stream` を通してコレクターを読み、状態をアイコン、件数、短い言葉でメニューバーに表示します。パネルでは問題がどこから見えているかが分かり、そのまま TUI で開けます。デスクトップのウィジェットはサーバー、サービス、地図、タイムゾーンを表示し続けます。コレクターなしで Beszel と Komari を直接読むこともできます。macOS 26 以降が必要で、現在はプレリリースです。試すには[ソースからビルド](https://github.com/WhitenWhiten/topophany-bar/blob/main/docs/DEVELOPMENT.md#building) (英語) してください。
+[**topophany-bar**](https://github.com/WhitenWhiten/topophany-bar) は Topophany の macOS 用コンパニオンです。状態をメニューバーに、各問題がどこから見えているかをパネルに、サーバー、サービス、地図、タイムゾーンをデスクトップのウィジェットに表示します。現在はプレリリースで、macOS 26 以降が必要です。
 
 ## ドキュメント
 
-[中国語のタスク別ガイド](docs/GUIDE.zh.md)では、接続、診断、設定変更、通知、復旧を説明しています。
-
-ドキュメントは英語のみです。
+ドキュメントは英語のみです (中国語のタスク別ガイドを除く)。
 
 | | |
 |---|---|
-| [ユーザーガイド](docs/GUIDE.md) | TUI、編集、プレビューモード、表示の意味、プローブ、複数拠点での運用 |
-| [プロダクトモード](docs/PRODUCTS.md) | アプリやサイトを出す人のための Overview。プロダクトごとの各部分と、それぞれが載っているもの |
+| [ユーザーガイド](docs/GUIDE.md) · [中国語ガイド](docs/GUIDE.zh.md) | 導入、TUI、プレビューモード、プローブ、複数拠点での運用 |
 | [設定と API のリファレンス](docs/REFERENCE.md) | すべてのエンティティ、プローブのパラメーター、API エンドポイント |
-| [運用](docs/OPERATIONS.md) · [メモリ](docs/MEMORY.md) | デュアルコレクター、ストレージ、復旧、リソースの上限、メモリ予算 |
-| [セキュリティモデル](docs/SECURITY.md) | 認証情報、通信、権限の境界 ([レビュー](docs/SECURITY-REVIEW-2026-10-14.md)) |
-| [リモート管理](docs/MANAGEMENT.md) · [設計と受け入れ計画](docs/REMOTE-MANAGEMENT-PLAN.md) | 設定配信と署名済み公式リリース更新。両方とも既定で無効、ローカルで明示的に有効化（英語） |
+| [プロダクトモード](docs/PRODUCTS.md) | アプリやサイトを出す人のための Overview |
+| [Cloudflare](docs/CLOUDFLARE.md) · [直接接続モード](docs/DIRECT.md) | エッジからオリジンまで。コレクターなしで読むリソースのソース |
+| [運用](docs/OPERATIONS.md) · [メモリ](docs/MEMORY.md) | デュアルコレクター、systemd ユニット、ストレージ、復旧、メモリ予算 |
+| [セキュリティモデル](docs/SECURITY.md) · [リモート管理](docs/MANAGEMENT.md) | 認証情報、通信、オプトインの設定配信と更新 |
 | [シナリオ](docs/SCENARIOS.md) · [受け入れ](docs/ACCEPTANCE.md) | テストで証明できること、実機で確かめる必要があること |
-| [外部アダプター](docs/EXTERNAL-ADAPTERS.md) · [実装契約](docs/MULTI-PROBE-IMPLEMENTATION.md) | ソースアダプターの作成、レポート・時刻・重複排除の意味、予算、アップグレードとロールバック |
-| [変更履歴](CHANGELOG.md) | リリースの履歴 |
-
-## リポジトリの構成
-
-```text
-cmd/topo        the single binary
-internal/       model, config, probes, scheduler, journal, engine, API, client, outbox, view, TUI, preview
-examples/       sample topologies and credential templates
-deploy/         hardened systemd units for the collector and the worker
-docs/           guides, reference and verification records
-scripts/        acceptance and verification suites
-site/           the topophany.com homepage (a separate module, not part of go install)
-```
+| [サンプル](examples/) | 出発点になるトポロジーの例 |
+| [変更履歴](CHANGELOG.md) · [リリースノート](docs/releases/) | リリースの履歴とアップグレードの注意 |
 
 ## 開発
 
 ```sh
 go test ./...                # unit and integration tests
-go test -race ./...
 python3 scripts/verify.py    # the full acceptance suite (Linux, Go, Python 3)
-make site                    # re-record the homepage's TUI replays and rewrite its pages
+make captures architecture   # redraw the README's TUI captures and diagram
 ```
 
-ビルドにモジュールのダウンロードは要りません。変更を送る前に [CONTRIBUTING.md](CONTRIBUTING.md) と[行動規範](CODE_OF_CONDUCT.md)を読んでください。脆弱性は [SECURITY.md](SECURITY.md) の手順に従って非公開で報告してください。
+変更を送る前に [CONTRIBUTING.md](CONTRIBUTING.md) と[行動規範](CODE_OF_CONDUCT.md)を読んでください。脆弱性は [SECURITY.md](SECURITY.md) の手順に従って非公開で報告してください。
 
 ## ライセンス
 

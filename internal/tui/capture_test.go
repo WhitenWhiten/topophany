@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/WhitenWhiten/topophany/internal/config"
 	"github.com/WhitenWhiten/topophany/internal/preview"
 	"github.com/WhitenWhiten/topophany/internal/view"
 )
@@ -23,14 +24,20 @@ import (
 type docShot struct {
 	name     string
 	readme   bool     // shown in each README, so captured in every language
+	example  string   // the examples/ topology simulated, else the preview's own network
+	scenario string   // the scenario half an hour old, else the transit outage
 	tab      int      // the tab shown
 	mapMode  string   // the map, where the tab has one
+	products bool     // the Overview turned to the products (P)
+	rows     int      // the terminal's height, else the tour's or the guide's
 	selected string   // the ID of the row selected, else the first
 	keys     []string // pressed once the row is selected
 }
 
 var docShots = []docShot{
 	{name: "overview", readme: true, tab: tabOverview},
+	// The board is a few rows a product, so a shorter terminal keeps it full.
+	{name: "products", readme: true, example: "products.json", scenario: "app-origin-down", tab: tabOverview, products: true, rows: 30},
 	{name: "servers", tab: tabServers, selected: "app"},
 	{name: "servers-uniform", tab: tabServers, selected: "app", keys: []string{"s"}},
 	{name: "server-card", tab: tabServers, selected: "app", keys: []string{"s", "enter"}},
@@ -72,21 +79,42 @@ func clip(t *testing.T, c docClip, lang string) tour {
 // which their words still read; the README's are as wide as the tour.
 const guideW, guideH = 140, 42
 
-// shot is the TUI as it shows c in lang: half an hour into the transit
-// outage, four seconds after the last snapshot.
+// shot is the TUI as it shows c in lang: half an hour into its scenario,
+// four seconds after the last snapshot.
 func shot(t *testing.T, c docShot, lang string) tour {
-	r := newRecorder(t, lang)
+	var r *recorder
+	if c.example != "" {
+		cfg, e := config.Load(filepath.Join("..", "..", "examples", c.example))
+		if e != nil {
+			t.Fatal(e)
+		}
+		r = newRecorderOn(t, lang, cfg)
+	} else {
+		r = newRecorder(t, lang)
+	}
 	m := r.m
 	if !c.readme {
 		m.Width, m.Height = guideW, guideH
-		r.out.Size = [2]int{guideW, guideH}
 	}
-	r.sim.SetScenario(slices.Index(r.sim.ScenarioIDs(), "transit-blocked"), m.Now.Add(-30*time.Minute))
+	if c.rows > 0 {
+		m.Height = c.rows
+	}
+	r.out.Size = [2]int{m.Width, m.Height}
+	scenario := c.scenario
+	if scenario == "" {
+		scenario = "transit-blocked"
+	}
+	i := slices.Index(r.sim.ScenarioIDs(), scenario)
+	if i < 0 {
+		t.Fatalf("%s: the preview offers no %s scenario: %v", c.name, scenario, r.sim.ScenarioIDs())
+	}
+	r.sim.SetScenario(i, m.Now.Add(-30*time.Minute))
 	r.fetch()
 	m.Now = m.Now.Add(4 * time.Second)
 	m.notice = ""
 	m.setTab(c.tab)
 	m.MapMode = c.mapMode
+	m.Products = c.products
 	if c.selected != "" {
 		m.Selected = slices.IndexFunc(m.Rows(), func(row Row) bool { return row.ID == c.selected })
 		if m.Selected < 0 {
