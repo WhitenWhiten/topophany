@@ -44,6 +44,11 @@ local monitoring behavior remain unchanged.
   line beside the big number (`Service availability 17/23 known`, or
   `17/23 services known` where narrow) instead of a clipped sentence that
   repeated the header's view, and the row above the health bar is clear again.
+- Evidence panels keep their labels in one column in a wide panel (up to 30
+  columns) instead of pushing a long label's value out of line, write a phrase
+  label with a capital, color health words wherever they are a value, and let
+  each incident in a related problem head its own sections in its own words
+  rather than in capitals indistinguishable from `FAILED CHECKS`.
 
 ### Fixed
 

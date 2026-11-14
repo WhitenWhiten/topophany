@@ -2,6 +2,7 @@ package tui
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/WhitenWhiten/topophany/internal/view"
 )
@@ -100,8 +101,22 @@ func valueStyle(key, v string) (string, Style) {
 		return "yes", fg(cText)
 	case "false":
 		return "no", fg(cMuted)
+	case "up", "down", "degraded":
+		return v, fg(healthColor(v))
+	case "unknown":
+		return v, fg(cMuted)
 	}
 	return v, fg(cText)
+}
+
+// label is a detail key as the panel shows it: a phrase starts with a
+// capital, as every label does; an identifier keeps its case.
+func label(key string) string {
+	r := []rune(key)
+	if len(r) == 0 || !strings.Contains(key, " ") || !unicode.IsLower(r[0]) {
+		return key
+	}
+	return string(unicode.ToUpper(r[0])) + string(r[1:])
 }
 
 // arrows splits a route so its arrows can carry the accent color.
@@ -138,7 +153,9 @@ func (m *Model) detailBody(r Row, w int) []vline {
 			kw = max(kw, width(k))
 		}
 	}
-	kw = min(kw, 22, max(8, w*2/5))
+	// Labels keep one column, as wide as the longest; a wide panel has
+	// room for a longer one before it gives way.
+	kw = min(kw, max(8, min(30, w*2/5)))
 	vw := max(8, w-kw-2)
 	// A node's local resources are drawn as charts in place of their lines.
 	var resources []view.CardResource
@@ -173,6 +190,7 @@ func (m *Model) detailBody(r Row, w int) []vline {
 		}
 		if key, val, ok := detailKV(strings.TrimLeft(raw, " ")); ok && val == "" && l == key+":" {
 			if key != "ID" && key != "State" {
+				key = label(key)
 				out = append(out, vline{{key + strings.Repeat(" ", max(0, kw-width(key))+2), fg(cMuted)}, {"—", fg(cFaint)}})
 			}
 			continue
@@ -188,6 +206,12 @@ func (m *Model) detailBody(r Row, w int) []vline {
 			for _, wl := range wrap(l, w-2) {
 				out = append(out, vline{{" " + wl + strings.Repeat(" ", max(0, w-2-width(wl))) + " ", st}})
 			}
+		case detailHeading(l) && strings.Contains(l, " → "):
+			// A heading that names something, as each incident heads its
+			// own evidence in a related problem, keeps its words and leads
+			// the sections under it.
+			blank()
+			out = append(out, arrows(strings.TrimSuffix(l, ":"), fg(cGlow).bold()))
 		case detailHeading(l):
 			blank()
 			out = append(out, vline{{strings.ToUpper(strings.TrimSuffix(l, ":")), fg(Mix(cAccent, cMuted, .35)).bold()}})
@@ -197,6 +221,7 @@ func (m *Model) detailBody(r Row, w int) []vline {
 					continue
 				}
 				val, st := valueStyle(key, val)
+				key = label(key)
 				if width(key) > kw {
 					// A long key keeps a short value beside it; a long
 					// value hangs below the key, in the value column.
@@ -248,7 +273,7 @@ func (m *Model) drawDetail(cv *Canvas, x, y, w, h int, r Row, scroll bool) {
 		cv.Text(x+w-pw, y, label, st, -1)
 		sub := r.Kind + "  ·  " + r.ID
 		if r.Kind == "group" {
-			sub = "Member evidence · i expand · Enter fold"
+			sub = "group  ·  member evidence"
 		}
 		if _, scope, ok := strings.Cut(r.ID, "/"); ok && r.Kind == "incident" {
 			scope, n, again := strings.Cut(scope, "#")
