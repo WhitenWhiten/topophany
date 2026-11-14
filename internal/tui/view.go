@@ -405,7 +405,9 @@ func (m *Model) drawForm(cv *Canvas, f *Form) {
 			labelW = max(labelW, width(fd.label))
 		}
 	}
-	x, y, w, h := m.modalBox(cv, 86, len(order)+8, f.title)
+	// The dialog widens for a long label, as far as the stage allows, so
+	// a label reads whole beside a value column of some sixty cells.
+	x, y, w, h := m.modalBox(cv, max(86, labelW+64), len(order)+8, f.title)
 	bg := Style{BG: cPanelBG}
 	visible := max(1, h-5)
 	if at := slices.Index(order, f.focus); at >= 0 {
@@ -417,7 +419,7 @@ func (m *Model) drawForm(cv *Canvas, f *Form) {
 		}
 	}
 	f.scroll = max(0, min(f.scroll, len(order)-visible))
-	labelW = min(max(labelW, 8), 24, max(8, w/3)) + 1
+	labelW = min(max(labelW, 8), max(8, w*2/5)) + 1
 	vx := x + labelW + 1
 	vw := max(4, w-labelW-1)
 	for i := 0; i < visible && f.scroll+i < len(order); i++ {
