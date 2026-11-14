@@ -16,6 +16,10 @@ func rowValueBudget(metric string) int {
 		// A list can carry readings and deadlines for 256 servers.
 		return 256 << 10
 	}
+	if metric == "products.list" {
+		// Up to 64 lines, each with its chain and its lead check's samples.
+		return 256 << 10
+	}
 	return maxRowValueBytes
 }
 

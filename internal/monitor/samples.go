@@ -42,6 +42,23 @@ func withoutHistory(value any) any {
 			c.Checks[i].Samples.Slots = nil
 		}
 		return c
+	case ProductsValue:
+		products := make([]ProductValue, len(c.Products))
+		for i, pr := range c.Products {
+			lines := make([]ProductLineValue, len(pr.Lines))
+			for k, l := range pr.Lines {
+				if l.Lead != nil {
+					lead := *l.Lead
+					lead.Samples.Slots = nil
+					l.Lead = &lead
+				}
+				lines[k] = l
+			}
+			pr.Lines = lines
+			products[i] = pr
+		}
+		c.Products = products
+		return c
 	}
 	return value
 }
@@ -54,6 +71,7 @@ type SampleBook struct {
 	services []string
 	selected []string
 	links    []string
+	products bool
 	source   string
 	checks   map[string]*sampleTrail
 }
@@ -81,8 +99,11 @@ func NewSampleBook(t Template) *SampleBook {
 		if r.Metric == "check.card" && !slices.Contains(b.selected, r.Select.Check) {
 			b.selected = append(b.selected, r.Select.Check)
 		}
+		if r.Metric == "products.list" {
+			b.products = true
+		}
 	}
-	if len(b.services) == 0 && len(b.selected) == 0 && len(b.links) == 0 {
+	if len(b.services) == 0 && len(b.selected) == 0 && len(b.links) == 0 && !b.products {
 		return nil
 	}
 	return b
@@ -199,6 +220,13 @@ func (b *SampleBook) checksOf(s model.Snapshot) []string {
 		}
 	}
 
+	if b.products {
+		for _, id := range productChecks(s) {
+			if !slices.Contains(out, id) {
+				out = append(out, id)
+			}
+		}
+	}
 	for _, id := range b.services {
 		for _, sv := range s.Services {
 			if sv.ID == id {

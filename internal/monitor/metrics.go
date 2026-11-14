@@ -663,6 +663,14 @@ func (p *projection) richValue(value Value) Value {
 		for _, s := range list {
 			value.Health = worse(value.Health, s.Health)
 		}
+	case "products.list":
+		products, sampled, until := p.products()
+		value.Value = products
+		value.Text = fmt.Sprintf("%d products", len(products.Products))
+		value.SampledAt, value.ValidUntil = sampled, until
+		for _, pr := range products.Products {
+			value.Health = worse(value.Health, pr.Health)
+		}
 	case "servers.list":
 		servers, sampled, until := p.servers()
 		value.Value = servers

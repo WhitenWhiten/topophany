@@ -63,6 +63,7 @@ func Catalog() []Metric {
 		{Name: "link.card", Type: "object", Sources: []string{"client", "collector"}, Selector: "link", Visual: "card"},
 		{Name: "links.list", Type: "array", Sources: []string{"client", "collector"}, Visual: "list"},
 		{Name: "services.list", Type: "array", Sources: []string{"client", "collector"}, Visual: "list"},
+		{Name: "products.list", Type: "object", Sources: []string{"client", "collector"}, Visual: "list"},
 		{Name: "summary.status", Type: "text", Sources: []string{"client", "collector"}},
 		{Name: "local.status", Type: "text", Sources: []string{"worker"}},
 		{Name: "check.status", Type: "text", Sources: all, Selector: "check"},
@@ -154,8 +155,8 @@ func (t Template) Validate(source string) error {
 		if r.Limit != nil && (r.Metric != "attention.list" || *r.Limit < 1 || *r.Limit > 20) {
 			return fmt.Errorf("row %s: limit must be 1..20 and is only for attention.list", r.ID)
 		}
-		if r.History != nil && r.Metric != "service.card" && r.Metric != "check.card" && r.Metric != "link.card" {
-			return fmt.Errorf("row %s: history is only for service, check or link cards", r.ID)
+		if r.History != nil && r.Metric != "service.card" && r.Metric != "check.card" && r.Metric != "link.card" && r.Metric != "products.list" {
+			return fmt.Errorf("row %s: history is only for service, check or link cards and products.list", r.ID)
 		}
 		if m.Selector == "node" && !config.ID(r.Select.Node) || r.Select.Node != "" && m.Selector != "node" {
 			return fmt.Errorf("row %s: invalid or missing node selector", r.ID)
