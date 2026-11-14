@@ -15,6 +15,9 @@ import (
 // that are simply up.
 func stateWord(r Row) (string, Style) {
 	word := view.State(r)
+	if assessed(r, word) {
+		return assessmentWord(*r.Assessment)
+	}
 	switch {
 	case word == "cached", word == "affected", word == "outdated", word == "recovering":
 		return word, fg(cWarn)

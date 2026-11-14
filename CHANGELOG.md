@@ -33,6 +33,11 @@ local monitoring behavior remain unchanged.
 
 - The TUI keeps an open dialog's keys lit on the footer instead of dimming
   them with the view behind it.
+- The TUI marks a service with its assessment's own state. An availability
+  nobody established is no longer a green `UNKNOWN` pill, a failing or warning
+  path (`ACCESS FAIL`, `PATH WARN`, …) is lit like `DOWN` and `WARN` in the
+  lists instead of written faint, and an established `UP` stays as quiet as
+  any healthy row.
 - Close unauthenticated management connections and bound anonymous connections
   per source while allowing enrolled nodes to reuse authenticated TLS sessions.
 - Move release verification outside the controller state lock, recheck fleet

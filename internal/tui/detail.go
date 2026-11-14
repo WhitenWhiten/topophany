@@ -33,6 +33,10 @@ func statePill(r Row) (string, Style) {
 	case "CLOSED":
 		glyph, c = "⚐", cMuted
 	}
+	if assessed(r, word) {
+		g, ac := assessmentMark(r.Assessment.State())
+		glyph, c = string(g), ac
+	}
 	return " " + glyph + " " + word + " ", fg(c).Bg(Mix(c, cInk, .82)).bold()
 }
 
