@@ -167,6 +167,11 @@ func TestProductsOriginDownBehindTheEdge(t *testing.T) {
 	if api.Health == "up" || api.Lead == nil || api.Lead.ID != "snapmeal-api-home" || api.Lead.Health != "down" || api.Lead.Since == nil || api.Lead.Since.After(now) {
 		t.Fatalf("%+v %+v", api, api.Lead)
 	}
+	// It says what answered, for a consumer to word as the TUI does:
+	// "HTTP 521 via Cloudflare LIS".
+	if d := api.Lead.Diagnostic; d == nil || d.Facts["http_status"] != "521" || d.Facts["edge_provider"] != "cloudflare" || d.Facts["edge_pop"] != "LIS" {
+		t.Fatalf("the lead's diagnostic does not say what answered: %+v", d)
+	}
 	healths := map[string]string{}
 	for _, c := range api.Chain {
 		healths[c.ID] = c.Health

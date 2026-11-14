@@ -142,6 +142,16 @@ func TestDiagnosticProbePolicies(t *testing.T) {
 	if e := expectedFacts(model.Check{Kind: "http"}); len(e) != 0 {
 		t.Fatal("unset policies exported", e)
 	}
+	// An HTTP check says the status that answered, in its shape only.
+	for status, kept := range map[string]bool{"521": true, "200": true, "99": false, "600": false, "5210": false, "52a": false, "": false} {
+		f := diagnosticFacts(model.Check{Kind: "http"}, map[string]string{"http_status": status})
+		if _, ok := f["http_status"]; ok != kept || kept && f["http_status"] != status {
+			t.Fatalf("status %q exported %v: %v", status, ok, f)
+		}
+		if f := diagnosticFacts(model.Check{Kind: "tls"}, map[string]string{"http_status": status}); len(f) != 0 {
+			t.Fatal("a handshake says an HTTP status", f)
+		}
+	}
 
 	now := time.Now().UTC().Truncate(time.Second)
 	check := model.Check{ID: "site", Name: "Site", Observer: "o", Kind: "http", Target: "https://site.test/health", StaleSeconds: 60, MaxDurationMS: 800, TLSMinDays: 14,

@@ -119,6 +119,12 @@ func diagnosticFacts(c model.Check, facts map[string]string) map[string]string {
 	case "http", "tls":
 		// Written only while tls_min_days asks for the peer certificate's expiry.
 		keys = append(keys, "tls_days_remaining", "tls_not_after")
+		if c.Kind == "http" {
+			// The status that answered, so a consumer can say "HTTP 521"
+			// rather than that the check failed: three digits, nothing more.
+			keys = append(keys, "http_status")
+			shapes["http_status"] = statusFact
+		}
 	case "mihomo":
 		keys = append(keys, strings.Fields("mode tun_enabled reported_chain reported_selection chain_resolution core_delay_ms core_last_checked sampling_atomicity provider_parameters provider_comparison provider_reference_published_at provider_reference_consistency provider_reference_settling provider_reference_load_pending peer_text")...)
 		providers := map[string]bool{}
@@ -170,6 +176,12 @@ func oneOf(words ...string) factShape {
 }
 func countFact(v string) bool { _, err := strconv.ParseUint(v, 10, 64); return err == nil }
 func timeFact(v string) bool  { _, err := time.Parse(time.RFC3339, v); return err == nil }
+
+// statusFact is an HTTP status code: three digits from 100 to 599.
+func statusFact(v string) bool {
+	n, err := strconv.Atoi(v)
+	return err == nil && len(v) == 3 && n >= 100 && n <= 599
+}
 
 var booleanFact = oneOf("true", "false")
 

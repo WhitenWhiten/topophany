@@ -603,9 +603,10 @@ monitor failure; a policy sample need not be confirmed. Reported runtime paths
 are not proof of application traffic routing. Diagnostics disappear at the
 check's own deadline, including inside a still-current service card.
 
-Facts are an explicit display allowlist: edge response metadata; for HTTP and
-TLS checks with `tls_min_days`, the peer certificate's `tls_not_after` and
-`tls_days_remaining`; Mihomo mode, TUN, reported chain/selection, provider
+Facts are an explicit display allowlist: edge response metadata; for HTTP
+checks, the `http_status` that answered (three digits, 100 to 599; any other
+value is withheld); for HTTP and TLS checks with `tls_min_days`, the peer
+certificate's `tls_not_after` and `tls_days_remaining`; Mihomo mode, TUN, reported chain/selection, provider
 comparison/publication/loading state and declared-provider readings; Tailscale
 `backend_state`, `online_reported`, `active_reported`, `health_warning_count`,
 `last_seen`, `transport_hint` and the optional diagnostic's
