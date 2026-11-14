@@ -135,7 +135,7 @@ func (m *Model) statusCard(cv *Canvas, x, y, w, h int) {
 		}
 		cv.Text(lx, row+2, sub, fg(cMuted), x+w-lx)
 		if m.Snapshot.Direct == nil {
-			cv.Text(x, row+4, m.view().Coverage().Line(), fg(cMuted), w)
+			m.coverageLine(cv, lx, row+3, x+w-lx)
 		}
 		row += 5
 	}
@@ -193,6 +193,26 @@ func (m *Model) statusCard(cv *Canvas, x, y, w, h int) {
 		cv.Set(cx, row, '◎', fg(oc))
 		cx += 2
 		cv.Text(cx, row, itoa(live)+"/"+itoa(all)+" observers live", fg(cMuted), max(0, x+w-cx))
+	}
+}
+
+// coverageLine says, under what the big number counts, how many services
+// this view establishes the availability of: "Service availability 17/23
+// known", or where that does not fit in w, "17/23 services known". Which
+// view it is the header says.
+func (m *Model) coverageLine(cv *Canvas, x, y, w int) {
+	c := m.view().Coverage()
+	if c.Services == 0 {
+		return
+	}
+	count := span{itoa(c.Known) + "/" + itoa(c.Services), fg(cText).bold()}
+	line := []span{{m.ui("Service availability") + " ", fg(cMuted)}, count, {" " + m.ui("known"), fg(cMuted)}}
+	if spansWidth(line) > w {
+		line = []span{count, {" " + m.ui("services known"), fg(cMuted)}}
+	}
+	for _, s := range line {
+		n := cv.Text(x, y, s.s, s.st, max(0, w))
+		x, w = x+n, w-n
 	}
 }
 

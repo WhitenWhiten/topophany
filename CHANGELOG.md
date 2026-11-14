@@ -40,6 +40,10 @@ local monitoring behavior remain unchanged.
   with: the load under the CPU, the swap's share under the memory and the
   network rates under the disk. Open cards and node evidence give each a line
   styled like the CPU, memory and disk charts, with spaced units.
+- The Overview's status card says its availability coverage as the third
+  line beside the big number (`Service availability 17/23 known`, or
+  `17/23 services known` where narrow) instead of a clipped sentence that
+  repeated the header's view, and the row above the health bar is clear again.
 
 ### Fixed
 
