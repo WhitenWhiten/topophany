@@ -372,7 +372,7 @@ func spansWidth(ss []span) int {
 func (m *Model) serviceTile(f fleet, r Row, w int, selected bool) []cardRow {
 	c, _ := f.ServiceCard(r.ID)
 	rows, _ := m.serviceHead(f, c, r, selected)
-	rows = append(rows, cardRow{left: []span{{"app:" + c.Assessment.Availability + " path:" + c.Assessment.Reachability + " worker:" + c.Assessment.WorkerOnline, fg(cMuted)}}})
+	rows = append(rows, cardRow{left: scopeStrip(c.Assessment, w)})
 	rows = append(rows, m.seenPanel(c, w)...)
 	rows = append(rows, cardRow{})
 	rows = append(rows, m.serviceTallies(c, w)...)
@@ -631,14 +631,11 @@ func (m *Model) serviceSheetSeen(f fleet, c view.ServiceCard, w int) []cardRow {
 }
 
 // serviceSheetSections are what an open service card says beside who sees
-// it: how it is reached, where the edge answered from, where it runs, what
-// it depends on and what depends on it, and its runbook.
-func (m *Model) serviceSheetSections(f fleet, c view.ServiceCard) [][]cardRow {
-	evidenceRows := []cardRow{}
-	for _, line := range c.Assessment.Lines() {
-		evidenceRows = append(evidenceRows, cardRow{left: []span{{line, fg(cMuted)}}})
-	}
-	out := [][]cardRow{append([]cardRow{heading("EVIDENCE SCOPE", 0)}, evidenceRows...)}
+// it, in columns w wide: what its evidence establishes, how it is reached,
+// where the edge answered from, where it runs, what it depends on and what
+// depends on it, and its runbook.
+func (m *Model) serviceSheetSections(f fleet, c view.ServiceCard, w int) [][]cardRow {
+	out := [][]cardRow{append([]cardRow{heading("EVIDENCE SCOPE", 0)}, scopeRows(c.Assessment, w)...)}
 	if len(c.Endpoints) > 0 {
 		rows := []cardRow{heading("REACHED AT", len(c.Endpoints))}
 		for _, ep := range c.Endpoints {
@@ -723,6 +720,6 @@ func (m *Model) drawServiceSheet(cv *Canvas, x, y, w, h int, r Row) {
 	if two {
 		cw = (inner - sheetGap) / 2
 	}
-	sections := append([][]cardRow{m.serviceSheetSeen(f, c, cw)}, m.serviceSheetSections(f, c)...)
+	sections := append([][]cardRow{m.serviceSheetSeen(f, c, cw)}, m.serviceSheetSections(f, c, cw)...)
 	m.drawOpenCard(cv, x, y, w, h, r, band, sheetColumns(out, sections, two))
 }

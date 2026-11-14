@@ -123,9 +123,18 @@ func (m *Model) detailBody(r Row, w int) []vline {
 			out = append(out, vline{})
 		}
 	}
+	// A service's assessment is laid out as rows, not as its sentences.
+	var scope map[string]bool
+	scoped := false
+	if r.Kind == "service" && r.Assessment != nil {
+		scope = map[string]bool{}
+		for _, l := range r.Assessment.Lines() {
+			scope[l] = true
+		}
+	}
 	kw := 0
 	for _, l := range r.Details {
-		if k, _, ok := detailKV(l); ok && k != "ID" && k != "State" {
+		if k, _, ok := detailKV(l); ok && k != "ID" && k != "State" && !scope[strings.TrimSpace(l)] {
 			kw = max(kw, width(k))
 		}
 	}
@@ -143,6 +152,19 @@ func (m *Model) detailBody(r Row, w int) []vline {
 			continue
 		}
 		charted = false
+		if scope[l] {
+			if scoped {
+				continue // laid out already
+			}
+			scoped = true
+			blank()
+			out = append(out, vline{{"EVIDENCE SCOPE", fg(Mix(cAccent, cMuted, .35)).bold()}})
+			for _, row := range scopeRows(*r.Assessment, w) {
+				out = append(out, rowLine(row, w))
+			}
+			blank()
+			continue
+		}
 		if len(resources) > 0 && (strings.HasPrefix(l, "Local resources: ") || strings.HasPrefix(l, "Reported resources: ")) {
 			blank()
 			out = append(out, m.nodeResources(resources[0], w)...)

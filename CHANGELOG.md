@@ -29,6 +29,14 @@ See [the management guide](docs/MANAGEMENT.md) for actual schemas, local opt-ins
 platform limits and acceptance evidence. Observation wire formats and default
 local monitoring behavior remain unchanged.
 
+### Changed
+
+- The TUI lays a service's evidence scope out as marks and rows: its card says
+  `app ○ unknown   path ▲ degraded   worker ● up` instead of
+  `app:unknown path:degraded worker:up`, and the open card and the evidence
+  panel list each check it rests on with its observer, scope and check, the
+  notes wrapped rather than cut off. `topo show` keeps the sentences.
+
 ### Fixed
 
 - The TUI keeps an open dialog's keys lit on the footer instead of dimming
