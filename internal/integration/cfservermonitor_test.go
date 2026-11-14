@@ -103,9 +103,22 @@ func TestCFServerMonitorThroughWorkerCollectorAndMonitor(t *testing.T) {
 	now := time.Now().UTC()
 	tuiModel := tui.Model{Snapshot: ch.snapshot(now), Tab: view.Servers, Now: now, Width: 140, Height: 60, NoColor: true}
 	rendered := strings.Join(tuiModel.Render(), "\n")
-	for _, reading := range []string{"↓ 4.0KiB/s", "↑ 0.0B/s", "512.0MiB / 2.0GiB", "0.35 / 1.20 / 2.30"} {
+	// The card says each reading under its panel; laid open, in full.
+	for _, reading := range []string{"load", "0.35", "swap", "25%", "↓4.0K", "↑0"} {
 		if !strings.Contains(rendered, reading) {
 			t.Errorf("Servers view omitted %q\n%s", reading, rendered)
+		}
+	}
+	for i, row := range tuiModel.Rows() {
+		if row.ID == "dmit" {
+			tuiModel.Selected = i
+		}
+	}
+	tuiModel.Key("enter")
+	rendered = strings.Join(tuiModel.Render(), "\n")
+	for _, reading := range []string{"↓ 4.0 KiB/s", "↑ 0.0 B/s", "512.0 MiB / 2.0 GiB", "0.35  1.20  2.30"} {
+		if !strings.Contains(rendered, reading) {
+			t.Errorf("server card omitted %q\n%s", reading, rendered)
 		}
 	}
 

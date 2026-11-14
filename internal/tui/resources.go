@@ -161,6 +161,17 @@ func fullRate(v float64) string {
 	return strconv.FormatFloat(v, 'f', 1, 64) + " " + units[u]
 }
 
+// fullBytes writes a byte count with its unit: "128.0 MiB".
+func fullBytes(v uint64) string {
+	units := []string{"B", "KiB", "MiB", "GiB", "TiB", "PiB"}
+	f, u := float64(v), 0
+	for f >= 1024 && u < len(units)-1 {
+		f /= 1024
+		u++
+	}
+	return strconv.FormatFloat(f, 'f', 1, 64) + " " + units[u]
+}
+
 // swapShare is the share of swap in use, "" when either reading is
 // missing and "none" when the host has none.
 func swapShare(s model.SwapReport) string {
@@ -245,16 +256,22 @@ func readingLines(facts map[string]string, n int, style Style) []vline {
 	}
 	if r.Swap != (model.SwapReport{}) {
 		line := vline{{fit("SWAP", n), style}}
-		if share := swapShare(r.Swap); share != "" && share != "none" {
-			line = append(line, span{share, value.bold()}, span{"  ", Style{}})
-		}
-		switch {
-		case r.Swap.TotalBytes != nil && *r.Swap.TotalBytes == 0:
+		if r.Swap.TotalBytes != nil && *r.Swap.TotalBytes == 0 {
 			line = append(line, span{"none configured", quiet})
-		case r.Swap.TotalBytes != nil && r.Swap.UsedBytes != nil:
-			line = append(line, span{capacity(*r.Swap.UsedBytes, *r.Swap.TotalBytes), quiet})
-		case r.Swap.TotalBytes != nil:
-			line = append(line, span{"— of " + capacity(*r.Swap.TotalBytes, *r.Swap.TotalBytes), quiet})
+		} else {
+			// Each in its own unit: a little swap in use reads as itself,
+			// not as "0.1" of the total's.
+			if share := swapShare(r.Swap); share != "" {
+				line = append(line, span{share, value.bold()}, span{"  ", Style{}})
+			}
+			used, total := "—", "—"
+			if r.Swap.UsedBytes != nil {
+				used = fullBytes(*r.Swap.UsedBytes)
+			}
+			if r.Swap.TotalBytes != nil {
+				total = fullBytes(*r.Swap.TotalBytes)
+			}
+			line = append(line, span{used + " / " + total, quiet})
 		}
 		out = append(out, line)
 	}

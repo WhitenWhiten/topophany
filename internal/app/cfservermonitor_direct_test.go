@@ -55,9 +55,17 @@ func TestCFServerMonitorDirectSetupAndViewer(t *testing.T) {
 	now := time.Now()
 	m := tui.Model{Snapshot: snap, Direct: true, Tab: view.Servers, Now: now, Width: 140, Height: 40, NoColor: true}
 	rendered := strings.Join(m.Render(), "\n")
-	for _, reading := range []string{"CF-Server-Monitor direct", "REPORTED RESOURCES", "↓ 5.0KiB/s", "↑ 2.0KiB/s", "128.0MiB / 1.0GiB", "0.75 / 0.50 / 0.25"} {
+	// The card says each reading under its panel; laid open, in full.
+	for _, reading := range []string{"CF-Server-Monitor direct", "REPORTED RESOURCES", "load", "0.75", "swap", "12%", "↓5.0K", "↑2.0K"} {
 		if !strings.Contains(rendered, reading) {
 			t.Errorf("direct Servers view omitted %q\n%s", reading, rendered)
+		}
+	}
+	m.Key("enter")
+	rendered = strings.Join(m.Render(), "\n")
+	for _, reading := range []string{"↓ 5.0 KiB/s", "↑ 2.0 KiB/s", "128.0 MiB / 1.0 GiB", "0.75  0.50  0.25"} {
+		if !strings.Contains(rendered, reading) {
+			t.Errorf("direct server card omitted %q\n%s", reading, rendered)
 		}
 	}
 	p := monitor.Build(monitor.Config{Source: "direct", Template: monitor.DefaultDirectTemplate()}, monitor.Input{Snapshot: snap}, now)

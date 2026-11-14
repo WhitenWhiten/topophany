@@ -35,8 +35,13 @@ func TestOpenCardSaysOtherReadingsInFull(t *testing.T) {
 	for _, l := range readingLines(otherReadings, 8, fg(cMuted)) {
 		got = append(got, spansText(l))
 	}
-	want := []string{"NETWORK ↓ 1.7 MiB/s   ↑ 305.4 KiB/s", "SWAP    12%  0.5/4.0 GiB", "LOAD    0.42  0.37  0.31   1 · 5 · 15 min"}
+	want := []string{"NETWORK ↓ 1.7 MiB/s   ↑ 305.4 KiB/s", "SWAP    12%  512.0 MiB / 4.0 GiB", "LOAD    0.42  0.37  0.31   1 · 5 · 15 min"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("readings:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	// A total without a reading of what is used says so, once.
+	partial := readingLines(map[string]string{"swap_total_bytes": "4294967296"}, 8, fg(cMuted))
+	if len(partial) != 1 || spansText(partial[0]) != "SWAP    — / 4.0 GiB" {
+		t.Fatalf("swap without its use: %q", detailText(partial))
 	}
 }

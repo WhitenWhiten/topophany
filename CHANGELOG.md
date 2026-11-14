@@ -39,7 +39,8 @@ local monitoring behavior remain unchanged.
 - Server cards say network, swap and load in one row under the panels they go
   with: the load under the CPU, the swap's share under the memory and the
   network rates under the disk. Open cards and node evidence give each a line
-  styled like the CPU, memory and disk charts, with spaced units.
+  styled like the CPU, memory and disk charts, with spaced units and swap's use
+  and size each in its own unit (`512.0 MiB / 4.0 GiB`).
 - The Overview's status card says its availability coverage as the third
   line beside the big number (`Service availability 17/23 known`, or
   `17/23 services known` where narrow) instead of a clipped sentence that
