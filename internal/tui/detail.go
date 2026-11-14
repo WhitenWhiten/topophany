@@ -59,7 +59,11 @@ func detailHeading(l string) bool {
 	return strings.HasSuffix(l, ":") && !strings.Contains(strings.TrimSuffix(l, ":"), ": ")
 }
 
-var caveats = []string{"No inference", "A declared path", "Directed initiation", "Health aggregates", "Each ", "An edge in front"}
+var caveats = []string{"No inference", "A declared path", "Directed initiation", "Health aggregates", "Each ", "An edge in front",
+	// What a group's members, a related problem and resource telemetry do
+	// not establish.
+	"Member evidence only", "Observer and path failures", "Grouped by the same declared target",
+	"Resource telemetry does not", "资源读数不能证明", "リソース測定値だけでは"}
 
 // valueStyle colors values whose words carry state.
 func valueStyle(key, v string) (string, Style) {

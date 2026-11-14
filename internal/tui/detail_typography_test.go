@@ -55,3 +55,19 @@ func TestRelatedIncidentHeadingsKeepTheirWords(t *testing.T) {
 		t.Fatalf("a section heading is no longer one:\n%s", text)
 	}
 }
+
+// What a group's members and a related problem do not establish is said
+// in the caveats' quieter voice, as every other such limit is.
+func TestNewerDisclaimersSpeakAsCaveats(t *testing.T) {
+	m := &Model{}
+	for _, l := range []string{
+		"Member evidence only; not business availability.",
+		"Observer and path failures do not prove an application outage.",
+		"Grouped by the same declared target; correlation does not establish a shared root cause.",
+	} {
+		out := m.detailBody(Row{Kind: "group", ID: "g", Details: []string{l}}, 120)
+		if len(out) == 0 || out[0][0].st.Attr&Italic == 0 || out[0][0].st.FG != cMuted {
+			t.Errorf("%q is not a caveat", l)
+		}
+	}
+}

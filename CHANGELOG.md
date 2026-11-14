@@ -53,6 +53,9 @@ local monitoring behavior remain unchanged.
   what you chose lit and what is left at everything quiet, instead of on a row
   of their own above it, so the list gains a row. Where the edge is short, what
   is left at everything gives way first. A click on it still opens Browse.
+- What an application group's member evidence, a related problem and resource
+  telemetry do not establish is written in the evidence panel's quieter caveat
+  voice, as every older such limit already was, instead of as plain findings.
 - On a group, the footer offers `↵/Space Fold` once instead of `↵ Fold` and
   `Space Fold` as two keys, leaving room for another on a narrow terminal.
 
