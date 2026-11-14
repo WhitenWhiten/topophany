@@ -83,9 +83,7 @@ func (m *Model) draw() *Canvas {
 		// Nothing to lay out yet: the splash says what is happening.
 		m.splash(cv, 0, 2, w, h-3)
 		m.footer(cv, 0, h-1, w)
-		if m.modal != nil {
-			m.drawModalOver(cv)
-		}
+		m.modalOver(cv)
 		return cv
 	}
 	m.splashAt = time.Time{}
@@ -103,10 +101,19 @@ func (m *Model) draw() *Canvas {
 	if m.Debug {
 		m.drawDebug(cv)
 	}
-	if m.modal != nil {
-		m.drawModalOver(cv)
-	}
+	m.modalOver(cv)
 	return cv
+}
+
+// modalOver draws the open modal, if any, over the frame. The footer is
+// then the modal's own keys, the only ones that mean anything while it is
+// open, so it is lit again rather than dimmed with the rest.
+func (m *Model) modalOver(cv *Canvas) {
+	if m.modal == nil {
+		return
+	}
+	m.drawModalOver(cv)
+	m.footer(cv, 0, cv.H-1, cv.W)
 }
 
 // drawModalOver dims the frame and draws the open modal over it.

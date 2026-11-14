@@ -31,6 +31,8 @@ local monitoring behavior remain unchanged.
 
 ### Fixed
 
+- The TUI keeps an open dialog's keys lit on the footer instead of dimming
+  them with the view behind it.
 - Close unauthenticated management connections and bound anonymous connections
   per source while allowing enrolled nodes to reuse authenticated TLS sessions.
 - Move release verification outside the controller state lock, recheck fleet
