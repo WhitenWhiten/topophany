@@ -26,6 +26,7 @@ func addPreferenceFlags(f *flag.FlagSet) *preferenceFlags {
 	p.search = f.String("filter", "", "initial text filter")
 	p.related = f.Bool("related-incidents", false, "group the Incidents tab by declared target")
 	p.path = f.String("preferences", "", "local startup preferences file (default OS config directory/topophany/preferences.json)")
+	f.StringVar(&p.values.Mode, "mode", "network", "what the Overview shows first: network or products")
 	f.StringVar(&p.values.Page, "page", "overview", "initial page: overview, topology, servers, services, paths, checks, incidents, observers, about")
 	f.BoolVar(&p.values.GroupsCollapsed, "groups-collapsed", false, "start with groups collapsed (default expanded)")
 	f.BoolVar(&p.values.UniformCards, "uniform-cards", false, "use equal-sized Servers cards")
@@ -72,6 +73,8 @@ func (p *preferenceFlags) resolveWith(lenient bool) (tui.Startup, error) {
 	overrides := []string{}
 	p.flags.Visit(func(f *flag.Flag) {
 		switch f.Name {
+		case "mode":
+			s.Mode = p.values.Mode
 		case "page":
 			s.Page = p.values.Page
 		case "groups-collapsed":
@@ -95,7 +98,7 @@ func (p *preferenceFlags) resolveWith(lenient bool) (tui.Startup, error) {
 }
 func (a *App) preferences(args []string) error {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
-		_, err := fmt.Fprintln(a.Out, "Usage: topo preferences show|set|reset [--preferences PATH]\nSet flags: --page PAGE --groups-collapsed=BOOL --uniform-cards=BOOL --service-cards=BOOL --full-map=BOOL --map-mode MODE --nerd-font-icons=BOOL")
+		_, err := fmt.Fprintln(a.Out, "Usage: topo preferences show|set|reset [--preferences PATH]\nSet flags: --mode network|products --page PAGE --groups-collapsed=BOOL --uniform-cards=BOOL --service-cards=BOOL --full-map=BOOL --map-mode MODE --nerd-font-icons=BOOL")
 		return err
 	}
 	command := args[0]

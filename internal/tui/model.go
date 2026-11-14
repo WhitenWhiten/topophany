@@ -56,7 +56,7 @@ type Model struct {
 	GroupsCollapsed                         bool
 	PreferencesPath                         string
 	PreferenceOverrides                     []string
-	preferenceInitial                       [7]string
+	preferenceInitial                       [8]string
 	AttentionOnly                           bool
 	Search                                  string
 	Searching                               bool
@@ -70,6 +70,7 @@ type Model struct {
 	GeoLabels                               geoLabels // geo map: cards, locations, points (p)
 	Uniform                                 bool      // Servers: a grid of uniform cards rather than the wall (s)
 	ServiceCards                            bool      // Services: a card for each service rather than the list (s)
+	Products                                bool      // Overview: the products board rather than the network (P)
 	NerdFont                                bool      // the terminal's font has the Nerd Fonts' logos, so providers wear them
 	Edit                                    *Editor   // non-nil only for topo edit
 	Preview                                 Preview   // non-nil only for topo preview
@@ -93,10 +94,11 @@ type Model struct {
 	absorbed                                time.Time         // when the snapshot last taken into trends was generated
 	hits                                    []hit
 	drawingModal                            bool
-	frameRows                               *[]Row  // shared only while drawing one frame
-	Device                                  *Device // non-nil when the TUI is laid out for a device's screen, simulated in the terminal (device.go)
-	stage                                   *rect   // where the TUI draws on the canvas, modals centred on it; nil for all of it
-	touch                                   touch   // gestures in flight and what the touch layouts keep between frames (touch.go)
+	frameRows                               *[]Row             // shared only while drawing one frame
+	frameBoard                              *view.ProductBoard // the products, while drawing one frame
+	Device                                  *Device            // non-nil when the TUI is laid out for a device's screen, simulated in the terminal (device.go)
+	stage                                   *rect              // where the TUI draws on the canvas, modals centred on it; nil for all of it
+	touch                                   touch              // gestures in flight and what the touch layouts keep between frames (touch.go)
 }
 
 // A hit is where a click or a tap does something: w cells from x on h rows
@@ -148,6 +150,8 @@ func (m *Model) Rows() []Row {
 	}
 	var rows []Row
 	switch {
+	case m.productsOverview():
+		rows, _ = m.productLines()
 	case m.Tab == tabIncidents && m.RelatedIncidents:
 		rows = m.view().ProblemRows(m.Search)
 	case m.serviceCards():
@@ -241,7 +245,7 @@ func (m *Model) mapShown() bool {
 	case m.Tab == tabTopology:
 		return true
 	case m.Tab == tabOverview:
-		return m.FullMap || m.Width >= 90 && m.Height >= 25
+		return !m.Products && (m.FullMap || m.Width >= 90 && m.Height >= 25)
 	}
 	return false
 }
@@ -469,7 +473,7 @@ func (m *Model) Key(k string) string {
 	case "f":
 		// The map alone, or the panels back; from a tab without a map,
 		// the Topology's map alone.
-		if m.Tab != tabTopology && m.Tab != tabOverview {
+		if m.Tab != tabTopology && (m.Tab != tabOverview || m.Products) {
 			m.setTab(tabTopology)
 			m.FullMap = true
 		} else {
@@ -502,6 +506,15 @@ func (m *Model) Key(k string) string {
 	case "x":
 		if m.Preview != nil {
 			m.scenarioMenu()
+		}
+	case "P":
+		// The Overview turns to the products, or back to the network.
+		m.Products = !m.Products
+		m.setTab(tabOverview)
+		if m.Products {
+			m.say("Products: a row for each line of each product", false)
+		} else {
+			m.say("Network: the map and what needs attention", false)
 		}
 	case "D":
 		m.Debug = !m.Debug

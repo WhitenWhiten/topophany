@@ -459,7 +459,7 @@ func (m *Model) aboutKeys() []aboutLine {
 	if m.Device != nil {
 		return nil // a touch screen says how it is used beside About (drawAboutKeys)
 	}
-	keys := [][2]string{{"1–9", "tabs"}, {"↑↓", "move"}, {"↵", "evidence"}, {"/", "filter"}, {"v", "vantage"}, {"m", "map"}, {"z", "zoom"}, {"f", "full map"}, {"p", "map labels"}, {"s", "uniform"}}
+	keys := [][2]string{{"1–9", "tabs"}, {"↑↓", "move"}, {"↵", "evidence"}, {"/", "filter"}, {"v", "vantage"}, {"m", "map"}, {"z", "zoom"}, {"f", "full map"}, {"p", "map labels"}, {"s", "uniform"}, {"P", "products"}}
 	switch {
 	case m.Edit != nil:
 		keys = append(keys, [2]string{"a", "add"}, [2]string{"e", "edit"}, [2]string{"d", "delete"}, [2]string{"u", "undo"}, [2]string{"^S", "save"})

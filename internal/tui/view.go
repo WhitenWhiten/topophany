@@ -60,7 +60,7 @@ func (m *Model) Render() []string {
 func (m *Model) draw() *Canvas {
 	var rows []Row
 	m.frameRows = &rows
-	defer func() { m.frameRows = nil }()
+	defer func() { m.frameRows, m.frameBoard = nil, nil }()
 	w, h := m.Width, m.Height
 	m.hits = m.hits[:0]
 	if w < 30 || h < 10 {
@@ -182,7 +182,7 @@ func (m *Model) body(cv *Canvas, x, y, w, h int) {
 		m.drawDetail(cv, ix, iy, iw, ih, sel, true)
 		return
 	}
-	if m.FullMap && (m.Tab == tabTopology || m.Tab == tabOverview) {
+	if m.FullMap && (m.Tab == tabTopology || m.Tab == tabOverview && !m.Products) {
 		m.fullMap(cv, x, y, w, h, rows, sel)
 		return
 	}
@@ -228,6 +228,9 @@ func (m *Model) body(cv *Canvas, x, y, w, h int) {
 			m.drawList(cv, ix, iy, iw, ih, rows)
 			return
 		}
+	case m.productsOverview():
+		m.productsLayout(cv, x, y, w, h, sel)
+		return
 	case m.Tab == tabOverview:
 		m.overview(cv, x, y, w, h, rows, sel, tag)
 		return

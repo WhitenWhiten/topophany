@@ -88,13 +88,17 @@ func (m *Model) selection() ([]Row, Row, string) {
 	return rows, sel, tag
 }
 
-// mapTab reports whether the tab shows a map.
-func (m *Model) mapTab() bool { return m.Tab == tabOverview || m.Tab == tabTopology }
+// mapTab reports whether the tab shows a map: the Overview does, but in
+// Products mode, where the board takes the map's place.
+func (m *Model) mapTab() bool { return m.Tab == tabOverview && !m.Products || m.Tab == tabTopology }
 
 // listTitle is the touched pane's title for the current tab.
 func (m *Model) listTitle() string {
 	switch m.Tab {
 	case tabOverview:
+		if m.Products {
+			return m.ui("PRODUCTS")
+		}
 		return "NEEDS ATTENTION"
 	case tabTopology:
 		return "NODES · LINKS"
@@ -188,8 +192,11 @@ func (m *Model) phone(cv *Canvas, r rect) {
 		sh := 6
 		ix, iy, iw, ih := m.panel(cv, r.x, r.y, r.w, sh, "STATUS", "", false)
 		m.statusCard(cv, ix, iy, iw, ih)
-		mh := (r.h - sh) * 44 / 100
-		m.mapPanel(cv, rect{r.x, r.y + sh, r.w, mh}, "NETWORK", sel, true)
+		mh := 0
+		if !m.Products { // in Products mode the board takes the map's place
+			mh = (r.h - sh) * 44 / 100
+			m.mapPanel(cv, rect{r.x, r.y + sh, r.w, mh}, "NETWORK", sel, true)
+		}
 		m.listPanel(cv, rect{r.x, r.y + sh + mh, r.w, r.h - sh - mh}, rows, tag, true)
 	case m.Tab == tabTopology:
 		mh := r.h * 56 / 100
@@ -210,6 +217,12 @@ func (m *Model) phone(cv *Canvas, r rect) {
 
 // listPanel is the touched list in a panel; open makes a tap open a row.
 func (m *Model) listPanel(cv *Canvas, r rect, rows []Row, tag string, open bool) {
+	if m.productsOverview() {
+		_, lines := m.productLines()
+		ix, iy, iw, ih := m.panel(cv, r.x, r.y, r.w, r.h, m.listTitle(), m.productsTag(), true)
+		m.touchProducts(cv, ix, iy, iw, ih, lines, open)
+		return
+	}
 	ix, iy, iw, ih := m.panel(cv, r.x, r.y, r.w, r.h, m.listTitle(), tag, true)
 	if m.Tab == tabOverview {
 		m.attentionCard(cv, ix, iy, iw, ih, rows, func(cv *Canvas, x, y, w, h int, rows []Row) { m.touchList(cv, x, y, w, h, rows, open) })

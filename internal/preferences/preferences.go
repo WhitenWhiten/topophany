@@ -16,6 +16,10 @@ import (
 )
 
 type Settings struct {
+	// Mode is what the Overview shows first: "network" or "products". The
+	// network is saved as no mode at all, as before there were modes, so a
+	// file older binaries read stays readable.
+	Mode            string `json:"mode,omitempty"`
 	Page            string `json:"page"`
 	GroupsCollapsed bool   `json:"groups_collapsed"`
 	UniformCards    bool   `json:"uniform_cards"`
@@ -27,8 +31,9 @@ type Settings struct {
 
 var Pages = []string{"overview", "topology", "servers", "services", "paths", "checks", "incidents", "observers", "about"}
 var MapModes = []string{"auto", "virtual", "geo", "network"}
+var Modes = []string{"network", "products"}
 
-func Defaults() Settings { return Settings{Page: "overview", MapMode: "auto"} }
+func Defaults() Settings { return Settings{Mode: "network", Page: "overview", MapMode: "auto"} }
 func (s Settings) Validate() error {
 	if !slices.Contains(Pages, s.Page) {
 		return fmt.Errorf("invalid page %q; choose %s", s.Page, strings.Join(Pages, ", "))
@@ -36,7 +41,23 @@ func (s Settings) Validate() error {
 	if !slices.Contains(MapModes, s.MapMode) {
 		return fmt.Errorf("invalid map mode %q; choose %s", s.MapMode, strings.Join(MapModes, ", "))
 	}
+	if s.Mode != "" && !slices.Contains(Modes, s.Mode) {
+		return fmt.Errorf("invalid mode %q; choose %s", s.Mode, strings.Join(Modes, ", "))
+	}
 	return nil
+}
+
+// Products is whether the Overview shows the products first.
+func (s Settings) Products() bool { return s.Mode == "products" }
+
+// Stored is the settings as a file keeps them: the network, the mode before
+// there were modes, as no mode at all, so older binaries, which refuse a
+// field they do not know, still read the file.
+func (s Settings) Stored() Settings {
+	if s.Mode == "network" {
+		s.Mode = ""
+	}
+	return s
 }
 func DefaultPath() (string, error) {
 	dir, err := os.UserConfigDir()
@@ -65,7 +86,7 @@ func Save(path string, s Settings) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
-	b, err := json.MarshalIndent(s, "", "  ")
+	b, err := json.MarshalIndent(s.Stored(), "", "  ")
 	if err != nil {
 		return err
 	}

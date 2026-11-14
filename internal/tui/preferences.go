@@ -8,15 +8,20 @@ import (
 	"github.com/WhitenWhiten/topophany/internal/preferences"
 )
 
-var preferenceNames = []string{"page", "groups-collapsed", "uniform-cards", "service-cards", "full-map", "map-mode", "nerd-font-icons"}
+var preferenceNames = []string{"page", "mode", "groups-collapsed", "uniform-cards", "service-cards", "full-map", "map-mode", "nerd-font-icons"}
 
 // prefFields is how many preferences the dialog lists; its three buttons
 // follow them.
-const prefFields = 7
+const prefFields = 8
 
 func preferenceForm(s preferences.Settings) *Form {
 	f := &Form{}
 	f.add("Startup page", s.Page, fChoice, "", preferences.Pages...)
+	mode := s.Mode
+	if mode == "" {
+		mode = "network"
+	}
+	f.add("Overview", mode, fChoice, "", preferences.Modes...)
 	groups := "expanded"
 	if s.GroupsCollapsed {
 		groups = "collapsed"
@@ -36,7 +41,7 @@ func preferenceForm(s preferences.Settings) *Form {
 	return f
 }
 func formPreferences(f *Form) preferences.Settings {
-	return preferences.Settings{Page: f.val("Startup page"), GroupsCollapsed: f.val("Initial groups") == "collapsed", UniformCards: f.yes("Uniform cards"), ServiceCards: f.yes("Service cards"), FullMap: f.yes("Full map"), MapMode: f.val("Map mode"), NerdFontIcons: f.yes("Nerd Font icons")}
+	return preferences.Settings{Page: f.val("Startup page"), Mode: f.val("Overview"), GroupsCollapsed: f.val("Initial groups") == "collapsed", UniformCards: f.yes("Uniform cards"), ServiceCards: f.yes("Service cards"), FullMap: f.yes("Full map"), MapMode: f.val("Map mode"), NerdFontIcons: f.yes("Nerd Font icons")}
 }
 func (m *Model) openPreferences() {
 	f := preferenceForm(m.currentPreferences())
@@ -130,6 +135,7 @@ func (m *Model) preferencesKey(k string) string {
 // the dialog lists them.
 var prefHelp = []string{
 	"The tab the TUI opens on.",
+	"What the Overview shows first: the network's map and what needs attention, or your products, a row for each line (P).",
 	"Whether Services and Checks open with their groups expanded or folded.",
 	"Servers as a grid of cards of one size rather than a wall of full cards (s).",
 	"Services as a card each, under their groups, rather than a list (s).",

@@ -48,6 +48,7 @@ func (m *Model) initializeStartup(options []Startup) {
 }
 func (m *Model) applyPreferences(s preferences.Settings) {
 	m.setTab(slices.Index(preferences.Pages, s.Page))
+	m.Products = s.Products()
 	m.GroupsCollapsed = s.GroupsCollapsed
 	m.Expanded = nil
 	m.Uniform = s.UniformCards
@@ -64,5 +65,9 @@ func (m *Model) currentPreferences() preferences.Settings {
 	if mode == "" {
 		mode = "auto"
 	}
-	return preferences.Settings{Page: preferences.Pages[m.Tab], GroupsCollapsed: m.GroupsCollapsed, UniformCards: m.Uniform, ServiceCards: m.ServiceCards, FullMap: m.FullMap, MapMode: mode, NerdFontIcons: m.NerdFont}
+	overview := "network"
+	if m.Products {
+		overview = "products"
+	}
+	return preferences.Settings{Mode: overview, Page: preferences.Pages[m.Tab], GroupsCollapsed: m.GroupsCollapsed, UniformCards: m.Uniform, ServiceCards: m.ServiceCards, FullMap: m.FullMap, MapMode: mode, NerdFontIcons: m.NerdFont}
 }

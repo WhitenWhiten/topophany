@@ -536,6 +536,11 @@ func (m *Model) actions() []action {
 			add(2, "c", "Checks", "c")
 		}
 	}
+	if m.productsOverview() && !m.Detail {
+		// The way back to the network; Settings and --mode offer the way
+		// in, so the network's Overview keeps its keys as they were.
+		add(2, "P", "Network", "P")
+	}
 	add(1, "/", "Filter", "/")
 	if m.Tab == tabIncidents {
 		add(1, "b", "Related", "b")

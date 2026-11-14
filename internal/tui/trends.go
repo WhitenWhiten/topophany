@@ -96,7 +96,8 @@ func (m *Model) KeepTrend(check string, entries []model.Observation, e error) {
 }
 
 // wantTrend names a check whose history the charts have not read: a host
-// check's, then, while the Services tab shows cards, a shown service's.
+// check's, then, while the Overview shows the products, one a product line
+// may lead with, or while the Services tab shows cards, a shown service's.
 func (m *Model) wantTrend() string {
 	if m.Edit != nil {
 		return ""
@@ -104,6 +105,17 @@ func (m *Model) wantTrend() string {
 	for _, x := range m.Snapshot.Topology.Checks {
 		if t := m.trends[x.ID]; x.Kind == "host" && (t == nil || !t.read) {
 			return x.ID
+		}
+	}
+	if m.productsOverview() {
+		lines := map[string]bool{}
+		for _, id := range view.ProductRoots(m.Snapshot.Topology) {
+			lines[id] = true
+		}
+		for _, x := range m.Snapshot.Topology.Checks {
+			if t := m.trends[x.ID]; lines[x.Service] && x.Kind != "host" && (t == nil || !t.read) {
+				return x.ID
+			}
 		}
 	}
 	if !m.serviceCards() {
