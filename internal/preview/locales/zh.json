@@ -42,6 +42,8 @@
   "scenario.edge-rerouted.pops": "HKG,NRT",
   "scenario.tunnel-down": "隧道连接器中断",
   "scenario.tunnel-down.detail": "家庭机器的 cloudflared 连接器报告没有任何就绪的边缘会话，链路因此为 down；公开域名从边缘收到 530，只能证明边缘，而环回检查仍能证明面板本身。",
+  "scenario.certificate-expiring": "证书即将过期",
+  "scenario.certificate-expiring.detail": "第一个声明了 tls_min_days 的检查所访问主机的证书只剩 9 天，进入警告期 → 请求仍然成功，但这些检查变为策略警告。",
   "node.win": "Windows 台式机",
   "group.home": "家庭·成都",
   "node.win.notes": "mihomo + Tailscale；家庭服务运行在本机",

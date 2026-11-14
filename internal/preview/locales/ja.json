@@ -42,6 +42,8 @@
   "scenario.edge-rerouted.pops": "KIX,NRT",
   "scenario.tunnel-down": "トンネルコネクター停止",
   "scenario.tunnel-down.detail": "自宅マシンの cloudflared コネクターがエッジとのセッションを 1 本も報告しないため、リンクは down。公開ホスト名はエッジから 530 を受け取り、証明できるのはエッジまで。ループバックのチェックはダッシュボード自体を証明し続けます。",
+  "scenario.certificate-expiring": "証明書の期限切れ間近",
+  "scenario.certificate-expiring.detail": "tls_min_days を宣言したチェックのうち最初のホストの証明書が残り 9 日で、警告期間に入っています → リクエストは成功し続けたまま、それらのチェックがポリシー警告になります。",
   "node.win": "Windows デスクトップ",
   "group.home": "自宅·大阪",
   "node.win.notes": "mihomo + Tailscale。自宅サービスはこの機で稼働",

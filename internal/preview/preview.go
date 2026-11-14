@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -97,6 +98,11 @@ type Scenario struct {
 	// and the edge answer 530 for the hostname its tunnel fronts. It requires
 	// a cloudflared check; the origin itself keeps its own local evidence.
 	TunnelDown bool
+	// CertificateDays is how many days the certificate of the first host
+	// whose checks declare tls_min_days has left. It requires such a check;
+	// a request still succeeds, and the warning window makes it a policy
+	// sample, as the probe decides it.
+	CertificateDays int
 }
 
 // The two EdgeIssue words.
@@ -127,6 +133,7 @@ var scenarios = []Scenario{
 	{ID: "edge-challenge", EdgeIssue: edgeChallenge},
 	{ID: "edge-rerouted", EdgeIssue: edgeRerouted, DeclaresPops: []string{"r-app-web"}},
 	{ID: "tunnel-down", TunnelDown: true},
+	{ID: "certificate-expiring", CertificateDays: 9},
 }
 
 type change struct {
@@ -147,6 +154,7 @@ type Sim struct {
 	services  map[string]model.Service
 	obsNode   map[string]string
 	near      map[[2]string]pop // provider and observer -> the colo it lands on
+	expiring  string            // the host whose certificate the certificate scenario shortens
 	ledger    *ledger.Ledger    // what a collector watching all along would remember
 	observed  time.Time         // when the ledger last judged the evidence
 	text      map[string]string // the catalog the scenarios are named from
@@ -201,6 +209,9 @@ func New(c model.Config, now time.Time, lang string) *Sim {
 	for _, x := range c.Checks {
 		checks[x.ID] = true
 		connector = connector || x.Kind == "cloudflared" && !x.Disabled && !x.Maintenance
+		if host := certificateHost(c, x); s.expiring == "" && host != "" && !x.Disabled && !x.Maintenance {
+			s.expiring = host
+		}
 	}
 	// Which colo an observer lands on is fixed by its declared place; find
 	// each once instead of once per simulated sample.
@@ -226,6 +237,9 @@ func New(c model.Config, now time.Time, lang string) *Sim {
 		}
 		if sc.TunnelDown {
 			ok = ok && connector
+		}
+		if sc.CertificateDays > 0 {
+			ok = ok && s.expiring != ""
 		}
 		if sc.EdgeIssue != "" {
 			ok = ok && s.edgeIssueApplies(sc.EdgeIssue)
@@ -1126,6 +1140,12 @@ func (s *Sim) observe(c model.Config, x model.Check, t time.Time, sc Scenario) m
 			}
 			o.Facts["exit_ip"] = exit
 		}
+		// A check that declares a warning window reads the certificate it
+		// was shown, and one inside the window is a policy sample, as the
+		// probe records and decides it.
+		if host := certificateHost(c, x); host != "" && o.Connectivity {
+			s.certificateFacts(&o, x, host, sc, t)
+		}
 		// A colo outside the declared list is a state assertion after a
 		// passing request, exactly as expected_pops decides at run time.
 		if o.Outcome == "ok" && provider != "vercel" && popOutside(region, s.declaredPops(sc, x)) {
@@ -1146,6 +1166,37 @@ func (s *Sim) observe(c model.Config, x model.Check, t time.Time, sc Scenario) m
 	}
 	o.DurationMS = int64(total)
 	return o
+}
+
+// certificateHost is the host whose certificate an HTTPS check declaring
+// tls_min_days reads; "" for any other check.
+func certificateHost(c model.Config, x model.Check) string {
+	if x.Kind != "http" || x.TLSMinDays <= 0 {
+		return ""
+	}
+	u, err := url.Parse(config.Target(c, x))
+	if err != nil || u.Scheme != "https" {
+		return ""
+	}
+	return u.Hostname()
+}
+
+// certificateFacts records the certificate a host showed: one with 30 to 89
+// days left, fixed by its name, or the scenario's few days for the host it
+// shortens. Inside the check's warning window, a passing request becomes
+// the probe's certificate_expiring policy.
+func (s *Sim) certificateFacts(o *model.Observation, x model.Check, host string, sc Scenario, t time.Time) {
+	days := 30 + int(hash("certificate/"+host)%60)
+	if sc.CertificateDays > 0 && host == s.expiring {
+		days = sc.CertificateDays
+	}
+	notAfter := t.UTC().Truncate(time.Hour).Add(time.Duration(days)*24*time.Hour + 6*time.Hour)
+	o.Facts["tls_not_after"] = notAfter.Format(time.RFC3339)
+	o.Facts["tls_days_remaining"] = strconv.FormatInt(int64(notAfter.Sub(t)/(24*time.Hour)), 10)
+	if o.Outcome == "ok" && notAfter.Before(t.Add(time.Duration(x.TLSMinDays)*24*time.Hour)) {
+		o.Outcome, o.Stage, o.Code = "policy", "tls_policy", "certificate_expiring"
+		o.Detail = "verified TLS peer certificate expires within the configured warning window"
+	}
 }
 
 // traceFacts adds what /cdn-cgi/trace says of the vantage point that asked,

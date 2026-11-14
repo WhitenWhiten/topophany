@@ -12,6 +12,9 @@ func validateApplications(c model.Config) error {
 		if !ID(a.ID) || apps[a.ID] || len(a.Name) > 96 || secure.Text(a.Name) != a.Name {
 			return fmt.Errorf("invalid or duplicate application %q", a.ID)
 		}
+		if a.Kind != "" && (len(a.Kind) > 32 || !ID(a.Kind)) {
+			return fmt.Errorf("application %s: kind must be a short identifier such as ios, web or api", a.ID)
+		}
 		apps[a.ID] = true
 	}
 	scope := func(app, env string) error {

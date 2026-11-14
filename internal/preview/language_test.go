@@ -91,7 +91,15 @@ func TestLanguagesChangeOnlyWords(t *testing.T) {
 		t.Fatal(e)
 	}
 	ids := New(c, testNow, DefaultLanguage).ScenarioIDs()
-	if len(ids) != len(scenarios) {
+	// Only the certificate scenario needs what the built-in network does
+	// not declare: a check with a certificate warning window.
+	builtIn := 0
+	for _, sc := range scenarios {
+		if sc.CertificateDays == 0 {
+			builtIn++
+		}
+	}
+	if len(ids) != builtIn {
 		t.Fatal("the built-in topology hides scenarios", ids)
 	}
 	for _, id := range ids {

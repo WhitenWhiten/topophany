@@ -42,6 +42,8 @@
   "scenario.edge-rerouted.pops": "SJC,SEA",
   "scenario.tunnel-down": "Tunnel connector down",
   "scenario.tunnel-down.detail": "The home box's cloudflared connector reports no ready edge session, so its link reads down; the public hostname gets 530 from the edge, which proves the edge only, while the loopback check still proves the dashboard.",
+  "scenario.certificate-expiring": "Certificate expiring",
+  "scenario.certificate-expiring.detail": "The certificate of the first host whose checks declare tls_min_days has 9 days left, inside their warning window → a policy warning on those checks while every request still succeeds.",
   "node.win": "Windows Desktop",
   "group.home": "Home · Seattle",
   "node.win.notes": "mihomo + Tailscale; local home services run here",

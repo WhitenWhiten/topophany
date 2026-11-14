@@ -154,11 +154,12 @@ func TestExpectedTraceContractAndDefaultJSON(t *testing.T) {
 // optedInExample names the reviewed worked examples that opt into fields added
 // for Cloudflare: examples/cloudflare.json exercises expected_pops,
 // expected_trace, request_header_envs, adapter.cloudflared and the documented
-// adapter.cloudflare reads. Every older example predates them and must stay
-// measured as it was.
+// adapter.cloudflare reads, and examples/products.json sends Supabase's anon
+// key as a header from the worker's environment. Every older example predates
+// them and must stay measured as it was.
 func optedInExample(path string) bool {
 	switch filepath.Base(path) {
-	case "cloudflare.json", "cloudflare-diagnostics.json", "mihomo-diagnostics.json":
+	case "cloudflare.json", "cloudflare-diagnostics.json", "mihomo-diagnostics.json", "products.json":
 		return true
 	default:
 		return false

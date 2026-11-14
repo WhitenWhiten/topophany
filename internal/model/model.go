@@ -154,9 +154,15 @@ type Endpoint struct {
 	Via      []string `json:"via,omitempty"`      // edge or proxy nodes that answer first, client side first
 	Notes    string   `json:"notes,omitempty"`
 }
+
+// Application groups the services that make one thing someone ships, such
+// as an app, a website or an API. Kind is free-form and says what it is:
+// ios, android, web, api, desktop, extension, bot or any other word; it
+// changes how a product is drawn, never how it is judged.
 type Application struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	Kind string `json:"kind,omitempty"`
 }
 
 type Service struct {

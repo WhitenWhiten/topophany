@@ -28,6 +28,7 @@ var topologyTemplates = []topologyTemplate{
 	{"komari", "Komari resource collection through a collector", "internal/adapters/komari/README.md", "Resource mapping targets Komari 1.6.0; disk is aggregate and does not prove application availability."},
 	{"cf-server-monitor", "Read host resources from a CF-Server-Monitor Worker", "internal/adapters/cfservermonitor/README.md", "CPU, memory and aggregate disk retain the upstream sample time."},
 	{"applications", "Group services by application and environment", "docs/GUIDE.md", "Unmonitored services remain unknown."},
+	{"products", "Products an indie developer ships: apps and sites on Cloudflare, a server of their own, Vercel and Supabase", "docs/PRODUCTS.md", "An answer through Cloudflare proves the edge, not the origin behind it; keep a check that reaches the origin directly."},
 	{"address-registry", "Shared address definitions", "docs/REFERENCE.md", "Address changes can reset affected measurement contracts."},
 	{"mihomo", "Mihomo core runtime and an application check through it", "internal/adapters/mihomo/README.md", "Reported mode, TUN and selection do not prove that application traffic followed that route; keep the separate application check."},
 }
