@@ -1,6 +1,6 @@
 # Scenario Contracts and Test Mapping
 
-## Opt-in management regressions (after 1.6.0)
+## Opt-in management regressions (1.7.0)
 
 These cases use isolated files, loopback TLS, synthetic credentials and signed
 test releases. The Linux service case additionally requires an explicitly
@@ -41,7 +41,7 @@ The remaining public-release and platform gates are recorded in
 
 ## Existing observation scenarios
 
-This document lists the finite, verifiable scenario contracts for version 1.6.0, deliberately avoiding unsubstantiated claims that "all conceivable network failure scenarios are verified." The unit and integration test cases below reproduce software mechanics under controlled conditions; live operational deployments require separate hardware acceptance per [ACCEPTANCE.md](ACCEPTANCE.md). Automated execution evidence is produced by `scripts/verify.py` and published as a CI artifact.
+This document lists the finite, verifiable scenario contracts for version 1.7.0, deliberately avoiding unsubstantiated claims that "all conceivable network failure scenarios are verified." The unit and integration test cases below reproduce software mechanics under controlled conditions; live operational deployments require separate hardware acceptance per [ACCEPTANCE.md](ACCEPTANCE.md). Automated execution evidence is produced by `scripts/verify.py` and published as a CI artifact.
 
 | Scenario and Invariant | Automated Test Evidence |
 |---|---|
@@ -342,6 +342,22 @@ do not exercise upstream 429/5xx behavior on a live account.
 | Paired diagnostic templates are paused and keep platform reports separate from application requests | `TestDiagnosticTemplatesSeparateReportsAndRequests` |
 | Renewed evidence deadlines, including nested ones, publish before a reader's last copy expires, while unchanged or distant deadlines keep the display cadence | `TestEvidenceRenewalPrecedesReaderExpiry`, `TestNestedEvidenceRenewalPrecedesReaderExpiry` |
 | A missed or timed-out collector read keeps the last valid snapshot with its original clocks until they expire, an authorization rejection withholds it, and `503 connection_rotating` earns one bounded retry | `TestCollectorReadFailureRecoveryAndOwnership`, `TestSnapshotRotationRetryRecovers`, `TestSnapshotBusyRetryBoundedAndSelective` |
+
+## Products mode (1.7.0)
+
+Cases read the products example (`examples/products.json`) and the built-in
+preview network on synthetic evidence. They establish what the board, `topo
+show products` and `products.list` say, not the behavior of any real platform.
+
+| Scenario and Invariant | Automated Test Evidence |
+|---|---|
+| Each application is a product and its lines are the services nothing else in it depends on; a dependency in another product hides no line, and a service in no application is in no product | `view.TestProductRootsAreWhatNothingElseInTheProductRestsOn`, `view.TestProductsReadTheExample`, `monitor.TestProductsReadTheBuilderExample` |
+| With the origin down behind Cloudflare, the line fails and leads with the failing check, the edge stays up, the machine behind it is unknown by its own state rather than affected, a shared incident counts once, and products that never touch the machine are unchanged | `view.TestProductsOriginDownKeepsEachLayersOwnState`, `monitor.TestProductsOriginDownBehindTheEdge`, `view.TestLeadSaysTheStatusOnlyWhereItFailed` |
+| A certificate inside its check's `min_days` window warns the line that reads it while its requests still succeed, and the board names the soonest to expire | `view.TestCertificateWindowIsTheProbes`, `view.TestProductsCertificateIsTheSoonest`, `monitor.TestProductsCertificateInsideItsWindow` |
+| A share up is over measured time and never rounded up; each lead check keeps its own deadline, past which its readings go and its identity stays; a cached view reads every product as unknown | `view.TestUptimeIsNeverRoundedUp`, `monitor.TestProductsAgeEachLeadAtItsOwnDeadline`, `view.TestProductsInACachedView` |
+| `products.list` reads the history only of checks a line can lead with, and fits its frame budget in every scenario of the built-in network | `monitor.TestProductsHistory`, `monitor.TestProductsInEveryPreviewScenario` |
+| `topo show products --json` is the view's board in every scenario the products example offers, and its text says what each line in trouble says | `app.TestShowProductsIsTheBoard` |
+| `P` turns the Overview to the board and back, the filter narrows it, a line in trouble opens the row beneath it, and the board fits every terminal size and every simulated device | `tui.TestProductsKeyTogglesTheOverview`, `tui.TestProductsFilterNarrowsTheBoard`, `tui.TestProductsOverviewShowsEveryLine`, `tui.TestProductsOverviewOpensTheLineInTrouble`, `tui.TestProductsOverviewFitsEverySize`, `tui.TestProductsOnEveryDevice` |
 
 ## Network rates, swap and load (1.6.0)
 

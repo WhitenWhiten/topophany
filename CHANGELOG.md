@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-14
+
+This release adds Products mode, an Overview for people who ship a few apps and
+sites, and an opt-in management control plane for signed configuration delivery
+and official-release updates, which stays off unless enabled. See the
+[release notes](docs/releases/v1.7.0.md) for compatibility and upgrade details.
+
 ### Added
 
 - A separate, opt-in management control plane delivers signed, reviewed
@@ -92,6 +99,9 @@ local monitoring behavior remain unchanged.
   connections and colos).
 - On a group, the footer offers `↵/Space Fold` once instead of `↵ Fold` and
   `Space Fold` as two keys, leaving room for another on a narrow terminal.
+- The READMEs describe the core features in brief and leave configuration to
+  the guides and reference. Their architecture is drawn as a diagram
+  (`make architecture`), and Products mode is shown as a capture of the TUI.
 
 ### Fixed
 
@@ -2253,7 +2263,8 @@ Initial release.
 - Terminal UI with geographic and network topology maps, offline preview
   scenarios and a local topology editor.
 
-[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/WhitenWhiten/topophany/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/WhitenWhiten/topophany/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/WhitenWhiten/topophany/compare/v1.5.4...v1.6.0
 [1.5.4]: https://github.com/WhitenWhiten/topophany/compare/v1.5.3...v1.5.4
 [1.5.3]: https://github.com/WhitenWhiten/topophany/compare/v1.5.2...v1.5.3

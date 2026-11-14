@@ -6,8 +6,8 @@ acceptance and update acceptance are independent and default to `false`.**
 Enrollment does not enable either capability. Existing observation worker tokens
 and viewer tokens have no management authority.
 
-This is the operator guide for the implementation in this source tree, following
-1.6.0. The [design and acceptance plan](REMOTE-MANAGEMENT-PLAN.md) records the
+This is the operator guide for the implementation introduced in Topophany
+1.7.0. The [design and acceptance plan](REMOTE-MANAGEMENT-PLAN.md) records the
 security requirements and remaining release gates. Do not infer that an older
 published binary accepts these commands.
 

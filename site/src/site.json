@@ -1,6 +1,6 @@
 {
   "origin": "https://topophany.com",
   "default": "en",
-  "version": "v1.6.0",
+  "version": "v1.7.0",
   "go": "1.26.11"
 }
