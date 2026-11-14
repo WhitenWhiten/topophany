@@ -168,7 +168,7 @@ func TestProductsOriginDownKeepsEachLayersOwnState(t *testing.T) {
 		}
 	}
 	k := view.ProductLook(v.Now, p, api)
-	if k.Since == "" || k.Says != "HTTP 521 from Cloudflare LIS" || k.Seen != "seen from Lisbon" || k.Incidents != "⚑ 1 incident" {
+	if k.Since == "" || k.Says != "HTTP 521 via Cloudflare LIS" || k.Seen != "seen from Lisbon" || k.Incidents != "⚑ 1 incident" {
 		t.Fatalf("the look says %+v", k)
 	}
 	sum := 0
@@ -177,6 +177,37 @@ func TestProductsOriginDownKeepsEachLayersOwnState(t *testing.T) {
 	}
 	if b.Incidents != 1 || sum != 2 {
 		t.Fatalf("one incident on a shared server counts %d on the board, %d by product", b.Incidents, sum)
+	}
+}
+
+// A lead says the status that answered only where the status was the
+// failure, and that it came via the edge, not from it.
+func TestLeadSaysTheStatusOnlyWhereItFailed(t *testing.T) {
+	lead := func(code string, facts map[string]string) view.LeadCheck {
+		return view.LeadCheck{SeenCheck: view.SeenCheck{Facts: facts}, Outcome: "fail", Stage: "http_assert", Code: code}
+	}
+	edge := map[string]string{"http_status": "521", "edge_provider": "cloudflare", "edge_pop": "LIS"}
+	if got := view.LeadSays(lead("unexpected_status", edge)); got != "HTTP 521 via Cloudflare LIS" {
+		t.Errorf("an unexpected status says %q", got)
+	}
+	if got := view.LeadSays(lead("unexpected_status", map[string]string{"http_status": "503"})); got != "HTTP 503" {
+		t.Errorf("a status with no edge in front says %q", got)
+	}
+	if got := view.LeadSays(lead("body_mismatch", map[string]string{"http_status": "200", "edge_provider": "cloudflare"})); got != "http assert: body mismatch" {
+		t.Errorf("a body that did not match says %q", got)
+	}
+}
+
+// A certificate is inside its window as the probe judges it: expiring
+// within min_days, so with fewer whole days left.
+func TestCertificateWindowIsTheProbes(t *testing.T) {
+	for _, c := range []struct {
+		days, min int
+		inside    bool
+	}{{13, 14, true}, {14, 14, false}, {-1, 14, true}, {3, 0, false}} {
+		if got := (view.Certificate{Days: c.days, MinDays: c.min}).InsideWindow(); got != c.inside {
+			t.Errorf("%d days left, window %d: inside %v", c.days, c.min, got)
+		}
 	}
 }
 
@@ -191,7 +222,7 @@ func TestProductsCertificateIsTheSoonest(t *testing.T) {
 		}
 		if c.Days == 9 {
 			found = true
-			if c.MinDays != 14 || c.NotAfter.IsZero() || c.Host == "" {
+			if c.MinDays != 14 || c.NotAfter.IsZero() || c.Host == "" || !c.InsideWindow() {
 				t.Errorf("%s: %+v", p.ID, c)
 			}
 		}

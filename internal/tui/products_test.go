@@ -92,7 +92,7 @@ func TestProductsOverviewOpensTheLineInTrouble(t *testing.T) {
 	}
 	// Where it all fits, the look row says where the lead was seen from;
 	// where it does not, that goes first and the incidents stay.
-	for _, want := range []string{"ACCESS FAIL", "for ", "HTTP 521 from Cloudflare LIS", "1 incident"} {
+	for _, want := range []string{"ACCESS FAIL", "for ", "HTTP 521 via Cloudflare LIS", "1 incident"} {
 		if !strings.Contains(look, want) {
 			t.Errorf("the look row lacks %q: %q", want, look)
 		}

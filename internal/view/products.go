@@ -571,6 +571,11 @@ func LongestUptime(list []Uptime) *Uptime {
 	return nil
 }
 
+// InsideWindow is whether the certificate is inside its check's warning
+// window, as the probe judges it: it expires within min_days, so it has
+// fewer whole days left than that.
+func (c Certificate) InsideWindow() bool { return c.MinDays > 0 && c.Days < c.MinDays }
+
 // certificate is the soonest-expiring certificate the lines' checks read on
 // their current samples; nil when none reads one. Only a check that declares
 // tls_min_days records it.
@@ -728,7 +733,7 @@ func (k Look) Parts() []string {
 }
 
 // LeadSays is what a lead check's latest sample said when it did not simply
-// pass, in a few words: "HTTP 521 from Cloudflare LIS", "connect: timeout",
+// pass, in a few words: "HTTP 521 via Cloudflare LIS", "connect: timeout",
 // "certificate expires in 9 days", "slower than its 800 ms budget", or what
 // the edge said in the application's place. "" while it passes or says
 // nothing current. Its words are the evidence's; it concludes nothing.
@@ -756,9 +761,13 @@ func LeadSays(l LeadCheck) string {
 		return "slower than its " + itoa(l.Check.MaxDurationMS) + " ms budget"
 	case l.Code == "pop_mismatch" && model.IsColo(f["edge_pop"]):
 		return "answered from " + f["edge_pop"] + ", outside its declared colos"
-	case f["http_status"] != "" && l.Outcome == "fail":
+	case f["http_status"] != "" && l.Outcome == "fail" && l.Code == "unexpected_status":
+		// The status is the failure only when it was not the one expected;
+		// a body that did not match came with the status it expected. Via,
+		// not from: an edge relays the origin's errors as well as sending
+		// its own, and its headers do not say which.
 		if edge != "" {
-			return "HTTP " + f["http_status"] + " from " + edge
+			return "HTTP " + f["http_status"] + " via " + edge
 		}
 		return "HTTP " + f["http_status"]
 	}

@@ -207,12 +207,12 @@ Topophany 1.4.0 では、Cloudflare の公開ホスト名、オリジン、Tunne
                      └ WARN · some access checks pass; others fail, degrade or lack current evidence
                    ● Site       CF pages ●                                  55 ms  ▅▅▇▆▇▅▅▄▄▆▅▄▇▅▅▆▅▆  98.68%
  ○ Snapmeal   ios  ○ API        CF ● › Hetzner ○ › Snapmeal DB ○           142 ms  ✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖  98.12%
-                     └ ACCESS FAIL · for 7m · HTTP 521 from Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
+                     └ ACCESS FAIL · for 7m · HTTP 521 via Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
                    ● Site       CF pages ●                                  54 ms  ▄▆▇▆▆▇▄▄▃▅▅▄▆▄▅▅▅▆  98.91%
  ▲ Driftwood  web  ▲ Driftwood  Vercel functions ● › Driftwood DB ○        135 ms  ▅▅▆▅▆▆▇▅▇▆▆▇▇▅▅▇▅▅  97.96%
                      └ WARN · some access checks pass; others fail, degrade or lack current evidence
  ○ Notebook   web  ○ Blog       CF ● › Hetzner ○                           142 ms  ▇▆▆✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖  98.44%
-                     └ ACCESS FAIL · for 14m · HTTP 521 from Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
+                     └ ACCESS FAIL · for 14m · HTTP 521 via Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
 
  CERTIFICATES  notebook.example 34 days · api.habitly.example 38 days · api.snapmeal.example 42 days +1
 ```

@@ -71,7 +71,7 @@ func TestShowProductsIsTheBoard(t *testing.T) {
 			}
 		}
 		if id == "app-origin-down" {
-			for _, want := range []string{"PRODUCTS · 4 products · 1 incident", "NEEDS A LOOK", "Snapmeal API: ACCESS FAIL · for ", "HTTP 521 from Cloudflare LIS", "Hetzner Falkenstein (unknown)", "CERTIFICATE"} {
+			for _, want := range []string{"PRODUCTS · 4 products · 1 incident", "NEEDS A LOOK", "Snapmeal API: ACCESS FAIL · for ", "HTTP 521 via Cloudflare LIS", "Hetzner Falkenstein (unknown)", "CERTIFICATE"} {
 				if !strings.Contains(text, want) {
 					t.Errorf("%s: the text lacks %q:\n%s", id, want, text)
 				}

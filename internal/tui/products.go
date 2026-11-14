@@ -377,7 +377,7 @@ func (m *Model) drawCertificates(cv *Canvas, x, y, w int, certs []view.Certifica
 		switch {
 		case c.Days < 0:
 			say, st = "expired", fg(healthColor("down"))
-		case c.MinDays > 0 && c.Days <= c.MinDays:
+		case c.InsideWindow():
 			st = fg(healthColor("degraded"))
 		}
 		sep, rest := "", ""
