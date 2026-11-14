@@ -507,7 +507,8 @@ func (m *Model) actions() []action {
 		add(1, "↑↓", "Scroll", "")
 	} else {
 		if r, ok := m.selectedRow(); ok && r.Kind == "group" {
-			add(1, "↵", "Fold", "enter")
+			// Space folds a group too; one keycap says both.
+			add(1, "↵/Space", "Fold", "enter")
 		} else {
 			add(1, "↵", "Details", "enter")
 		}
@@ -529,7 +530,6 @@ func (m *Model) actions() []action {
 	if m.businessTab() && !m.Detail && len(m.Snapshot.Topology.Applications) > 0 {
 		add(1, "b", "Browse", "b")
 		if r, ok := m.selectedRow(); ok && r.Kind == "group" {
-			add(1, "Space", "Fold", " ")
 			add(2, "i", "Evidence", "i")
 		}
 		if m.Tab == tabServices {

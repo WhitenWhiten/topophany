@@ -37,3 +37,25 @@ func TestBrowseScopeKeepsWhatWasChosen(t *testing.T) {
 		t.Fatalf("the chosen filter gave way:\n%s", edge)
 	}
 }
+
+// On a group, Enter and Space both fold it: the footer says so once.
+func TestFooterSaysFoldOnce(t *testing.T) {
+	m := previewModel(t)
+	m.Width, m.Height = 200, 40
+	m.setTab(tabChecks)
+	if r, ok := m.selectedRow(); !ok || r.Kind != "group" {
+		t.Fatal("the Checks tab does not open on a group")
+	}
+	folds := 0
+	for _, a := range m.actions() {
+		if a.label == "Fold" {
+			folds++
+		}
+	}
+	if folds != 1 {
+		t.Fatalf("the footer offers Fold %d times", folds)
+	}
+	if foot := strings.Split(visible(m), "\n")[39]; !strings.Contains(foot, "↵/Space  Fold") {
+		t.Fatalf("footer %q", foot)
+	}
+}
