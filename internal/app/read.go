@@ -154,22 +154,29 @@ func layout(step, span string) (time.Duration, time.Duration, error) {
 	return width, length, nil
 }
 
-// tabNames are the names show takes, in the TUI's order, then the map.
+// tabNames are the names show takes, in the TUI's order, then the map and
+// the products board.
 var tabNames = func() []string {
 	out := []string{}
 	for _, t := range view.Tabs {
 		out = append(out, strings.ToLower(t))
 	}
-	return append(out, "map")
+	return append(out, "map", "products")
 }()
 
-const mapTab = -1
+const (
+	mapTab      = -1
+	productsTab = -2
+)
 
 func tabIndex(name string) (int, bool) {
 	for i, t := range tabNames {
 		if strings.EqualFold(t, name) {
-			if t == "map" {
+			switch t {
+			case "map":
 				return mapTab, true
+			case "products":
+				return productsTab, true
 			}
 			return i, true
 		}
@@ -244,8 +251,8 @@ func (a *App) read(ctx context.Context, cmd string, args []string, pv *previewed
 		if ok {
 			tab, ok = tabIndex(pos[0])
 		}
-		if !ok || tab == mapTab && len(pos) == 2 {
-			return errors.New("usage: topo show TAB [ID] [--observer ID] [--json]; TAB is one of " + strings.Join(tabNames, ", ") + " (the map takes no ID)")
+		if !ok || tab < 0 && len(pos) == 2 {
+			return errors.New("usage: topo show TAB [ID] [--observer ID] [--json]; TAB is one of " + strings.Join(tabNames, ", ") + " (the map and products take no ID)")
 		}
 	case "history":
 		if *span != "" && *step == "" {
@@ -328,6 +335,8 @@ func (a *App) read(ctx context.Context, cmd string, args []string, pv *previewed
 		return a.status(v, h, *asJSON)
 	case tab == mapTab:
 		return a.showMap(v, h, *asJSON)
+	case tab == productsTab:
+		return a.showProducts(v, h, *asJSON)
 	case len(pos) == 2:
 		return a.showEntry(ctx, r, v, h, tab, pos[1], *asJSON)
 	}

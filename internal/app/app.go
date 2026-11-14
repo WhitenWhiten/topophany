@@ -100,7 +100,7 @@ Settings
 
 status, show and history print what the TUI shows, as text or with --json;
 TAB is overview, topology, servers, services, paths, checks, incidents,
-observers or map. topo status exits 0 when all is clear, 2 when something
+observers, map or products (Products mode's board). topo status exits 0 when all is clear, 2 when something
 needs attention, 3 when nothing current is known and 4 when no collector
 answers. 'topo preview [--scenario N] status' (or show, history) reads the
 synthetic evidence instead; 'topo preview scenarios' lists the scenarios.
@@ -115,15 +115,17 @@ the private direct configuration root. See docs/DIRECT.md for configuration API 
 
 In the TUI: 1–9 or Tab switch tabs, ↑↓ or jk move, Enter shows the evidence,
 / filters, v switches the observer you view from, m z f p change the map,
-r refreshes, comma opens Settings, ? About, q quits; the mouse works too.
+P turns the Overview to your products, r refreshes, comma opens Settings,
+? About, q quits; the mouse works too.
 In 'topo edit': a add, e edit, d delete, u undo, Ctrl-S save. In 'topo
 preview': x scenario, D debug overlay; evidence is synthetic and the
 topology is read-only.
 
 Startup display flags (topo, preview and edit) override the saved defaults
-for one launch: --page PAGE, --map-mode auto|virtual|geo|network,
---groups-collapsed, --uniform-cards, --service-cards, --full-map and
---nerd-font-icons (each also takes =false), and --preferences PATH. In the
+for one launch: --mode network|products, --page PAGE, --map-mode
+auto|virtual|geo|network, --groups-collapsed, --uniform-cards,
+--service-cards, --full-map and --nerd-font-icons (each also takes =false),
+and --preferences PATH. In the
 TUI, Settings applies a change to this session or saves it for future
 launches; or, for example:
   topo preferences set --page servers --uniform-cards=true
