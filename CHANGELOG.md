@@ -56,6 +56,9 @@ local monitoring behavior remain unchanged.
 - What an application group's member evidence, a related problem and resource
   telemetry do not establish is written in the evidence panel's quieter caveat
   voice, as every older such limit already was, instead of as plain findings.
+- A card too narrow for a service's name and its state shortens the name, not
+  the state: `▲ PATH WARN` and `✖ ACCESS FAIL` no longer lose their last
+  letters to `…`.
 - `topo edit` forms widen for a long label where the terminal has room instead
   of cutting every label at 24 columns, which made the Cloudflare and
   cloudflared assertion fields read alike (`Cloudflared expected co…` for both

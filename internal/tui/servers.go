@@ -566,7 +566,8 @@ func frameEdge(cv *Canvas, x, y, w int, frame [6]rune, bottom bool, st Style) {
 // between when it opens a section.
 func (m *Model) drawRow(cv *Canvas, x, y, w int, row cardRow, bg Color) {
 	// What a row names keeps its width first; what it says on the right
-	// stays whole when short (a state, an age) and otherwise gets what is
+	// stays whole when short (an age, a state pill: a span with its own
+	// background, as long as " ▲ HEALTH WARN ") and otherwise gets what is
 	// left, but never less than a third.
 	spans := func(ss []span) int {
 		n := 0
@@ -580,8 +581,12 @@ func (m *Model) drawRow(cv *Canvas, x, y, w int, row cardRow, bg Color) {
 		// Where it does not fit, the shorter form, whole.
 		row.right, rw = row.tight, spans(row.tight)
 	}
-	if rw > 12 && lw0+1+rw > w {
-		rw = max(min(rw, w-lw0-1), min(rw, 12, w/3))
+	short := 12
+	if len(row.right) == 1 && row.right[0].st.BG != 0 {
+		short = 16
+	}
+	if rw > short && lw0+1+rw > w {
+		rw = max(min(rw, w-lw0-1), min(rw, short, w/3))
 	}
 	lw := w
 	if rw > 0 {

@@ -95,3 +95,15 @@ func TestServiceEvidenceScopeIsLaidOutAsRows(t *testing.T) {
 		}
 	}
 }
+
+// On a card too narrow for both, a service's name gives way to its state,
+// however long the state's pill: " ✖ ACCESS FAIL " stays whole.
+func TestCardHeadKeepsTheStateWhole(t *testing.T) {
+	a := view.ServiceAssessment{Availability: "unknown", Reachability: "down", WorkerOnline: "up"}
+	pill, st := statePill(Row{Kind: "service", ID: "s", Health: "up", Assessment: &a})
+	cv := NewCanvas(38, 1)
+	(&Model{}).drawRow(cv, 0, 0, 38, cardRow{left: []span{{"VLESS+Reality Entry (Primary)", fg(cText)}}, right: []span{{pill, st}}}, cInk)
+	if got := strings.Join(cv.Lines(colorNone), ""); !strings.HasSuffix(got, pill) || !strings.Contains(got, "…") {
+		t.Fatalf("card head %q", got)
+	}
+}
