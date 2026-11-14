@@ -13,7 +13,8 @@ The complete schema is defined in Go in `internal/model/model.go`. Input configu
 |---|---|---|
 | `nodes` | `id`, `name`, `kind`, `parent`, `group`, `provider`, `notes`, `location` | Host machines and virtual environments can share IP addresses while maintaining distinct identities; `parent` hierarchy must be acyclic; `kind` is free-form, and `edge` (an anycast network in front of origins, such as Cloudflare or Vercel) and `platform` (managed hosting, such as Supabase) are drawn as places you deploy to rather than machines you run; `provider` (≤64 bytes) names who runs it; `location` is an optional object: `{"label": "Tokyo", "lat": 35.68, "lon": 139.69}` used solely for map layout (lat −90..90, lon −180..180, label ≤64 bytes); inherits parent location when omitted; location is never guessed from IP addresses |
 | `endpoints` | `id`, `node`, `address`, `network`, `observer`, `via` | `network` values: `public`, `lan`, `tailnet`, `loopback`, `external`; loopback endpoints must specify a bound `observer`; `via` lists up to 8 distinct edge or proxy nodes a client reaches before `node`, client side first (see [Edges and Platforms](#edges-and-platforms)) |
-| `services` | `id`, `name`, `node`, `runtime`, `endpoints`, `depends_on`, `runbook`, `notes` | Deployment host may differ from access endpoint (for example, a forwarded port on a cloud relay accessing a service inside a local network); `runtime` (≤32 bytes) says how it runs there, such as `workers`, `pages`, `functions` or `container`; `runbook` is informational only |
+| `applications` | `id`, `name`, `kind` | Groups the services that make one thing someone ships, such as an app, a website or an API; a service names it with `application` and an optional `environment`. `kind` (an identifier of at most 32 bytes, such as `ios`, `android`, `web`, `api`, `desktop`, `extension` or `bot`) says what it is: it labels the product in [Products mode](PRODUCTS.md) and decides nothing |
+| `services` | `id`, `name`, `node`, `runtime`, `application`, `environment`, `endpoints`, `depends_on`, `runbook`, `notes` | Deployment host may differ from access endpoint (for example, a forwarded port on a cloud relay accessing a service inside a local network); `runtime` (≤32 bytes) says how it runs there, such as `workers`, `pages`, `functions` or `container`; `runbook` is informational only |
 | `observers` | `id`, `name`, `node`, `context`, `route_expectation`, `stale_seconds` | Represents an explicit OS and network execution namespace; `route_expectation` documents intended routing rather than cryptographically verified routing proof |
 | `links` | `id`, `from`, `to`, `transport`, `notes` | `from`/`to` are node IDs indicating connection initiation direction, not packet drop direction |
 | `paths` | `id`, `name`, `observer`, `nodes`, `links`, `proxies`, `candidates`, `depends_on`, `opaque` | Sequential links must connect; `proxies` defines outer connection chain order; `candidates` specifies alternative failover paths rather than intermediate hops |
@@ -642,7 +643,7 @@ API-only runtime evidence does not prove end-to-end availability. Link, service
 and standalone check cards deduplicate history reads in the same source book.
 
 Capabilities `card_history: true` advertises the optional row-level `history`
-boolean on `service.card`, `check.card` and `link.card`. Omitted/true preserves
+boolean on `service.card`, `check.card`, `link.card` and `products.list`. Omitted/true preserves
 existing behavior. False returns current state, diagnostics and snapshot rollups
 without recent sample slots. Only checks needed by a history-enabled card are
 read from `/v1/history`; a fully compact template makes no history requests and
@@ -1014,6 +1015,32 @@ The metric catalog includes:
   have unknown health; the row health is the worst listed, its text, for
   example, `23 services`, and its deadline the earliest of the source envelope
   and the listed services' judgments.
+- `products.list` (`list`, Topophany 1.7): [Products mode](PRODUCTS.md)'s
+  board. Each application group is a product (at most 64), in the Services
+  tab's order, with its `kind`, the group's health, attention and unmonitored
+  counts, the open and recovering incidents on its services' checks and when
+  the earliest began, and the soonest-expiring `certificate` its lines read
+  (host, `days_remaining`, `not_after`, the check's `min_days` and its own
+  `valid_until`). Its `lines` are its services nothing else in it depends on
+  (at most 8 a product and 64 in all; `more_lines` counts the rest), each with
+  the service's state, `reason`, `assessment` and check counts, its `chain`
+  (the edges in front, the machine or platform it runs on, then up to 3
+  dependencies, each `{role, id, name, kind, provider, runtime, health}`; a
+  node's health is its own, never affected) and its `lead` check: failing
+  first, then warning, passing, then nothing current, among equals the one
+  nearest users (`user_entry`, `remote`, `local`, `reported`), as a
+  `service.card` check with at most 24 sample slots, plus `observer`,
+  `label`, `scope`, `since`, `budget_ms` and `uptime` over `24h`, `7d` and
+  `30d` (floored to a hundredth of a percent; `up` null when nothing was
+  measured or the totals are incomplete). The value also carries `counts` of
+  products by health, `incidents` (each counted once however many products it
+  touches) and `ungrouped` services. `history` is accepted as on
+  `service.card`. Each lead and certificate keeps its own deadline: at it the
+  lead's health, freshness, latency, share up, colo, slots, `since` and
+  `uptime` are withheld, and the certificate keeps only its check and host.
+  The row's health is the worst product's, its text, for example,
+  `4 products`, and its deadline the earliest of the products', their lines'
+  services', dependencies' and chain nodes' judgments.
 - `summary.status`: complete source-view verdict, independent of which other
   rows the template displays; available to client/collector sources.
 - `local.status`: the worker's local view verdict.
@@ -1039,7 +1066,7 @@ The metric catalog includes:
   `storage.sync.count`, `storage.sync.duration_ms` for both local service roles.
   These are counters since process start, not remote client metrics.
 
-The eight structured metrics above support client and collector sources; preview
+The nine structured metrics above support client and collector sources; preview
 uses the client capabilities. Each requires its listed visual. Existing metrics
 keep `text` and percent metrics also accept `bar`. `limit` belongs only to
 `attention.list`; `select.node` belongs to `server.card` and `resource.*`, and

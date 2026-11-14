@@ -80,7 +80,8 @@ topo problems node:TARGET_ID
 切换关联视图，按 Enter 查看完整证据。
 
 常用键：Tab 或 1–9 切换页面，方向键选择，Enter 打开详情，`/` 筛选，`v`
-切换观测点，`m` 切换地图，`f` 展开地图，`,` 打开设置，`q` 退出。
+切换观测点，`m` 切换地图，`f` 展开地图，`P` 把概览切换到产品模式（每个产品的
+各个部分及其依赖，见[产品模式](PRODUCTS.md)，英文），`,` 打开设置，`q` 退出。
 
 ```sh
 topo views save home-services --page services --observer home --filter web --lang zh

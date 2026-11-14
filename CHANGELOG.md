@@ -29,6 +29,32 @@ See [the management guide](docs/MANAGEMENT.md) for actual schemas, local opt-ins
 platform limits and acceptance evidence. Observation wire formats and default
 local monitoring behavior remain unchanged.
 
+- Products mode, for people who ship a few apps and sites. `P`, `--mode
+  products` or Settings → Overview turns the TUI's Overview into a board with
+  a row for each part of each product a user reaches. Each row shows the
+  part's state and what it rests on, from the edge in front to the platform
+  or machine it runs on to its databases, each layer with its own mark, and
+  its lead check's median latency, recent samples and share up. A part in
+  trouble opens a row underneath with what failed, since when and from where,
+  and the certificates soonest to expire stand at the foot. Phones in
+  `topo preview --device` get a finger-tall form of the board.
+  [Products mode](docs/PRODUCTS.md)
+- `topo show products [--json]` prints the board for scripts and agents, and
+  `products.list` in `topo monitor stream` carries it to widgets and menu
+  bars, with each lead check's and certificate's own deadline. A
+  `products.list` value may use up to 256 KiB of a frame.
+- An application may say what `kind` it is (`ios`, `web`, `api`, …); the kind
+  labels the product and decides nothing. Older collectors and workers refuse
+  a topology file that sets it; older viewers ignore it.
+- `topo templates products` writes a paused example of two iOS apps, a web
+  app and a blog on Cloudflare Workers and Pages, a server of their own,
+  Vercel and Supabase. The preview offers it a `certificate-expiring` scenario:
+  the first certificate whose checks declare `tls_min_days` is 9 days from
+  expiry.
+- The `mode` preference (`network` or `products`) saves which Overview opens.
+  Network, the default, is saved as no mode, so older binaries still read the
+  file.
+
 ### Changed
 
 - The TUI lays a service's evidence scope out as marks and rows: its card says

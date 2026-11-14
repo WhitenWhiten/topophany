@@ -192,9 +192,34 @@ Topophany 1.4.0 では、Cloudflare の公開ホスト名、オリジン、Tunne
 | `m` / `z` / `f` / `p` | マップを切り替える / ズームする / マップだけを表示する / 地図の表示を場所のカード、地名、点の順に切り替える |
 | `s` | サーバーカードの大きさを揃える。Services ではサービスごとのカードを表示 |
 | `b` | サービスとチェックをアプリケーション、環境、ホスト別に見る |
+| `P` | Overview をプロダクト表示に切り替える。もう一度押すと戻る |
 | `q` | 終了する |
 
 マウスでも操作できます。色は truecolor、256 色、`NO_COLOR` の各ターミナルに合わせて調整されます。すべてのタブとマップの見方、そして `topo status`、`topo show`、`topo history` でスクリプトやエージェントから同じ情報を読み取る方法は、[ユーザーガイド](docs/GUIDE.md) (英語) で説明しています。
+
+## プロダクトモード
+
+いくつかのアプリやサイトを運営する個人開発者や小さなチーム向けのモードです。たとえば Cloudflare Worker と Supabase で動く API、Cloudflare の後ろにある自前サーバーの API、Vercel の Web アプリ、ブログ。`P` を押すと Overview がボードに変わり、ユーザーが触れる部分ごとに 1 行ずつ、プロダクト別に並びます。各行には、その部分の状態と、それが載っている層 (エッジ、プラットフォーム、データベース。層ごとに自分のマーク) が表示され、主チェックの遅延の中央値、最近のサンプル、稼働率も並びます。問題のある部分の下には 1 行が加わり、何が失敗したか、いつからか、どこから見たかを示します。期限の近い証明書は最下部に並びます。
+
+```text
+   PRODUCT           LINE       RESTS ON                                      P50  RECENT                 UP
+ ▲ Habitly    ios  ▲ API        CF workers ● › Habitly DB ▲                 54 ms  ▆▇▅▅▅✖▆▃▃▇▅▄▇▇▃▅▅▄   98.8%
+                     └ WARN · some access checks pass; others fail, degrade or lack current evidence
+                   ● Site       CF pages ●                                  55 ms  ▅▅▇▆▇▅▅▄▄▆▅▄▇▅▅▆▅▆  98.68%
+ ○ Snapmeal   ios  ○ API        CF ● › Hetzner ○ › Snapmeal DB ○           142 ms  ✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖  98.12%
+                     └ ACCESS FAIL · for 7m · HTTP 521 from Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
+                   ● Site       CF pages ●                                  54 ms  ▄▆▇▆▆▇▄▄▃▅▅▄▆▄▅▅▅▆  98.91%
+ ▲ Driftwood  web  ▲ Driftwood  Vercel functions ● › Driftwood DB ○        135 ms  ▅▅▆▅▆▆▇▅▇▆▆▇▇▅▅▇▅▅  97.96%
+                     └ WARN · some access checks pass; others fail, degrade or lack current evidence
+ ○ Notebook   web  ○ Blog       CF ● › Hetzner ○                           142 ms  ▇▆▆✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖  98.44%
+                     └ ACCESS FAIL · for 14m · HTTP 521 from Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
+
+ CERTIFICATES  notebook.example 34 days · api.habitly.example 38 days · api.snapmeal.example 42 days +1
+```
+
+<sub>上図: `topo preview --config examples/products.json --mode products`。Cloudflare の後ろのサーバーが応答しなくなって 30 分後。</sub>
+
+`topo templates products` から始められます。スクリプトからは `topo show products` で読み取れ、[topophany-bar](https://github.com/WhitenWhiten/topophany-bar) でメニューバーに置くこともできます。プロダクトモードは新しい結論を出しません。ボードのマークはどれもネットワークビューと同じです。[プロダクトモードのガイド](docs/PRODUCTS.md) (英語)
 
 ## macOS のメニューバーで
 
@@ -214,6 +239,7 @@ Topophany 1.4.0 では、Cloudflare の公開ホスト名、オリジン、Tunne
 | | |
 |---|---|
 | [ユーザーガイド](docs/GUIDE.md) | TUI、編集、プレビューモード、表示の意味、プローブ、複数拠点での運用 |
+| [プロダクトモード](docs/PRODUCTS.md) | アプリやサイトを出す人のための Overview。プロダクトごとの各部分と、それぞれが載っているもの |
 | [設定と API のリファレンス](docs/REFERENCE.md) | すべてのエンティティ、プローブのパラメーター、API エンドポイント |
 | [運用](docs/OPERATIONS.md) · [メモリ](docs/MEMORY.md) | デュアルコレクター、ストレージ、復旧、リソースの上限、メモリ予算 |
 | [セキュリティモデル](docs/SECURITY.md) | 認証情報、通信、権限の境界 ([レビュー](docs/SECURITY-REVIEW-2026-10-14.md)) |

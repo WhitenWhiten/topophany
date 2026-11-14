@@ -30,6 +30,8 @@ Each tab has something to look at (the map, the evidence for the selection, a se
 - **stacked**: iPhone Duo open upright. The map above the hinge, the events and every control below it, the tabs along the foot. Part folded like a laptop, the raised half is the screen and the flat half the surface.
 - **regular**: a tablet. The terminal's own layouts, unchanged, with chrome for fingers: tabs three rows tall and a toolbar of the footer's actions, each naming its key for a keyboard.
 
+In [Products mode](PRODUCTS.md) the Overview's board takes the place of the map and of what needs attention. On a phone each line is a finger tall: its product and name, its state word where it asks for a look, then what it rests on with its p50 and share up, then what its lead check says or a rule. Where a layout sets the map beside the list, the selected line's evidence stands in the map's place. A tablet keeps the terminal's board, a row a line.
+
 ## By touch
 
 A target is three rows tall, 42 pt, wherever it can be, and the tests hold every control to it. A tap acts when the finger lifts, where it went down.

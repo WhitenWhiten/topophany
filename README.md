@@ -192,9 +192,34 @@ Nine tabs: **Overview**, **Topology** (with three maps: virtual geo, geo and net
 | `m` / `z` / `f` / `p` | cycle the maps / zoom / show the map alone / cycle the geo map's place cards, place names and points |
 | `s` | line the server cards up at one size; on Services, a card per service |
 | `b` | browse services and checks by application, environment or host |
+| `P` | turn the Overview to your products, and back |
 | `q` | quit |
 
 The mouse works too. Colors adapt to truecolor, 256-color and `NO_COLOR` terminals. The [user guide](docs/GUIDE.md) describes every tab and map, and how to read all of it from scripts and agents with `topo status`, `topo show` and `topo history`.
+
+## Products mode
+
+For an indie developer or a small team shipping a few apps and sites: an API on a Cloudflare Worker and Supabase, another behind Cloudflare on a server of your own, a web app on Vercel, a blog. Press `P` and the Overview becomes a board with one row for each part your users reach, grouped by product. Each row shows the part's state and what it rests on, from the edge to the platform to the database, each layer with its own mark. It also shows the lead check's median latency, recent samples and uptime. A part in trouble gains one row underneath that says what failed, since when and where it was seen from. The certificates closest to expiry are listed at the foot.
+
+```text
+   PRODUCT           LINE       RESTS ON                                      P50  RECENT                 UP
+ ▲ Habitly    ios  ▲ API        CF workers ● › Habitly DB ▲                 54 ms  ▆▇▅▅▅✖▆▃▃▇▅▄▇▇▃▅▅▄   98.8%
+                     └ WARN · some access checks pass; others fail, degrade or lack current evidence
+                   ● Site       CF pages ●                                  55 ms  ▅▅▇▆▇▅▅▄▄▆▅▄▇▅▅▆▅▆  98.68%
+ ○ Snapmeal   ios  ○ API        CF ● › Hetzner ○ › Snapmeal DB ○           142 ms  ✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖  98.12%
+                     └ ACCESS FAIL · for 7m · HTTP 521 from Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
+                   ● Site       CF pages ●                                  54 ms  ▄▆▇▆▆▇▄▄▃▅▅▄▆▄▅▅▅▆  98.91%
+ ▲ Driftwood  web  ▲ Driftwood  Vercel functions ● › Driftwood DB ○        135 ms  ▅▅▆▅▆▆▇▅▇▆▆▇▇▅▅▇▅▅  97.96%
+                     └ WARN · some access checks pass; others fail, degrade or lack current evidence
+ ○ Notebook   web  ○ Blog       CF ● › Hetzner ○                           142 ms  ▇▆▆✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖  98.44%
+                     └ ACCESS FAIL · for 14m · HTTP 521 from Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
+
+ CERTIFICATES  notebook.example 34 days · api.habitly.example 38 days · api.snapmeal.example 42 days +1
+```
+
+<sub>Above: `topo preview --config examples/products.json --mode products`, half an hour after the server behind Cloudflare stopped answering.</sub>
+
+Start with `topo templates products`. Read the board from scripts with `topo show products`, and keep it in the menu bar with [topophany-bar](https://github.com/WhitenWhiten/topophany-bar). Products mode reaches no new conclusions: every mark on the board is one the Network view already gives. [Products mode guide](docs/PRODUCTS.md)
 
 ## In the macOS menu bar
 
@@ -212,6 +237,7 @@ The [Chinese task guide](docs/GUIDE.zh.md) covers onboarding, diagnostics, chang
 | | |
 |---|---|
 | [User guide](docs/GUIDE.md) | The TUI, editing, preview mode, semantics, probes, multi-location deployment |
+| [Products mode](docs/PRODUCTS.md) | The Overview for people who ship apps and sites: each product, its parts and what each rests on |
 | [Configuration and API reference](docs/REFERENCE.md) | Every entity, probe parameter and API endpoint |
 | [Operations](docs/OPERATIONS.md) · [Memory](docs/MEMORY.md) | Dual collectors, storage, recovery, resource limits and memory budgets |
 | [Security model](docs/SECURITY.md) | Credentials, transport and capability boundaries ([review](docs/SECURITY-REVIEW-2026-10-14.md)) |

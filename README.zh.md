@@ -191,9 +191,34 @@ Topophany 1.4.0 可以把 Cloudflare 部署的公网域名、源站、Tunnel 连
 | `m` / `z` / `f` / `p` | 切换地图 / 缩放 / 只显示地图 / 地理地图在地点卡片、地名和圆点之间切换 |
 | `s` | 统一服务器卡片的尺寸；在 Services 上，为每个服务显示一张卡片 |
 | `b` | 按应用、环境或主机浏览服务和检查 |
+| `P` | 把概览切换到你的产品，再按一次切回 |
 | `q` | 退出 |
 
 也可以用鼠标操作。颜色会自动适配 truecolor、256 色和 `NO_COLOR` 终端。[用户指南](docs/GUIDE.md)（英文）介绍了每个标签页和每种地图，以及如何让脚本和 Agent 通过 `topo status`、`topo show` 和 `topo history` 读取同样的信息。
+
+## 产品模式
+
+适合手里有几个 App 和网站的独立开发者或小团队：一个 API 跑在 Cloudflare Worker 和 Supabase 上，另一个在 Cloudflare 后面、跑在自己的服务器上，再加上 Vercel 上的 Web 应用和一个博客。按 `P`，概览就变成一张看板：按产品分组，用户能访问到的每个部分各占一行。每行显示这个部分的状态，以及它所依赖的各层（从边缘到平台再到数据库，每层都有自己的标记），还有主检查的延迟中位数、最近的样本和可用率。出问题的部分下方会多出一行，说明哪里失败、从什么时候开始、从哪里观测到。最快到期的证书列在底部。
+
+```text
+   PRODUCT           LINE       RESTS ON                                      P50  RECENT                 UP
+ ▲ Habitly    ios  ▲ API        CF workers ● › Habitly DB ▲                 54 ms  ▆▇▅▅▅✖▆▃▃▇▅▄▇▇▃▅▅▄   98.8%
+                     └ WARN · some access checks pass; others fail, degrade or lack current evidence
+                   ● Site       CF pages ●                                  55 ms  ▅▅▇▆▇▅▅▄▄▆▅▄▇▅▅▆▅▆  98.68%
+ ○ Snapmeal   ios  ○ API        CF ● › Hetzner ○ › Snapmeal DB ○           142 ms  ✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖  98.12%
+                     └ ACCESS FAIL · for 7m · HTTP 521 from Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
+                   ● Site       CF pages ●                                  54 ms  ▄▆▇▆▆▇▄▄▃▅▅▄▆▄▅▅▅▆  98.91%
+ ▲ Driftwood  web  ▲ Driftwood  Vercel functions ● › Driftwood DB ○        135 ms  ▅▅▆▅▆▆▇▅▇▆▆▇▇▅▅▇▅▅  97.96%
+                     └ WARN · some access checks pass; others fail, degrade or lack current evidence
+ ○ Notebook   web  ○ Blog       CF ● › Hetzner ○                           142 ms  ▇▆▆✖✖✖✖✖✖✖✖✖✖✖✖✖✖✖  98.44%
+                     └ ACCESS FAIL · for 14m · HTTP 521 from Cloudflare LIS · seen from Lisbon · ⚑ 1 incident
+
+ CERTIFICATES  notebook.example 34 days · api.habitly.example 38 days · api.snapmeal.example 42 days +1
+```
+
+<sub>上图：`topo preview --config examples/products.json --mode products`，Cloudflare 后面的服务器停止响应半小时后。</sub>
+
+从 `topo templates products` 开始；脚本可以用 `topo show products` 读取这张看板，[topophany-bar](https://github.com/WhitenWhiten/topophany-bar) 可以把它放进菜单栏。产品模式不会得出任何新结论：看板上的每个标记都与网络视图一致。[产品模式指南](docs/PRODUCTS.md)（英文）
 
 ## 在 macOS 菜单栏里
 
@@ -211,6 +236,7 @@ Topophany 1.4.0 可以把 Cloudflare 部署的公网域名、源站、Tunnel 连
 | | |
 |---|---|
 | [用户指南](docs/GUIDE.md) | TUI、编辑、预览模式、状态语义、探针、多地部署 |
+| [产品模式](docs/PRODUCTS.md) | 给发布 App 和网站的人用的概览：每个产品、它的各个部分及其依赖（英文） |
 | [配置与 API 参考](docs/REFERENCE.md) | 每种实体、探针参数和 API 端点 |
 | [运维](docs/OPERATIONS.md) · [内存](docs/MEMORY.md) | 双采集器、存储、恢复、资源上限和内存预算 |
 | [安全模型](docs/SECURITY.md) | 凭据、传输和权限边界（[审查](docs/SECURITY-REVIEW-2026-10-14.md)） |

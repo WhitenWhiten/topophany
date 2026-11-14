@@ -23,8 +23,8 @@ Network setup prepares an installation bundle from a reviewed topology.
 `topo templates list` lists task descriptions, evidence boundaries and adapter
 compatibility notes bundled with this binary. `topo templates cloudflare --output
 cloudflare.json` writes a new topology; substitute `homelab`, `host-resources`,
-`beszel`, `komari`, `cf-server-monitor`, `mihomo`, `minimal`, `applications`
-or `address-registry` as needed. Every generated check is paused. Existing files
+`beszel`, `komari`, `cf-server-monitor`, `mihomo`, `minimal`, `applications`,
+`products` or `address-registry` as needed. Every generated check is paused. Existing files
 are refused. Review addresses, observer IDs, assertions and credential
 environment variables before enabling checks and running `topo validate`.
 The output identifies the relevant
@@ -221,6 +221,8 @@ The TUI is built to answer one question before anything is read: *is anything wr
 - **Services, Paths, Checks, Incidents, Observers** — aligned tables beside the evidence for the selected row. The state column stays empty for healthy rows, so problems are the only lit words, and a column in which every row says the same word (every check `fresh`, every item an `incident`) is left out, its room going to the names; it comes back as soon as a row differs. `Enter` expands the evidence behind a row. A check's evidence opens with its recent samples, read from the collector's history as the check is selected: a strip with one slot per sample, oldest at the left, colored by outcome (`●` ok, `▲` policy, `✖` fail, `○` error or unknown), and a grey `·` for each interval in which no sample was taken, so a silent worker shows as a gap rather than as health. Under it, a bar for what each passing sample took, then their median and 95th-percentile times and, where the probe timed them, the median DNS, connect, TLS and first-byte times. Where the collector keeps rollups, it adds the last day's first byte split by the edge's cache class (`first byte cached p50 40 ms · p95 90 ms · origin p50 600 ms · p95 700 ms · 24h`) and the share of answers by colo (`colos LAX 92% · HKG 8% · 24h`, at most four, with `other` not listed), each ending in its window, below the overall latency. The strip is read again when a newer sample arrives; a failed read keeps the samples already shown and says it was not refreshed. Below the check's state, **Availability** says how it fared over the last 24 hours, 7 days and 30 days, from the collector's long-term rollups: the share of the measured time it was up, over the share of the window that was measured, then how long it was down, degraded (a policy violated) or inconclusive (the monitor could not tell), such as `99.2% up over 96% measured · down 11m`. Each sample's outcome stands until the next sample or until it goes stale, so time without a current sample, as when a worker falls silent, is unmeasured rather than up; where the rollups begin inside a window, it says when they were first kept. The Checks tab shows the last day's share up as **UP 24H**, with how much of the day was measured when it was less than all of it (`98.9% · 3h`), and blank when nothing was measured.
 - **About** — a lit globe: a shaded ocean, dotted land and a graticule that curves with the surface, on which the places you declared are the only lights. The mouse wheel spins it, and it stays round on terminals whose character cells are not twice as tall as they are wide. Beside it are what the name means, the version, links to [topophany.com](https://topophany.com) and the source on GitHub, and, where there is room, the keys of the mode you are in.
 
+**Products mode.** Press `P` and the Overview turns from your network to what you ship: a board with a row for each part of each product a user reaches (the API behind an app, a website, a Worker), its state, what it rests on from the edge to the platform to its database, and its lead check's median latency, recent samples and share up; a part in trouble opens a row under it that says what failed, since when and from where, and the certificates soonest to expire stand at its foot. The status card and the selected line's evidence stand beside it; every other tab is as it was, and `P` turns the Overview back. A product is an application you declare, so the board needs `applications`; [Products mode](PRODUCTS.md) describes it and how to set it up.
+
 The **Incidents** tab lists the incidents open, then what the collector's ledger remembers: incidents recovering, whose failed checks pass again short of their recovery threshold (these still need attention), and those closed in the last day, each occurrence on its own row with an ID that counts it, such as `3f2a9c1b04de/home/path/direct#2`, and how it ended: recovered, unconfirmed (its evidence lapsed or no longer confirms the failure, so recovery is not established), paused, or changed (what its checks measure changed). An incident's evidence says when the collector opened it, how often it was seen before and, once closed, how long it lasted. It then lists the failed checks, and the other observers' response evidence and the engine's hypothesis, marked as not a finding, only when there is something to say: a section with nothing under it is not printed. An incident made of policy samples has no failed request to contrast with another observer's, so its section is headed *Policy (not an outage)* instead, and shows each sample's own detail and what it was held to: `request succeeded but the edge answered from a colo outside the declared list (answered from LAX; declared SJC, SEA)` for a colo that is not declared (`pop_mismatch`, `colo_mismatch`), and `(WARP off; declared on)` or `(Gateway on; declared off)` after the sample's sentence for `warp_mismatch` and `gateway_mismatch`. For any other policy, `exit_mismatch` included, the sample's sentence is shown alone, and a value the sample did not keep, such as a colo withheld from a secret request, is left out while the declaration is still said. A collector can also post incidents opening and closing, and observers falling silent, to webhooks such as ntfy, Slack or Discord; see [alerts](REFERENCE.md#alerts).
 
 Tabs count what in them needs a look: servers, services and paths that are down, degraded or on a failing path, failing checks, open and recovering incidents, and observers that are not reporting or that report measuring an outdated topology (after a collector reload, until their worker reloads too). The count is red when anything is down and amber otherwise; when the tabs are short of room, the tab's number takes the color instead. A cached view counts nothing, because it knows nothing current.
@@ -271,6 +273,7 @@ Press `f` and the map has the screen to itself: the list and the evidence step a
 | `p` | on the geo map, cycle Cards → Locations → Points: full site cards, compact city names (coordinates when unnamed), then markers alone; Locations and Points use dashed arcs |
 | `s` | on Servers, line the cards up at one size, each saying the same things; `s` brings the wall back. On Services, a card for each service in place of the table; `s` brings the table back |
 | `f` | show the map alone, on the Overview or Topology (from another tab, the Topology's); `f` or `Esc` brings the panels back |
+| `P` | turn the Overview to your products (Products mode), and back to the network |
 | `r` | refresh now |
 | `D` | debug overlay: frame time, bytes written, map geometry |
 | `q` | quit |
@@ -347,6 +350,7 @@ topo show TAB                        # A tab as a table: overview, topology, ser
 topo show TAB ID                     # The evidence behind one entry, as the TUI's evidence panel has it; a server adds its card, a check its recent samples
 topo show topology node:home         # IDs are unique within a kind; KIND:ID picks one where a tab mixes kinds
 topo show map                        # The map's nodes and edges, with what each may claim (up, carried, affected, ...); a reported colo is a colo node, drawn hollow on the maps, with colo hops
+topo show products                   # Products mode's board: each product's lines, what each rests on, its lead check, what needs a look, the certificates
 topo history CHECK --limit 50        # A check's raw samples under its current contract, newest first (1..500)
 topo history CHECK --step 1h --span 7d   # How a check fared hour by hour from its rollups (steps 5m, 1h, 1d)
 ```
@@ -539,6 +543,11 @@ Declare optional `applications` in the topology and assign each service an
               "application": "shop", "environment": "production"}]
 ```
 
+An application may also say what `kind` of thing it is, such as `ios`,
+`android`, `web`, `api`, `desktop`, `extension` or `bot`. The kind is free-form,
+decides nothing, and labels the product in [Products mode](PRODUCTS.md), which
+reads each application as a product.
+
 See [`examples/applications.json`](../examples/applications.json) for a complete
 validated topology. Run `topo preview --config examples/applications.json` to try
 it with synthetic evidence, or `topo edit --config examples/applications.json`
@@ -587,13 +596,14 @@ history. Reload the collector topology after edits to publish the new grouping.
 
 ## Display and startup preferences
 
-The built-in startup defaults are Overview, expanded groups, non-uniform Servers
-cards, the Services table rather than its cards, maps with surrounding panels,
-automatic map mode and no provider logos. Startup display
+The built-in startup defaults are the network Overview, expanded groups,
+non-uniform Servers cards, the Services table rather than its cards, maps with
+surrounding panels, automatic map mode and no provider logos. Startup display
 preferences are local to the user and separate from topology and credentials.
 
 ```sh
 # Temporary overrides; never writes the saved defaults.
+topo --mode products
 topo --page servers --uniform-cards
 topo --page services --groups-collapsed
 topo --page services --service-cards
@@ -609,8 +619,10 @@ topo preferences reset
 topo --uniform-cards=false --service-cards=false --groups-collapsed=false --full-map=false
 ```
 
-`--page` accepts overview, topology, servers, services, paths, checks, incidents,
-observers or about. `--map-mode` accepts auto, virtual, geo or network. Full-map
+`--mode` accepts network or products: what the Overview shows, your network or
+[your products](PRODUCTS.md); `P` switches it for the session. `--page` accepts
+overview, topology, servers, services, paths, checks, incidents, observers or
+about. `--map-mode` accepts auto, virtual, geo or network. Full-map
 mode affects Overview and Topology; it does not override the selected startup
 page, and remains available when navigating from Servers to Topology.
 `--nerd-font-icons` draws providers' logos (see [Edges and
@@ -646,7 +658,7 @@ values, and Enter to select an action; mouse clicks work too.
 - **Restore defaults** resets only the form. Apply or save to confirm,
   or Esc to discard it.
 
-Only these six presentation preferences are saved. Search text, observer,
+Only these presentation preferences are saved. Search text, observer,
 service/application scope, selection, and individual group folds are not saved.
 Routine page switches and display shortcuts never rewrite startup defaults.
 
