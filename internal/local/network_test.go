@@ -27,7 +27,8 @@ func networkCheck(adapter, address string) Check {
 func TestNetworkCheckAddressesAndBounds(t *testing.T) {
 	for _, c := range []Check{
 		networkCheck("http", "https://example.com"),
-		networkCheck("http", "http://192.0.2.10:8080/health?probe=1"),
+		networkCheck("http", "http://192.0.2.10:8080/health"),
+		networkCheck("http", "https://example.com/health?probe=1"),
 		networkCheck("tcp", "example.com:22"),
 		networkCheck("tcp", "[2001:db8::1]:443"),
 		networkCheck("tls", "example.com:443"),
@@ -45,6 +46,8 @@ func TestNetworkCheckAddressesAndBounds(t *testing.T) {
 		networkCheck("http", "https://"),
 		networkCheck("http", "https://example.com/ a"),
 		networkCheck("http", "https://${site}/"),
+		// A query may carry a secret, which the probe sends only over TLS.
+		networkCheck("http", "http://192.0.2.10:8080/health?probe=1"),
 		networkCheck("http", ""),
 		networkCheck("tcp", "example.com"),
 		networkCheck("tcp", "example.com:0"),

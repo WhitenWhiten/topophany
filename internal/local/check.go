@@ -163,6 +163,11 @@ func (c Check) Validate() error {
 		if c.MaxDurationMS < 0 || c.MaxDurationMS > 300000 {
 			return fail("invalid_request")
 		}
+		// Whatever is saved must run: the probe's own rules for its target
+		// have the last word, so one check can never stop the others' session.
+		if !c.runnable() {
+			return fail("invalid_target")
+		}
 	}
 	if c.Interval < 5 || c.Interval > 3600 || c.Timeout < 1 || c.Timeout > 30 || c.Timeout >= c.Interval || c.Stale < 2*c.Interval || c.Stale > 86400 {
 		return fail("invalid_request")
@@ -176,6 +181,18 @@ func (c Check) Validate() error {
 		return fail("invalid_request")
 	}
 	return nil
+}
+
+// runnable says whether the topology a session would build for this check
+// alone passes the configuration's own validation.
+func (c Check) runnable() bool {
+	if c.Interval < 1 || c.Timeout < 1 {
+		// Reported as invalid_request by the bounds that follow.
+		return true
+	}
+	cfg := model.Config{Schema: model.ConfigSchema, Project: Project, Observers: []model.Observer{observer()}, Checks: []model.Check{c.model(false)}}
+	config.Defaults(&cfg)
+	return config.Validate(cfg) == nil
 }
 
 // verifiesCertificate says whether the check completes a verified TLS
@@ -337,11 +354,16 @@ func (c Check) model(token bool) model.Check {
 	return x
 }
 
+// observer is the one vantage point every local check is read from.
+func observer() model.Observer {
+	return model.Observer{ID: Observer, Name: ObserverName, Context: "this machine's own checks", StaleSeconds: 90}
+}
+
 // Config is the topology a local session runs: one observer, this machine,
 // and one check per saved check. withToken says which engine checks send a
 // stored secret; a network check never sends one.
 func Config(checks []Check, withToken func(id string) bool) (model.Config, error) {
-	c := model.Config{Schema: model.ConfigSchema, Project: Project, Observers: []model.Observer{{ID: Observer, Name: ObserverName, Context: "this machine's own checks", StaleSeconds: 90}}}
+	c := model.Config{Schema: model.ConfigSchema, Project: Project, Observers: []model.Observer{observer()}}
 	if len(checks) > MaxChecks {
 		return c, fail("check_limit")
 	}

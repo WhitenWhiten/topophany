@@ -842,7 +842,8 @@ A network check is:
 ```
 
 - `http` takes `url`: an `http` or `https` URL with a host, at most 2048
-  bytes, without userinfo or fragment; a path and query are kept. It sends one
+  bytes, without userinfo or fragment; a path is kept, and a query over
+  `https` (a query may carry a secret, which is never sent in the clear). It sends one
   `GET` with no credential and follows no redirect. With `expected_status`
   0 or omitted, it passes when the site answers with a page or with where the
   page is: 200..206, 301, 302, 303, 304, 307 or 308. Any other status fails as
