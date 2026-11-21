@@ -138,7 +138,7 @@ func (s *Store) load() (Profile, error) {
 	seen := map[string]bool{}
 	for _, entry := range p.Checks {
 		valid := entry.Check.Validate() == nil && !seen[entry.Check.ID]
-		valid = valid && (entry.AuthMode == "token" && config.ID(entry.Credential) || entry.AuthMode == "none" && entry.Credential == "")
+		valid = valid && (entry.AuthMode == "token" && config.ID(entry.Credential) && entry.Check.Engine() || entry.AuthMode == "none" && entry.Credential == "")
 		if !valid {
 			return Profile{Schema: 1, Checks: []Entry{}}, fail("storage_error")
 		}
@@ -299,6 +299,9 @@ func (s *Store) Save(ctx context.Context, base string, c Check, auth Auth) (Prof
 		old = p.Checks[index]
 	}
 	next := Entry{Check: c.Normalized(), AuthMode: auth.Mode}
+	if !c.Engine() && auth.Mode != "none" {
+		return p, fail("invalid_request")
+	}
 	switch auth.Mode {
 	case "saved":
 		if index < 0 || old.Check.URL != next.Check.URL {

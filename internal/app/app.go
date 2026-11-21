@@ -59,7 +59,7 @@ Read what the TUI shows
   topo --source direct --profile ID  external resource TUI without a collector
   topo sources list --json           list direct profiles (independent of client profiles)
   topo sources inspect|save|remove --json-stdin  bounded direct configuration API
-  topo local list --json             list this machine's own loopback engine checks
+  topo local list --json             list this machine's own checks: a proxy engine, websites, ports, hosts
   topo local inspect|save|remove --json-stdin  bounded local check configuration API
   topo --token-stdin                read a temporary bearer token from stdin
   topo --credential-file FILE       read a temporary token from a private file

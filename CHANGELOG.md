@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Local network checks: `topo local` saves a website (`http`), a port (`tcp`),
+  a certificate (`tls`) or a host (`icmp`) to watch from this machine, with
+  no collector, worker, topology or secret, beside the `mihomo` engine check.
+  `tls_min_days` warns before a certificate expires and `max_duration_ms` of
+  a slow answer. `topo local inspect` runs one once and reports its outcome,
+  HTTP status and certificate days. Up to sixteen local checks are saved,
+  where four were.
+  [Local checks](docs/REFERENCE.md#local-checks-this-machine)
+- The `local` stream source offers `summary.verdict` and `attention.list`, so
+  a menu bar or widget shows `topo`'s own conclusion over this machine's
+  checks, with incidents, and needs no collector for it. Capabilities list
+  the local adapters in `local.adapters`.
+- ICMP checks need no privileges on macOS: where a raw socket is refused, the
+  probe uses the unprivileged ICMP socket `ping` uses. The echo, the reply
+  and what a pass proves are unchanged. Other platforms still need a raw
+  socket.
+
 ## [1.7.0] - 2026-11-14
 
 This release adds Products mode, an Overview for people who ship a few apps and

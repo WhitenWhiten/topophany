@@ -75,6 +75,29 @@ local stream is open. A reported mode, TUN state or selection is the engine's
 own account, not proof of where application traffic went. See
 [Local checks](REFERENCE.md#local-checks-this-machine) for every field and code.
 
+## Watch a website, a port or a host from this machine
+
+With no collector, worker or topology, save a local network check. `topo`
+asks from this machine while a local stream is open, as the menu bar app's
+**This Mac** source does:
+
+```sh
+echo '{"schema":1,"request_id":"r1","check":{"id":"","name":"Blog","adapter":"http","url":"https://example.com/","interval_seconds":60,"tls_min_days":14}}' \
+  | topo local inspect --json-stdin
+echo '{"schema":1,"request_id":"r2","base_revision":"","check":{"id":"","name":"Blog","adapter":"http","url":"https://example.com/","interval_seconds":60,"tls_min_days":14}}' \
+  | topo local save --json-stdin
+```
+
+Inspect runs the check once and prints what it found: the outcome, the HTTP
+status and the certificate's days left. `adapter` is `http` (a URL), `tcp` or
+`tls` (a `host:port`) or `icmp` (an IPv4 address; on macOS it needs no
+privileges). `tls_min_days` warns before a certificate expires and
+`max_duration_ms` of a slow answer. A check is degraded on its first failed
+read and down on the second; the `local` stream carries `topo`'s verdict and
+attention list for them. They say how the target looks from this machine, not
+from anywhere else: for more vantage points, run workers and a collector.
+See [Local checks](REFERENCE.md#local-checks-this-machine).
+
 ## Monitor a website
 
 Prepare a real HTTP check from this machine without writing a topology by hand:

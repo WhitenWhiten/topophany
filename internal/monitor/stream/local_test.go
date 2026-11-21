@@ -331,3 +331,71 @@ writing:
 		t.Fatalf("updated stream result: %+v, %v", input.Snapshot.Checks, err)
 	}
 }
+
+// This machine's network checks get topo's own verdict and attention list,
+// as a collector's checks do: a client needs no judgment of its own.
+func TestLocalStreamJudgesNetworkChecksItself(t *testing.T) {
+	var status atomic.Int32
+	status.Store(200)
+	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(int(status.Load())) }))
+	defer site.Close()
+	root := filepath.Join(t.TempDir(), "local")
+	store, err := local.NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check := local.Check{ID: "lc-site", Name: "Site", Adapter: "http", URL: site.URL, Interval: 5, Timeout: 2, Stale: 15}
+	p, err := store.Save(context.Background(), "", check, local.Auth{Mode: "none"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	history, limit := true, 5
+	template := monitor.Template{Schema: 1, Title: "This machine", Rows: []monitor.Row{
+		{ID: "status", Metric: "summary.verdict", Visual: "status"},
+		{ID: "attention", Metric: "attention.list", Visual: "list", Limit: &limit},
+		{ID: "local-1", Metric: "check.card", Select: monitor.Selector{Check: check.ID}, Visual: "card", History: &history},
+	}}
+	template.Bar.Row = "status"
+	if err := template.Validate("local"); err != nil {
+		t.Fatal(err)
+	}
+	// What needs a topology beyond the checks stays a collector's.
+	for _, metric := range []string{"observers.verdicts", "applications.list", "servers.list", "services.list", "products.list"} {
+		other := monitor.Template{Schema: 1, Title: "T", Rows: []monitor.Row{{ID: "row", Metric: metric, Visual: "list"}}}
+		if other.Validate("local") == nil {
+			t.Error(metric, "accepted for local")
+		}
+	}
+	request := Request{Schema: 1, RequestID: "local-1", Source: "local", ProfileRevision: p.Revision, Interval: "1s", Template: template}
+	decoded, e := Decode(line(request))
+	if e != nil {
+		t.Fatal(e)
+	}
+	m := NewLocalManager(root, time.Now)
+	defer m.Close()
+	src, e := m.Open(context.Background(), decoded)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer src.Close()
+	c := monitor.Config{Schema: 1, Name: "stream", Revision: "r", Source: "local", Project: "local", Interval: "1s", Template: template}
+	read := func() (map[string]any, map[string]any, map[string]any) {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		in, err := src.Fetch(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		frame := monitor.Build(c, in, time.Now())
+		return rowValue(t, frame.Rows[0]), rowValue(t, frame.Rows[1]), rowValue(t, frame.Rows[2])
+	}
+	verdict, attention, card := read()
+	counts, _ := verdict["counts"].(map[string]any)
+	if verdict["state"] != "clear" || counts["up"] != float64(1) || verdict["configured"] != float64(1) || attention["total"] != float64(0) || card["kind"] != "http" || card["health"] != "up" {
+		t.Fatal(verdict, attention, card)
+	}
+	if facts := card["diagnostic"].(map[string]any)["facts"].(map[string]any); facts["http_status"] != "200" {
+		t.Fatal(facts)
+	}
+}

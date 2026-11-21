@@ -1,7 +1,8 @@
-// Package local owns this machine's own runtime checks: a private store of at
-// most four loopback engine reads, and the session a local stream runs them
-// in. It reads only loopback addresses, never changes an engine, and nothing
-// it reads leaves the machine.
+// Package local owns this machine's own checks: a private store of at most
+// sixteen, and the session a local stream runs them in. An engine check reads
+// a proxy engine's controller on a loopback address and never changes it; a
+// network check asks a website, a port, a certificate or a host the user
+// named, from this machine. Nothing either reads is sent anywhere else.
 package local
 
 import (
@@ -10,8 +11,10 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/netip"
 	"net/url"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -22,14 +25,14 @@ import (
 )
 
 const (
-	MaxChecks    = 4
+	MaxChecks    = 16
 	MaxInput     = 256 << 10
 	MaxOutput    = 1 << 20
 	MaxGroups    = 64
 	Project      = "local"
 	Observer     = "local"
 	ObserverName = "This machine"
-	// A local engine that does not answer is degraded on the first failed
+	// A local check that does not answer is degraded on the first failed
 	// read and down on the second in a row; one good read recovers it.
 	FailureThreshold  = 2
 	RecoveryThreshold = 1
@@ -52,6 +55,7 @@ func fail(code string) *Error {
 var messages = map[string]string{
 	"invalid_request":            "Invalid local check request.",
 	"not_local_address":          "The engine address must be an http(s) loopback address (127.0.0.0/8, ::1 or localhost) without credentials, path, query or fragment.",
+	"invalid_target":             "The address is not one this kind of check reads: an http(s) URL without credentials or fragment, a host:port, or an IPv4 address.",
 	"saved_auth_mismatch":        "No saved secret exists for this check at this address.",
 	"connection_failed":          "The engine could not be reached.",
 	"authentication_failed":      "The engine did not accept this secret.",
@@ -60,7 +64,7 @@ var messages = map[string]string{
 	"unsupported_response_shape": "The engine's response is not supported by this adapter.",
 	"response_too_large":         "The engine's response exceeds the adapter's bounds.",
 	"profile_conflict":           "Local checks have changed. List them before retrying.",
-	"check_limit":                "At most four local checks can be saved.",
+	"check_limit":                "At most sixteen local checks can be saved.",
 	"not_found":                  "Local check not found.",
 	"storage_error":              "Local check storage is unavailable.",
 	"credential_storage_error":   "Private secret storage is unavailable.",
@@ -76,20 +80,44 @@ func AsError(err error) *Error {
 	return fail("storage_error")
 }
 
-// Check is one local engine read. Omitted durations default to a 30-second
+// Adapters are the kinds of local check, in the order a client offers them:
+// a proxy engine's controller, then the network checks.
+var Adapters = []string{"mihomo", "http", "tcp", "tls", "icmp"}
+
+// answered is what an http check accepts when no status is expected: the
+// site answered, with a page or with where the page is. The probe follows no
+// redirect, so one is the answer itself.
+var answered = []int{200, 201, 202, 203, 204, 205, 206, 301, 302, 303, 304, 307, 308}
+
+// Check is one local check. Omitted durations default to a 30-second
 // interval, a 5-second timeout and three intervals of staleness.
+//
+// A mihomo check reads URL, a loopback controller, and may declare
+// RootProxy, ExpectedMode and ExpectedTUN. An http check requests URL and
+// may declare ExpectedStatus; tcp and tls dial Target, a host:port; icmp
+// echoes Target, an IPv4 address. TLSMinDays warns of a certificate's expiry
+// on an https or tls check, and MaxDurationMS of a slow answer on any
+// network check.
 type Check struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Adapter      string `json:"adapter"`
-	URL          string `json:"url"`
-	Interval     int    `json:"interval_seconds"`
-	Timeout      int    `json:"timeout_seconds"`
-	Stale        int    `json:"stale_seconds"`
-	RootProxy    string `json:"root_proxy"`
-	ExpectedMode string `json:"expected_mode"`
-	ExpectedTUN  *bool  `json:"expected_tun"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Adapter        string `json:"adapter"`
+	URL            string `json:"url"`
+	Target         string `json:"target,omitempty"`
+	Interval       int    `json:"interval_seconds"`
+	Timeout        int    `json:"timeout_seconds"`
+	Stale          int    `json:"stale_seconds"`
+	RootProxy      string `json:"root_proxy"`
+	ExpectedMode   string `json:"expected_mode"`
+	ExpectedTUN    *bool  `json:"expected_tun"`
+	ExpectedStatus int    `json:"expected_status,omitempty"`
+	TLSMinDays     int    `json:"tls_min_days,omitempty"`
+	MaxDurationMS  int    `json:"max_duration_ms,omitempty"`
 }
+
+// Engine says whether the check reads a proxy engine's controller, which
+// may take a secret, rather than the network.
+func (c Check) Engine() bool { return c.Adapter == "mihomo" }
 
 func (c *Check) UnmarshalJSON(b []byte) error {
 	type plain Check
@@ -105,13 +133,36 @@ func (c *Check) UnmarshalJSON(b []byte) error {
 }
 
 // Validate requires the fields' documented bounds. The address is checked
-// first-class: anything but a loopback controller is not_local_address.
+// first-class: an engine anywhere but a loopback controller is
+// not_local_address, and a network check's unusable address invalid_target.
+// A field that belongs to another kind of check is refused, never ignored.
 func (c Check) Validate() error {
-	if !config.ID(c.ID) || len(c.ID) > 64 || strings.TrimSpace(c.Name) == "" || len(c.Name) > 128 || secure.Text(c.Name) != c.Name || c.Adapter != "mihomo" {
+	if !config.ID(c.ID) || len(c.ID) > 64 || strings.TrimSpace(c.Name) == "" || len(c.Name) > 128 || secure.Text(c.Name) != c.Name || !slices.Contains(Adapters, c.Adapter) {
 		return fail("invalid_request")
 	}
-	if _, err := NormalizeURL(c.URL); err != nil {
-		return err
+	if c.Engine() {
+		if _, err := NormalizeURL(c.URL); err != nil {
+			return err
+		}
+		if c.Target != "" || c.ExpectedStatus != 0 || c.TLSMinDays != 0 || c.MaxDurationMS != 0 {
+			return fail("invalid_request")
+		}
+	} else {
+		if _, err := c.address(); err != nil {
+			return err
+		}
+		if c.RootProxy != "" || c.ExpectedMode != "" || c.ExpectedTUN != nil {
+			return fail("invalid_request")
+		}
+		if c.Adapter != "http" && c.ExpectedStatus != 0 || c.ExpectedStatus != 0 && (c.ExpectedStatus < 100 || c.ExpectedStatus > 599) {
+			return fail("invalid_request")
+		}
+		if c.TLSMinDays < 0 || c.TLSMinDays > 3650 || c.TLSMinDays > 0 && !c.verifiesCertificate() {
+			return fail("invalid_request")
+		}
+		if c.MaxDurationMS < 0 || c.MaxDurationMS > 300000 {
+			return fail("invalid_request")
+		}
 	}
 	if c.Interval < 5 || c.Interval > 3600 || c.Timeout < 1 || c.Timeout > 30 || c.Timeout >= c.Interval || c.Stale < 2*c.Interval || c.Stale > 86400 {
 		return fail("invalid_request")
@@ -127,10 +178,64 @@ func (c Check) Validate() error {
 	return nil
 }
 
+// verifiesCertificate says whether the check completes a verified TLS
+// handshake, so that it has a certificate whose expiry it can warn of.
+func (c Check) verifiesCertificate() bool {
+	return c.Adapter == "tls" || c.Adapter == "http" && strings.HasPrefix(strings.ToLower(c.URL), "https://")
+}
+
+// address is a network check's address in canonical form: an http(s) URL
+// with a host and no userinfo or fragment, a host:port, or an IPv4 literal.
+// The other address field must be empty.
+func (c Check) address() (string, error) {
+	bad := fail("invalid_target")
+	raw, other := c.Target, c.URL
+	if c.Adapter == "http" {
+		raw, other = c.URL, c.Target
+	}
+	// "${" would name a topology address, which a local check has none of.
+	if other != "" || raw == "" || len(raw) > 2048 || secure.Text(raw) != raw || strings.ContainsAny(raw, " \t") || strings.Contains(raw, "${") {
+		return "", bad
+	}
+	switch c.Adapter {
+	case "http":
+		u, err := url.Parse(raw)
+		if err != nil || u.Opaque != "" || u.User != nil || u.Fragment != "" || u.RawFragment != "" || u.Hostname() == "" {
+			return "", bad
+		}
+		scheme := strings.ToLower(u.Scheme)
+		if scheme != "http" && scheme != "https" {
+			return "", bad
+		}
+		u.Scheme, u.Host = scheme, strings.ToLower(u.Host)
+		return u.String(), nil
+	case "tcp", "tls":
+		if config.HostPort(raw) != nil {
+			return "", bad
+		}
+		return strings.ToLower(raw), nil
+	case "icmp":
+		ip, err := netip.ParseAddr(raw)
+		if err != nil || !ip.Is4() {
+			return "", bad
+		}
+		return ip.String(), nil
+	}
+	return "", bad
+}
+
 // Normalized returns the check with its address in canonical form.
 func (c Check) Normalized() Check {
-	if u, err := NormalizeURL(c.URL); err == nil {
-		c.URL = u
+	if c.Engine() {
+		if u, err := NormalizeURL(c.URL); err == nil {
+			c.URL = u
+		}
+	} else if a, err := c.address(); err == nil {
+		if c.Adapter == "http" {
+			c.URL = a
+		} else {
+			c.Target = a
+		}
 	}
 	if c.ExpectedTUN != nil {
 		tun := *c.ExpectedTUN
@@ -207,6 +312,17 @@ func (c Check) target() (string, string) {
 func tokenEnv(id string) string { return "TOPO_LOCAL_TOKEN_" + id }
 
 func (c Check) model(token bool) model.Check {
+	if !c.Engine() {
+		address, _ := c.address()
+		x := model.Check{ID: c.ID, Name: c.Name, Kind: c.Adapter, Observer: Observer, Target: address, IntervalSeconds: c.Interval, TimeoutSeconds: c.Timeout, StaleSeconds: c.Stale, FailureThreshold: FailureThreshold, RecoveryThreshold: RecoveryThreshold, TLSMinDays: c.TLSMinDays, MaxDurationMS: c.MaxDurationMS}
+		if c.Adapter == "http" {
+			x.HTTP.Status = slices.Clone(answered)
+			if c.ExpectedStatus != 0 {
+				x.HTTP.Status = []int{c.ExpectedStatus}
+			}
+		}
+		return x
+	}
 	target, serverName := c.target()
 	x := model.Check{ID: c.ID, Name: c.Name, Kind: "mihomo", Observer: Observer, Target: target, ServerName: serverName, IntervalSeconds: c.Interval, TimeoutSeconds: c.Timeout, StaleSeconds: c.Stale, FailureThreshold: FailureThreshold, RecoveryThreshold: RecoveryThreshold}
 	x.Adapter.RootProxy = c.RootProxy
@@ -222,10 +338,10 @@ func (c Check) model(token bool) model.Check {
 }
 
 // Config is the topology a local session runs: one observer, this machine,
-// and one Mihomo check per saved check. withToken says which checks send a
-// stored secret.
+// and one check per saved check. withToken says which engine checks send a
+// stored secret; a network check never sends one.
 func Config(checks []Check, withToken func(id string) bool) (model.Config, error) {
-	c := model.Config{Schema: model.ConfigSchema, Project: Project, Observers: []model.Observer{{ID: Observer, Name: ObserverName, Context: "this machine's own runtime checks, read over loopback", StaleSeconds: 90}}}
+	c := model.Config{Schema: model.ConfigSchema, Project: Project, Observers: []model.Observer{{ID: Observer, Name: ObserverName, Context: "this machine's own checks", StaleSeconds: 90}}}
 	if len(checks) > MaxChecks {
 		return c, fail("check_limit")
 	}
@@ -235,7 +351,7 @@ func Config(checks []Check, withToken func(id string) bool) (model.Config, error
 			return c, fail("invalid_request")
 		}
 		seen[x.ID] = true
-		c.Checks = append(c.Checks, x.model(withToken != nil && withToken(x.ID)))
+		c.Checks = append(c.Checks, x.model(x.Engine() && withToken != nil && withToken(x.ID)))
 	}
 	config.Defaults(&c)
 	if config.Validate(c) != nil {

@@ -60,7 +60,7 @@ Older collectors/viewers reject the new `policy_threshold` field. Upgrade collec
 | `ssh-banner` | `host:port` | Received a valid `SSH-2.0` protocol banner; does not prove host key authentication |
 | `dns` | Resolver `host:port` for `dns.transport` empty, `udp`, `tcp` or `dot`, or an `https` URL for `doh`; `dns.name`, `type=A/AAAA`, `expected_ips`; `server_name`, `ca_file` for DoT/DoH | Resolver returned matching resource records over the declared transport within constraints; DoT and DoH change the transport, not the answer; no DNSSEC validation guarantee |
 | `udp-echo` | `host:port` | Target reflected the randomly generated per-probe nonce; requires an active UDP echo service |
-| `icmp` | IPv4 literal | Matching ICMP echo reply received with expected identifier and sequence; requires raw socket privileges |
+| `icmp` | IPv4 literal | Matching ICMP echo reply received with expected identifier and sequence; requires raw socket privileges, except on macOS, where the probe falls back to the unprivileged ICMP socket `ping` uses |
 | `mihomo` | Controller API base URL; `adapter` object | Successfully queried runtime metadata; indicates reported state rather than end-to-end traffic success |
 | `tailscale` | `adapter.peer` matching peer DNS, IP, or ID | Local Tailscale client reported peer status; idle or relay indicators do not directly prove application service status |
 | `wireguard` | `adapter.interface`, `adapter.peer` (public key) | Local WireGuard status queried; older handshakes do not imply broken connectivity; private keys and PSKs are stripped |
@@ -780,18 +780,26 @@ topo worker --config topology.json --credentials worker-credentials.json --obser
 
 ### Local checks (this machine)
 
-`topo local` configures this machine's own runtime checks, and the `local`
-stream source runs them. It is not a direct profile: direct mode replaces the
-collector, whereas a `local` stream runs as a second `topo monitor stream`
-process beside a `client` or `direct` stream. Its first adapter is `mihomo`
-(the engine of Clash Meta-based proxy apps), read through the engine's
-external controller.
+`topo local` configures this machine's own checks, and the `local` stream
+source runs them. It is not a direct profile: direct mode replaces the
+collector, whereas a `local` stream runs with no collector at all, on its own
+or as a second `topo monitor stream` process beside a `client` or `direct`
+stream. There are two kinds of local check:
+
+- an **engine** check, adapter `mihomo` (the engine of Clash Meta-based proxy
+  apps), read through the engine's external controller on a loopback address;
+- a **network** check, adapter `http`, `tcp`, `tls` or `icmp`: a website, a
+  port, a certificate or a host the user named, asked from this machine with
+  the same probes a worker runs. It takes no secret and sends none.
+
+`topo monitor stream --capabilities` lists the adapters this binary reads in
+`local.adapters` and the limit in `local.limits.checks`.
 
 The commands use the `topo sources` envelope, bounds and exit codes:
 `{"schema":1,"request_id":"...","ok":true,"data":{...}}` or `ok:false` with
 `error: {code, retryable, message}`; exit 0 on success, 1 on an error, 2 on a
 usage error or a request that is not accepted as given (`invalid_request`,
-`not_local_address`). `topo local list --json` reads no stdin; `inspect`,
+`not_local_address`, `invalid_target`). `topo local list --json` reads no stdin; `inspect`,
 `save` and `remove` take `--json-stdin`, one JSON object through EOF of at
 most 256 KiB. Output is one line of at most 1 MiB. `--local-root ABS_DIR`
 selects the private configuration root; the default is `topophany/local` in
@@ -808,8 +816,9 @@ A check is:
 - `id`: a topology ID (letters, digits, `_`, `.`, `-`), at most 64 bytes. A
   save with an empty `id` assigns `lc-` and 16 hex digits; inspect accepts an
   empty `id` and echoes it.
-- `name`: 1..128 bytes without control or bidi characters. `adapter`: `mihomo`.
-- `url`: `http` or `https` on a loopback literal (127.0.0.0/8, `::1`) or
+- `name`: 1..128 bytes without control or bidi characters. `adapter`: `mihomo`,
+  `http`, `tcp`, `tls` or `icmp`.
+- `url`, for `mihomo`: `http` or `https` on a loopback literal (127.0.0.0/8, `::1`) or
   `localhost`, with an optional port and no userinfo, path (other than `/`),
   query or fragment; anything else is `not_local_address`. It is stored in a
   canonical form (lowercase scheme and host, canonical IP, no trailing slash).
@@ -821,13 +830,47 @@ A check is:
   most 86400 (default three intervals).
 - `root_proxy`: empty (report mode and TUN only) or the 1..128-byte name of
   the group whose selection is resolved. `expected_mode`: empty, `rule`,
-  `global` or `direct`. `expected_tun`: `null`, `true` or `false`.
+  `global` or `direct`. `expected_tun`: `null`, `true` or `false`. These three
+  belong to `mihomo` alone.
 
-At most four checks are saved. The `auth` union is `{"mode":"token","token":"..."}`
+A network check is:
+
+```json
+{"id":"lc-8c1d2e4b5a693f9a","name":"Blog","adapter":"http","url":"https://example.com/",
+ "interval_seconds":60,"timeout_seconds":5,"stale_seconds":180,
+ "expected_status":0,"tls_min_days":14,"max_duration_ms":0}
+```
+
+- `http` takes `url`: an `http` or `https` URL with a host, at most 2048
+  bytes, without userinfo or fragment; a path and query are kept. It sends one
+  `GET` with no credential and follows no redirect. With `expected_status`
+  0 or omitted, it passes when the site answers with a page or with where the
+  page is: 200..206, 301, 302, 303, 304, 307 or 308. Any other status fails as
+  `unexpected_status`, and the card names it. A nonzero `expected_status`
+  (100..599) accepts that status alone.
+- `tcp` and `tls` take `target`, a `host:port`; `tls` completes a verified
+  handshake for that host. `icmp` takes `target`, an IPv4 literal, and needs
+  no privileges on macOS.
+- `tls_min_days` (0..3650, 0 for none) warns while the verified certificate
+  of an `https` URL or a `tls` target expires within that many days:
+  `certificate_expiring`, a policy outcome, never a failed request.
+  `max_duration_ms` (0..300000, 0 for none) warns of an answer slower than
+  that: `latency_exceeded`.
+- The address of the other kind, an engine's three fields on a network check,
+  a network check's on an engine, and `${...}` are refused, not ignored. An
+  address a check cannot read is `invalid_target`.
+
+Each means what the same probe means for a worker, from this machine alone:
+it says nothing of how the target looks from anywhere else. A check is
+degraded on its first failed read and down on the second in a row; one good
+read recovers it.
+
+At most sixteen checks are saved. The `auth` union is `{"mode":"token","token":"..."}`
 (1..1024 bytes, no control characters or surrounding spaces),
 `{"mode":"none"}`, or `{"mode":"saved"}`, which reuses the stored secret of the
 saved check with the same `id` and the same `url`; otherwise it is
-`saved_auth_mismatch`.
+`saved_auth_mismatch`. A network check takes `{"mode":"none"}` or no union at
+all; any other mode is `invalid_request`.
 
 - `list` → `data: {"profile_revision":"...","checks":[{"check":{...},"auth_mode":"token"|"none"}]}`.
   An empty store has revision `""` and `checks: []`.
@@ -844,13 +887,21 @@ saved check with the same `id` and the same `url`; otherwise it is
   `root_proxy` is not among the engine's groups. No member proxy, server or
   current selection is returned. A LoadBalance root stays
   `runtime_chain_unresolved`, as for a worker.
+  For a network check it runs the probe once and adds
+  `probe: {"outcome":"ok","duration_ms":212,"http_status":200,"tls_days_remaining":57}`,
+  with `engine` empty and `groups: []`. `outcome` is the probe's closed word
+  (`ok`, `fail`, `policy`, `error`, `unknown`), with its `stage` and `code`
+  when it is not `ok`; `http_status` is the status that answered, expected or
+  not, and `tls_days_remaining` the verified certificate's whole days left.
+  A target that does not answer is a reading with exit 0, not an error.
 - `save`, the inspect request plus `base_revision` (from `list`; `""` for an
   empty store) → `data: {"profile_revision":"...","check_id":"..."}`. It first
   reads the engine with that secret and refuses with the inspect error codes,
   so a stored secret is known good, then checks `base_revision`
   (`profile_conflict`) and the limit (`check_limit`) under a lock, and writes
   atomically. `token` stores a new secret, `saved` keeps it, `none` deletes it.
-  Every write changes the opaque revision.
+  Every write changes the opaque revision. A network check is saved without
+  being read first: one that is down now is still one to watch.
 - `remove`, `{"schema":1,"request_id","base_revision","check_id"}` →
   `data: {"profile_revision","check_id"}`; it deletes the stored secret too.
   An unknown ID is `not_found`.
@@ -874,6 +925,14 @@ over a direct loopback connection without proxies, compression, keep-alive or
 redirects. Topophany never changes the engine's configuration, never switches a
 group and never triggers a delay test. Nothing a local check reads leaves the
 machine: there is no collector, history file or metrics journal.
+
+The `local` stream offers `summary.verdict`, `attention.list`, `check.card`
+and `checks.list`. The verdict and the attention list are judged over this
+machine's checks exactly as a collector's are over its own, so a client reads
+`topo`'s conclusion rather than drawing one: an incident opens when a check
+is confirmed down, and closes when it recovers. Metrics that need a topology
+beyond the checks (observers, applications, servers, services, products)
+remain a collector's.
 
 A worker's secret-bearing Mihomo read names only `DIRECT`, `REJECT` and the
 declared groups (other names read `undeclared`) because its observations reach

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -248,7 +249,7 @@ func TestStoreKeepsSecretsPrivateAndVersionsEveryWrite(t *testing.T) {
 	rev := cleared.Revision
 	for i := 2; i <= MaxChecks; i++ {
 		c := check
-		c.ID = "lc-" + string(rune('0'+i))
+		c.ID = "lc-" + strconv.Itoa(i)
 		p, err := s.Save(ctx, rev, c, Auth{Mode: "token", Token: syntheticSecret})
 		if err != nil {
 			t.Fatal(err)

@@ -3,6 +3,7 @@ package local
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/WhitenWhiten/topophany/internal/adapters"
@@ -16,14 +17,32 @@ type Engine struct {
 	TUN     *bool  `json:"tun"`
 }
 
-// Inspection is one read of an engine for configuring a check of it. Groups
-// are those usable as root_proxy, never their members or selections.
+// Inspection is one read for configuring a check. For an engine, Groups are
+// those usable as root_proxy, never their members or selections. For a
+// network check, Probe is what one run of it found, and the engine fields
+// are empty.
 type Inspection struct {
 	Check     Check          `json:"check"`
 	Engine    Engine         `json:"engine"`
 	Groups    []mihomo.Group `json:"groups"`
 	Truncated bool           `json:"truncated"`
 	Warnings  []string       `json:"warnings"`
+	Probe     *Probe         `json:"probe,omitempty"`
+}
+
+// Probe is one run of a network check, in the probe's closed words. A
+// target that does not answer is a reading, not an error of the command.
+type Probe struct {
+	// ok, fail, policy (it answered, against a declared expectation), error
+	// (this machine could not ask) or unknown.
+	Outcome    string `json:"outcome"`
+	Stage      string `json:"stage,omitempty"`
+	Code       string `json:"code,omitempty"`
+	DurationMS int64  `json:"duration_ms"`
+	// The status an http check got, whether or not it was the one expected.
+	HTTPStatus int `json:"http_status,omitempty"`
+	// Whole days until the verified certificate expires, for https and tls.
+	TLSDaysRemaining *int `json:"tls_days_remaining,omitempty"`
 }
 
 // draftID stands in for a check ID not chosen yet; a save assigns one.
@@ -37,8 +56,9 @@ func (c Check) ValidateDraft() error {
 	return c.Validate()
 }
 
-// Inspect reads the engine c names once with token ("" for none), through
-// the transport its local check uses. It writes nothing.
+// Inspect reads what c names once, through the transport its local check
+// uses: an engine with token ("" for none), a network check with none. It
+// writes nothing.
 func Inspect(ctx context.Context, c Check, token string) (Inspection, error) {
 	if err := c.ValidateDraft(); err != nil {
 		return Inspection{}, err
@@ -46,6 +66,9 @@ func Inspect(ctx context.Context, c Check, token string) (Inspection, error) {
 	probeCheck := c
 	if probeCheck.ID == "" {
 		probeCheck.ID = draftID
+	}
+	if !c.Engine() {
+		return inspectNetwork(ctx, c, probeCheck)
 	}
 	cfg, err := Config([]Check{probeCheck}, func(string) bool { return token != "" })
 	if err != nil {
@@ -73,6 +96,35 @@ func Inspect(ctx context.Context, c Check, token string) (Inspection, error) {
 		out.Warnings = append(out.Warnings, "root_proxy_not_found")
 	}
 	return out, nil
+}
+
+// inspectNetwork runs a network check once. A check that warns of no expiry
+// still learns its certificate's days, so the client can show them.
+func inspectNetwork(ctx context.Context, c, probeCheck Check) (Inspection, error) {
+	learnExpiry := probeCheck.TLSMinDays == 0 && probeCheck.verifiesCertificate()
+	if learnExpiry {
+		probeCheck.TLSMinDays = 1
+	}
+	cfg, err := Config([]Check{probeCheck}, nil)
+	if err != nil {
+		return Inspection{}, err
+	}
+	o := localRunner(cfg, nil).Run(ctx, cfg, cfg.Checks[0])
+	if learnExpiry && o.Outcome == "policy" && o.Code == "certificate_expiring" {
+		// Not this check's policy: it was asked only to read the date.
+		o.Outcome, o.Stage, o.Code = "ok", "", ""
+	}
+	p := &Probe{Outcome: o.Outcome, DurationMS: o.DurationMS}
+	if o.Outcome != "ok" {
+		p.Stage, p.Code = o.Stage, o.Code
+	}
+	if n, e := strconv.Atoi(o.Facts["http_status"]); e == nil && n >= 100 && n <= 599 {
+		p.HTTPStatus = n
+	}
+	if n, e := strconv.Atoi(o.Facts["tls_days_remaining"]); e == nil {
+		p.TLSDaysRemaining = &n
+	}
+	return Inspection{Check: c.Normalized(), Groups: []mihomo.Group{}, Warnings: []string{}, Probe: p}, nil
 }
 
 // EngineFailure maps the adapter's closed diagnostic codes to the local

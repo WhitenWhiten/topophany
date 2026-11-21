@@ -104,8 +104,9 @@ func Catalog() []Metric {
 		if catalog[i].Name == "server.card" || catalog[i].Name == "servers.list" || strings.HasPrefix(catalog[i].Name, "resource.") {
 			catalog[i].Sources = append(catalog[i].Sources, "direct")
 		}
-		// This machine's own checks have no topology beyond the checks.
-		if catalog[i].Name == "check.card" || catalog[i].Name == "checks.list" {
+		// This machine's own checks have no topology beyond the checks: a
+		// verdict over them, what needs attention among them, and each one.
+		if catalog[i].Name == "check.card" || catalog[i].Name == "checks.list" || catalog[i].Name == "summary.verdict" || catalog[i].Name == "attention.list" {
 			catalog[i].Sources = append(catalog[i].Sources, "local")
 		}
 		if catalog[i].Visual == "" {

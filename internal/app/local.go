@@ -116,7 +116,9 @@ func (a *App) local(ctx context.Context, args []string) error {
 		out.Data = map[string]any{"profile_revision": p.Revision, "check_id": r.CheckID}
 		return finish(nil)
 	}
-	if r.Auth.Mode == "" {
+	// Only an engine takes a secret: a network check sends none, and may
+	// leave the union out.
+	if r.Check.Engine() && r.Auth.Mode == "" || !r.Check.Engine() && r.Auth.Mode != "" && r.Auth.Mode != "none" {
 		return usage("Invalid local check or authentication union.")
 	}
 	if e = r.Check.ValidateDraft(); e != nil {
@@ -126,6 +128,24 @@ func (a *App) local(ctx context.Context, args []string) error {
 	check := r.Check.Normalized()
 	if cmd == "save" && check.ID == "" {
 		check.ID = local.NewCheckID()
+	}
+	if !check.Engine() {
+		// A site that is down now is still one to watch: saving reads
+		// nothing, and inspecting reports what one run found.
+		if cmd == "inspect" {
+			inspection, e := local.Inspect(commandCtx, check, "")
+			if e != nil {
+				return finish(e)
+			}
+			out.Data = inspection
+			return finish(nil)
+		}
+		p, e := s.Save(commandCtx, r.BaseRevision, check, local.Auth{Mode: "none"})
+		if e != nil {
+			return finish(e)
+		}
+		out.Data = map[string]any{"profile_revision": p.Revision, "check_id": check.ID}
+		return finish(nil)
 	}
 	token := r.Auth.Token
 	if r.Auth.Mode == "saved" {

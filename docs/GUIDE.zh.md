@@ -176,6 +176,17 @@ topo recovery --data BACKUP_DATA --config topology.json --auth auth.json
 说法，不能证明应用流量的实际路径。字段和错误码见
 [配置参考](REFERENCE.md#local-checks-this-machine)。
 
+## 从本机监控网站、端口和主机
+
+没有采集器、worker 和拓扑文件，也可以把网站、端口、证书或主机保存为本地网络检查：
+`adapter` 为 `http`（URL）、`tcp` 或 `tls`（`host:port`）、`icmp`（IPv4 地址，macOS 上
+无需特权）。`topo local inspect --json-stdin` 执行一次检查并给出结果、HTTP 状态码和
+证书剩余天数；`topo local save --json-stdin` 保存它，不需要密钥。`tls_min_days` 在证书
+到期前告警，`max_duration_ms` 在响应过慢时告警。第一次失败记为降级，连续两次记为
+故障；`local` 流同时给出 `topo` 自己对这些检查的总体结论和待处理列表。结果只说明从
+本机看到的情况；需要更多观测点时，请部署 worker 和采集器。字段见
+[配置参考](REFERENCE.md#local-checks-this-machine)。
+
 ## 导入已有清单，再审阅启用
 
 `topo import --format ssh --input ~/.ssh/config --output candidate.json` 生成

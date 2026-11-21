@@ -131,7 +131,7 @@ func writeCapabilities(w io.Writer) error {
 		Direct        any              `json:"direct"`
 		Local         any              `json:"local"`
 	}{true, 1, model.Version, []string{"client", "preview", "direct", "local"}, []string{"text", "bar", "status", "list", "card"}, monitor.Catalog(), true, true, true, true, map[string]any{"schema": 1, "config_api": 1, "adapters": direct.AdapterNames(), "allow_insecure": true, "retry": true, "limits": map[string]int{"sources_per_profile": 64, "objects_per_source": 20, "objects_per_profile": 256, "template_rows": 128}},
-		map[string]any{"schema": 1, "config_api": 1, "adapters": []string{"mihomo"}, "limits": map[string]int{"checks": local.MaxChecks}}})
+		map[string]any{"schema": 1, "config_api": 1, "adapters": local.Adapters, "limits": map[string]int{"checks": local.MaxChecks}}})
 }
 
 func (a *App) writeProfiles(path string) error {
