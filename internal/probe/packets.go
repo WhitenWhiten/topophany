@@ -567,15 +567,33 @@ func checksum(b []byte) uint16 {
 	}
 	return ^uint16(sum)
 }
-func icmp(ctx context.Context, x model.Check, target string, o *model.Observation, listen func(string, string) (net.PacketConn, error)) error {
-	if listen == nil {
-		listen = net.ListenPacket
+
+// listenICMP opens the raw socket an echo needs. Where it is refused and the
+// OS offers an unprivileged ICMP socket, as macOS does, that one is used: it
+// carries the same echo and reply, so the probe proves the same thing.
+func listenICMP(bind string) (net.PacketConn, error) {
+	c, e := net.ListenPacket("ip4:icmp", bind)
+	if e == nil {
+		return c, nil
 	}
+	if d, de := datagramICMP(bind); de == nil {
+		return d, nil
+	}
+	return nil, e
+}
+
+func icmp(ctx context.Context, x model.Check, target string, o *model.Observation, listen func(string, string) (net.PacketConn, error)) error {
 	bind := x.BindIP
 	if bind == "" {
 		bind = "0.0.0.0"
 	}
-	c, e := listen("ip4:icmp", bind)
+	var c net.PacketConn
+	var e error
+	if listen == nil {
+		c, e = listenICMP(bind)
+	} else {
+		c, e = listen("ip4:icmp", bind)
+	}
 	if e != nil {
 		if errors.Is(e, os.ErrPermission) {
 			return local("icmp", "raw_socket_permission_required")
